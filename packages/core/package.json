@@ -21,12 +21,14 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@gigaichronicle/schema": "workspace:^"
+    "@gigaichronicle/schema": "workspace:^",
+    "better-sqlite3": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "fast-check": "catalog:"
+    "fast-check": "catalog:",
+    "@types/better-sqlite3": "catalog:"
   }
 }

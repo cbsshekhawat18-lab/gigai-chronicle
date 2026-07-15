@@ -25,5 +25,20 @@ export {
 export { SPILL_THRESHOLD_BYTES, readBlob, blobFileName } from "./store/blobs.js";
 export { GENERATED_MARKER, withGeneratedMarker, isGeneratedContent } from "./store/generated.js";
 
+// Chronicle Store layer 2 — the index (M4)
+export {
+  ChronicleIndex,
+  type TimelineQuery,
+  type SessionSummary,
+  type SearchHit,
+  type CorrelatedLink,
+  type IndexFreshness,
+} from "./index-db/chronicle-index.js";
+export { INDEX_SCHEMA_VERSION } from "./index-db/ddl.js";
+
+// Doctor — the trust anchor (M4)
+export { runDoctor, type DoctorReport, type DoctorOptions, type SecretFinding } from "./doctor.js";
+export { SECRET_PATTERNS, detectSecretKinds, type SecretPattern } from "./redaction/patterns.js";
+
 /** Canonical package name; kept in sync with package.json by test. */
 export const PACKAGE_NAME = "@gigaichronicle/core";
