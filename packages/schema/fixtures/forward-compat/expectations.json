@@ -1,0 +1,19 @@
+{
+  "unknown-fields.json": {
+    "ok": true
+  },
+  "newer-envelope.json": {
+    "ok": false,
+    "code": "SCHEMA_AHEAD"
+  },
+  "newer-payload-version.json": {
+    "ok": true
+  },
+  "unknown-type.json": {
+    "ok": false,
+    "code": "UNKNOWN_TYPE"
+  },
+  "ext-event.json": {
+    "ok": true
+  }
+}

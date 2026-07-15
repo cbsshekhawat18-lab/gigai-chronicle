@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/config.json",
+  "title": "config",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^prj_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": {}
+    },
+    "capture": {
+      "type": "object",
+      "properties": {
+        "providers": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ]
+          }
+        },
+        "redaction": {
+          "type": "object",
+          "properties": {
+            "secrets": {
+              "type": "boolean"
+            },
+            "customPatterns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "secrets",
+            "customPatterns"
+          ],
+          "additionalProperties": {}
+        },
+        "visibility": {
+          "type": "string",
+          "enum": [
+            "shared",
+            "private"
+          ]
+        },
+        "gitTrailer": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "providers",
+        "redaction",
+        "visibility",
+        "gitTrailer"
+      ],
+      "additionalProperties": {}
+    },
+    "storage": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "object",
+          "properties": {
+            "session": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "session"
+          ],
+          "additionalProperties": {}
+        },
+        "retention": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "const": "keep-all"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "digest",
+        "retention"
+      ],
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "version",
+    "project",
+    "capture",
+    "storage"
+  ],
+  "additionalProperties": {}
+}

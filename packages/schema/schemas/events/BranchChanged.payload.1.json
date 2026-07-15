@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/BranchChanged/1.json",
+  "title": "BranchChanged/1",
+  "type": "object",
+  "properties": {
+    "from": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "to": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "from",
+    "to"
+  ],
+  "additionalProperties": {}
+}

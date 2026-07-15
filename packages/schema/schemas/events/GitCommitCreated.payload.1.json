@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/GitCommitCreated/1.json",
+  "title": "GitCommitCreated/1",
+  "type": "object",
+  "properties": {
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "subject": {
+      "type": "string"
+    },
+    "branch": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "sha",
+    "subject",
+    "branch"
+  ],
+  "additionalProperties": {}
+}

@@ -1,0 +1,29 @@
+{
+  "v": 1,
+  "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5F3W",
+  "ts": "2026-07-14T10:32:11.412Z",
+  "type": "Ext.example-tool.CustomMoment",
+  "session": "ses_01ARZ3NDEKTSV4RRFFQ69G5F34",
+  "actor": {
+    "kind": "human"
+  },
+  "git": {
+    "head": "9fc1b2a",
+    "branch": "feat/auth",
+    "dirty": [
+      "src/auth.ts"
+    ]
+  },
+  "payload": {
+    "anything": [
+      "goes",
+      42
+    ]
+  },
+  "meta": {
+    "provider": "example-tool@1.0.0",
+    "workspace": "wks_01ARZ3NDEKTSV4RRFFQ69G5F35",
+    "schema": "Ext.example-tool.CustomMoment/1",
+    "visibility": "shared"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/WorkspaceMoved/1.json",
+  "title": "WorkspaceMoved/1",
+  "type": "object",
+  "properties": {
+    "fromPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "toPath": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "fromPath",
+    "toPath"
+  ],
+  "additionalProperties": {}
+}

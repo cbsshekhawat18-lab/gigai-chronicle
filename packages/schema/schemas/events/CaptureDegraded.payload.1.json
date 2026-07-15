@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/CaptureDegraded/1.json",
+  "title": "CaptureDegraded/1",
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fromTier": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+    },
+    "toTier": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "provider",
+    "fromTier",
+    "toTier",
+    "reason"
+  ],
+  "additionalProperties": {}
+}

@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5F02",
+  "ts": "2026-07-14T10:32:11.412Z",
+  "type": "SessionStarted",
+  "session": "ses_01ARZ3NDEKTSV4RRFFQ69G5F34",
+  "actor": {
+    "kind": "human"
+  },
+  "git": {
+    "head": "9fc1b2a",
+    "branch": "feat/auth",
+    "dirty": [
+      "src/auth.ts"
+    ]
+  },
+  "payload": {
+    "title": "Add refresh-token rotation",
+    "resumedFrom": null
+  },
+  "meta": {
+    "provider": "example-tool@1.0.0",
+    "workspace": "wks_01ARZ3NDEKTSV4RRFFQ69G5F35",
+    "schema": "SessionStarted/1",
+    "visibility": "shared"
+  }
+}

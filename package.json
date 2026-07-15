@@ -12,7 +12,7 @@
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
-    "test:scripts": "node --test scripts/",
+    "test:scripts": "node --test scripts/check-boundaries.test.mjs",
     "typecheck": "turbo run typecheck",
     "lint": "node scripts/check-boundaries.mjs",
     "changeset": "changeset"
