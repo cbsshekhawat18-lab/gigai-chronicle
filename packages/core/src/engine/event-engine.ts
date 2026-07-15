@@ -74,13 +74,16 @@ export class EventEngine {
   readonly #git: GitReader;
   readonly #workspaceId: WorkspaceId;
   readonly #providerRef: string;
+  readonly #chronicleDir: string;
 
   private constructor(
+    chronicleDir: string,
     log: EventLog,
     redactor: Redactor,
     git: GitReader,
     options: EventEngineOptions,
   ) {
+    this.#chronicleDir = chronicleDir;
     this.#log = log;
     this.#redactor = redactor;
     this.#git = git;
@@ -99,7 +102,7 @@ export class EventEngine {
     const envValues = [...(await harvestEnvValues(workspaceRoot)), ...(options.extraEnvValues ?? [])];
     const redactor = createRedactor(envValues);
     const git = options.gitReader ?? createGitReader(workspaceRoot);
-    return new EventEngine(log, redactor, git, options);
+    return new EventEngine(chronicleDir, log, redactor, git, options);
   }
 
   /** The pipeline. Never throws on candidate data. */
@@ -128,10 +131,35 @@ export class EventEngine {
 
     try {
       await this.#log.append([normalized]);
+      await this.#trackActiveSession(normalized);
       return { accepted: true, eventId: normalized.id as EventId };
     } catch (error) {
       // Store-level rejection (should be unreachable: normalize validated).
       return this.#gap(candidate, `store rejected event: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * The active-session marker (`.local/active-session`) lets the pure-shell
+   * prepare-commit-msg hook stamp trailers in ~1ms without spawning Node
+   * (§11 signal 1; the hook must be <10ms fail-open). Best-effort: marker
+   * failures never affect capture.
+   */
+  async #trackActiveSession(event: ChronicleEvent): Promise<void> {
+    if (event.session === undefined) return;
+    const marker = path.join(this.#chronicleDir, ".local", "active-session");
+    try {
+      if (event.type === "SessionStarted") {
+        const { writeFile, mkdir } = await import("node:fs/promises");
+        await mkdir(path.dirname(marker), { recursive: true });
+        await writeFile(marker, `${event.session}\n`, "utf8");
+      } else if (event.type === "SessionEnded") {
+        const { unlink, readFile } = await import("node:fs/promises");
+        const current = await readFile(marker, "utf8").catch(() => "");
+        if (current.trim() === event.session) await unlink(marker).catch(() => undefined);
+      }
+    } catch {
+      // best-effort by design
     }
   }
 

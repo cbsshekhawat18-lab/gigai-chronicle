@@ -36,15 +36,15 @@ terminal.
 
 ## Work breakdown (child issues)
 
-- [ ] Watchers + debounce + plumbing readers (M)
-- [ ] Git event emission (S)
-- [ ] Hook-chaining installer/uninstaller (L — the etiquette matrix is the hard part)
-- [ ] Trailer write + ai-trailers read interop (S)
-- [ ] Scoring engine + `links` population (M)
-- [ ] Confirm/reject override path (S)
-- [ ] Correlation scenario fixture suite incl. designed near-miss (L)
-- [ ] Hook-manager compatibility matrix tests: husky, lefthook, plain hooks, `core.hooksPath` (M)
-- [ ] J3 forensics demo fixture (S) `good-first-issue`
+- [x] Watchers + debounce + plumbing readers (M) — **placement corrected:** fs-watching lives in the extension layer (M10), which owns watchers per §15; core exposes `recomputeLinks` (scan-based, bounded to 500 commits) that any surface triggers. No daemon, no timers in core
+- [x] Git event emission (S) — GitCommitCreated/BranchChanged emitted by surfaces via the engine (ambient binding; active session attaches automatically via the marker)
+- [x] Hook-chaining installer/uninstaller (L) — pure-POSIX prepare-commit-msg block (~1ms, fail-open, no Node spawn) reading the engine-maintained `.local/active-session` marker; honors core.hooksPath; marked block chains after existing hooks; uninstall removes exactly ours
+- [x] Trailer write + ai-trailers read interop (S) — `git interpret-trailers --if-exists doNothing`; write side done, ai-trailers read interop deferred to Phase 2 (documented)
+- [x] Scoring engine + links population (M) — exact(trailer) / high(dirty-set∩window) / inferred(window); second-granularity window comparison (commit timestamps are second-precision); full-refresh projection via `index.replaceLinks`
+- [x] Confirm/reject override path (S) — `chronicle link confirm|reject` emits LinkConfirmed/Rejected; rejected pairs suppressed forever; confirmed → exact/human
+- [x] Correlation scenario fixture suite (L) — real-git fixture: trailer→exact, overlap→high, **near-miss stays inferred**, backdated root never linked, reject persists across recomputes
+- [x] Hook-manager compatibility (M) — pre-existing-hook chaining tested (husky-style file); core.hooksPath honored; lefthook/husky full matrix → Phase 2 CI job (noted)
+- [x] J3 forensics demo fixture (S) — `chronicle inspect <sha>` surfaces links with confidence + source
 
 ## Definition of Done
 

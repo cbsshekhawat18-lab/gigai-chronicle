@@ -214,14 +214,46 @@ export class ChronicleIndex {
   commitLinks(sha: string): CorrelatedLink[] {
     return (
       this.#db
-        .prepare("SELECT commit_sha, session, confidence, source FROM links WHERE commit_sha = ?")
-        .all(sha) as Array<{ commit_sha: string; session: string; confidence: string; source: string }>
+        .prepare(
+          "SELECT commit_sha, session, confidence, source FROM links WHERE commit_sha = ? AND confidence != 'rejected'",
+        )
+        .all(sha.slice(0, 7)) as Array<{ commit_sha: string; session: string; confidence: string; source: string }>
     ).map((row) => ({
       commit: row.commit_sha,
       session: row.session,
       confidence: row.confidence as CorrelatedLink["confidence"],
       source: row.source,
     }));
+  }
+
+  /** Links for one session (the reverse lookup surfaces use). */
+  sessionLinks(session: string): CorrelatedLink[] {
+    return (
+      this.#db
+        .prepare(
+          "SELECT commit_sha, session, confidence, source FROM links WHERE session = ? AND confidence != 'rejected'",
+        )
+        .all(session) as Array<{ commit_sha: string; session: string; confidence: string; source: string }>
+    ).map((row) => ({
+      commit: row.commit_sha,
+      session: row.session,
+      confidence: row.confidence as CorrelatedLink["confidence"],
+      source: row.source,
+    }));
+  }
+
+  /** Full refresh of the derived links projection (§11 — links never live in the log). */
+  replaceLinks(
+    links: ReadonlyArray<{ commit: string; session: string; confidence: string; source: string }>,
+  ): void {
+    const refresh = this.#db.transaction(() => {
+      this.#db.prepare("DELETE FROM links").run();
+      const insert = this.#db.prepare(
+        "INSERT INTO links (commit_sha, session, confidence, source) VALUES (?, ?, ?, ?)",
+      );
+      for (const link of links) insert.run(link.commit, link.session, link.confidence, link.source);
+    });
+    refresh();
   }
 
   /** Full ordered dump of derived rows — the rebuild≡incremental test surface. */
