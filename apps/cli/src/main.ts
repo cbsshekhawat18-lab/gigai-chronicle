@@ -75,6 +75,39 @@ program
   });
 
 program
+  .command("replay <session>")
+  .description("step through a session — conversation, tools, files, commits interleaved")
+  .option("--at <eventId>", "stop at (or return the frame of) this event")
+  .action(async (target: string, options: { at?: string }) => {
+    const { runReplayCommand } = await import("./commands/replay.js");
+    process.exitCode = await runReplayCommand(target, options, program.opts<{ json?: boolean }>());
+  });
+
+program
+  .command("inspect <target>")
+  .description("deep-dive one session, event, or commit — the `git show` of chronicle")
+  .action(async (target: string) => {
+    const { runInspectCommand } = await import("./commands/inspect.js");
+    process.exitCode = await runInspectCommand(target, program.opts<{ json?: boolean }>());
+  });
+
+program
+  .command("log <message>")
+  .description("tier-4 manual capture — the universal floor (one manual session per day)")
+  .action(async (message: string) => {
+    const { runLogCommand } = await import("./commands/log.js");
+    process.exitCode = await runLogCommand(message, program.opts<{ json?: boolean }>());
+  });
+
+program
+  .command("session <action> <id>")
+  .description("promote|privatize a session (social-privacy model: .local/private/)")
+  .action(async (action: string, id: string) => {
+    const { runSessionCommand } = await import("./commands/session.js");
+    process.exitCode = await runSessionCommand(action, id, program.opts<{ json?: boolean }>());
+  });
+
+program
   .command("capture <provider>")
   .description("hook ingestion path (installed hooks call this; exit 0 always)")
   .requiredOption("--event <name>", "hook event name")

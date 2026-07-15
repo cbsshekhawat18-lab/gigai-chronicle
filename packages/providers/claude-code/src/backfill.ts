@@ -8,7 +8,7 @@ import path from "node:path";
 import { openProviderEngine } from "@gigaichronicle/core/emit";
 import { PROVIDER } from "./identity.js";
 import { SessionMap } from "./session-map.js";
-import { parseTranscript } from "./transcript.js";
+import { parseTranscript, TRANSCRIPT_PARSER_VERSION } from "./transcript.js";
 import { transcriptDirsFor } from "./transcripts-location.js";
 
 export interface BackfillOptions {
@@ -27,6 +27,7 @@ export interface BackfillReport {
 }
 
 interface BackfillState {
+  parserVersion?: number;
   files: Record<string, { importedLines: number; driftedAtLines?: number }>;
 }
 
@@ -36,13 +37,25 @@ function stateFile(chronicleDir: string): string {
 
 function loadState(chronicleDir: string): BackfillState {
   try {
-    return JSON.parse(readFileSync(stateFile(chronicleDir), "utf8")) as BackfillState;
+    const state = JSON.parse(readFileSync(stateFile(chronicleDir), "utf8")) as BackfillState;
+    if (state.parserVersion !== TRANSCRIPT_PARSER_VERSION) {
+      // A newer parser makes drift watermarks stale: drop them so drifted
+      // files are retried. Import cursors are KEPT — already-imported lines
+      // stay imported (idempotency).
+      const files: BackfillState["files"] = {};
+      for (const [file, entry] of Object.entries(state.files)) {
+        files[file] = { importedLines: entry.importedLines };
+      }
+      return { parserVersion: TRANSCRIPT_PARSER_VERSION, files };
+    }
+    return state;
   } catch {
-    return { files: {} };
+    return { parserVersion: TRANSCRIPT_PARSER_VERSION, files: {} };
   }
 }
 
 function saveState(chronicleDir: string, state: BackfillState): void {
+  state.parserVersion = TRANSCRIPT_PARSER_VERSION;
   const file = stateFile(chronicleDir);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, JSON.stringify(state, null, 2) + "\n", "utf8");
