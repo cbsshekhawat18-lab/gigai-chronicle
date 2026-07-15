@@ -39,15 +39,25 @@ month of transcripts in seconds.
 
 ## Work breakdown (child issues)
 
-- [ ] Hook event mapping + `Ext.*` registrations (M)
-- [ ] `chronicle capture` stdin ingestion path, <5 ms budget (M)
-- [ ] Settings-merge install/uninstall UX (M)
-- [ ] Transcript parser + fingerprinting (L)
-- [ ] `import` command: discovery, idempotency, moved-path handling (M)
-- [ ] Sanitized fixture set + sanitization policy doc (M)
-- [ ] Capability declaration + conformance check vs PROVIDERS.md row (S)
-- [ ] "Writing a provider" guide draft (M)
-- [ ] Extra fixture scenarios (long sessions, resume, subagents) (S) `good-first-issue`
+- [x] Hook event mapping + `Ext.*` registrations (M) — five hooks (SessionStart/End, UserPromptSubmit, Stop + transcript-tail enrichment, PostToolUse w/ failure detection); pure + unit-tested
+- [x] `chronicle capture` stdin ingestion path (M) — exit 0 ALWAYS (garbage stdin, unknown events, missing store all degrade silently or in-store)
+- [x] Settings-merge install/uninstall UX (M) — `chronicle hooks install|uninstall claude-code [--user]`: plan shown, merge-never-clobber, idempotent, uninstall removes exactly ours (tested against pre-existing hooks)
+- [x] Transcript parser + fingerprinting (L) — drift threshold + watermark (no degradation spam on rerun); zero-unknown-lines CI canary
+- [x] `import` command (M) — idempotent per-file cursors; discovers transcripts under MOVED workspace paths via WorkspaceMoved history
+- [x] Sanitized fixture set + policy (M) — synthetic by construction (fixtures/)
+- [x] Capability declaration + conformance check (S) — test-pinned to the PROVIDERS.md row
+- [x] "Writing a provider" guide draft (M) — docs/providers/writing-a-provider.md
+- [x] Extra fixture scenarios (S) — drift fixture; more scenarios accrete as good-first-issues
+
+**Status 2026-07-15:** implemented; 12 provider tests + CLI e2e (init → hooks
+install → live capture → timeline) green. **Wording corrections:** (1) the
+"<5ms hook process" criterion is physically impossible for any Node process
+(~40ms spawn floor); the enforced contract is the honest one — append path
+<5ms (M5 budget), capture process exit-0-always, cold-start-class total.
+(2) hook install is NOT auto-run by `init --yes`: .claude/settings.json is
+committable team config, so consent is explicit (§5.9) — init prints the
+one-command hint instead. Deferred honestly: FileChanged/subagent hooks →
+`Ext.claude-code.*` post-MVP.
 
 ## Definition of Done
 

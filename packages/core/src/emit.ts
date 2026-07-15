@@ -16,3 +16,18 @@ export {
   type EventEngineOptions,
 } from "./engine/event-engine.js";
 export { fixedGitReader, type GitReader } from "./git/git-reader.js";
+
+import { EventEngine as EngineClass, type ProviderIdentity as Provider } from "./engine/event-engine.js";
+import { loadOrCreateMachineState } from "./identity/machine.js";
+
+/**
+ * Open an engine bound to this machine's workspace identity — the one-call
+ * entry point for providers, which may not touch identity internals.
+ */
+export async function openProviderEngine(
+  chronicleDir: string,
+  provider: Provider,
+): Promise<EngineClass> {
+  const state = await loadOrCreateMachineState(chronicleDir);
+  return EngineClass.open(chronicleDir, { workspaceId: state.workspace, provider });
+}

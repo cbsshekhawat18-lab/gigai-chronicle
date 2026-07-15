@@ -53,6 +53,9 @@ importers:
       '@gigaichronicle/core':
         specifier: workspace:^
         version: link:../../packages/core
+      '@gigaichronicle/provider-claude-code':
+        specifier: workspace:^
+        version: link:../../packages/providers/claude-code
       '@gigaichronicle/schema':
         specifier: workspace:^
         version: link:../../packages/schema
@@ -144,6 +147,9 @@ importers:
 
   packages/providers/claude-code:
     dependencies:
+      '@gigaichronicle/core':
+        specifier: workspace:^
+        version: link:../../core
       '@gigaichronicle/plugin-kit':
         specifier: workspace:^
         version: link:../../plugin-kit

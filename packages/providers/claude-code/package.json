@@ -21,6 +21,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@gigaichronicle/core": "workspace:^",
     "@gigaichronicle/schema": "workspace:^",
     "@gigaichronicle/plugin-kit": "workspace:^"
   },

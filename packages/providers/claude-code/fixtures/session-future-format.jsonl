@@ -1,0 +1,4 @@
+{"type":"user","sessionId":"11111111-2222-3333-4444-555555555555","timestamp":"2027-01-01T00:00:00.000Z","message":{"role":"user","content":[{"type":"text","text":"hi"}]}}
+{"type":"turn.v3","frames":[1,2,3]}
+{"type":"turn.v3","frames":[4]}
+{"type":"context-graph","nodes":[]}

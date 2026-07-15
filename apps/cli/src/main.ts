@@ -74,6 +74,33 @@ program
     process.exitCode = await runStatusCommand(program.opts<{ json?: boolean }>());
   });
 
+program
+  .command("capture <provider>")
+  .description("hook ingestion path (installed hooks call this; exit 0 always)")
+  .requiredOption("--event <name>", "hook event name")
+  .action(async (providerId: string, options: { event: string }) => {
+    const { runCaptureCommand } = await import("./commands/capture.js");
+    process.exitCode = await runCaptureCommand(providerId, options.event);
+  });
+
+program
+  .command("import <provider>")
+  .description("backfill history from a tool's existing transcripts (idempotent)")
+  .option("--from <dir>", "transcripts root override (e.g. an exported archive)")
+  .action(async (providerId: string, options: { from?: string }) => {
+    const { runImportCommand } = await import("./commands/import.js");
+    process.exitCode = await runImportCommand(providerId, options, program.opts<{ json?: boolean }>());
+  });
+
+program
+  .command("hooks <action> <provider>")
+  .description("install|uninstall capture hooks (project scope by default; merge, never clobber)")
+  .option("--user", "user-scope settings instead of the project's .claude/settings.json")
+  .action(async (action: string, providerId: string, options: { user?: boolean }) => {
+    const { runHooksCommand } = await import("./commands/hooks.js");
+    process.exitCode = await runHooksCommand(action, providerId, options, program.opts<{ json?: boolean }>());
+  });
+
 try {
   await program.parseAsync();
 } catch (error) {
