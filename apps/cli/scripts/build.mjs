@@ -4,9 +4,12 @@
  * core only when the index is opened.
  */
 import { build } from "esbuild";
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+
+// Clean regeneration — stale entry/chunk files must never ship.
+rmSync(new URL("../dist", import.meta.url), { recursive: true, force: true });
 
 await build({
   entryPoints: ["src/main.ts"],
@@ -14,7 +17,9 @@ await build({
   platform: "node",
   format: "esm",
   target: "node20",
-  outfile: "dist/main.js",
+  outdir: "dist",
+  splitting: true, // §14: subcommands dynamically imported — separate chunks
+  chunkNames: "chunks/[name]-[hash]",
   external: ["better-sqlite3"],
   define: { __CLI_VERSION__: JSON.stringify(pkg.version) },
   banner: {

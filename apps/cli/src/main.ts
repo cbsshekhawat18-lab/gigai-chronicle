@@ -4,11 +4,11 @@
  * replay with M8.)
  */
 import { Command, CommanderError } from "commander";
-import { runInitCommand } from "./commands/init.js";
-import { runDoctorCommand } from "./commands/doctor.js";
-import { runTimelineCommand } from "./commands/timeline.js";
-import { runStatusCommand } from "./commands/status.js";
 import { EXIT_FAILURE, EXIT_USAGE } from "./context.js";
+
+// Subcommand implementations are dynamically imported (§14): --version/help
+// never pay for core, zod, or sqlite. esbuild code-splitting keeps each in
+// its own chunk.
 
 declare const __CLI_VERSION__: string;
 
@@ -37,6 +37,7 @@ program
       privateSessions?: boolean;
       gitTrailer?: boolean;
     }) => {
+      const { runInitCommand } = await import("./commands/init.js");
       process.exitCode = await runInitCommand(options, program.opts<{ json?: boolean }>());
     },
   );
@@ -47,6 +48,7 @@ program
   .option("--reindex", "rebuild the SQLite index from the event log")
   .option("--scan-secrets", "audit stored events against the secret pattern pack")
   .action(async (options: { reindex?: boolean; scanSecrets?: boolean }) => {
+    const { runDoctorCommand } = await import("./commands/doctor.js");
     process.exitCode = await runDoctorCommand(options, program.opts<{ json?: boolean }>());
   });
 
@@ -60,6 +62,7 @@ program
   .option("--type <types...>", "filter by event type(s)")
   .option("--limit <n>", "max events", "100")
   .action(async (options: Record<string, string | string[] | undefined>) => {
+    const { runTimelineCommand } = await import("./commands/timeline.js");
     process.exitCode = await runTimelineCommand(options, program.opts<{ json?: boolean }>());
   });
 
@@ -67,6 +70,7 @@ program
   .command("status")
   .description("store, capture, and index health at a glance")
   .action(async () => {
+    const { runStatusCommand } = await import("./commands/status.js");
     process.exitCode = await runStatusCommand(program.opts<{ json?: boolean }>());
   });
 
