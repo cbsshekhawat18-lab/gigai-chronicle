@@ -14,6 +14,7 @@ describe("the emit surface", () => {
       "EventEngine",
       "MAX_CANDIDATE_BYTES",
       "fixedGitReader",
+      "openProviderEngine",
     ]);
   });
 

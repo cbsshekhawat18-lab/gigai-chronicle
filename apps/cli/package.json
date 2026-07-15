@@ -24,7 +24,8 @@
     "@gigaichronicle/schema": "workspace:^",
     "@gigaichronicle/core": "workspace:^",
     "better-sqlite3": "catalog:",
-    "commander": "catalog:"
+    "commander": "catalog:",
+    "@gigaichronicle/provider-claude-code": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "catalog:",
