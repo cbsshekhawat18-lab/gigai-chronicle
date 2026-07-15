@@ -48,11 +48,13 @@ this epic as proof.
 - [x] Governance file set + templates (S) — LICENSE, CONTRIBUTING (DCO), CoC, SECURITY, issue/PR templates, CODEOWNERS
 - [x] ADR-0001…0006 recording D6–D11 (S) — `docs/adr/`
 
-**Status 2026-07-15:** implemented and validated locally (build 7/7,
-typecheck 11/11, lint clean, package tests green, script tests 8/8).
-Remaining to close the milestone: push to GitHub → 3-OS matrix green
-(DoD #1) + the forbidden-import demo PR (DoD #2; the same rule is already
-covered by an automated test fixture).
+**Status 2026-07-15 — ✅ MILESTONE CLOSED.** Implemented and validated:
+build 7/7, typecheck 11/11, lint clean, package tests green, script tests
+8/8. Remote proofs delivered on
+[cbsshekhawat18-lab/gigai-chronicle](https://github.com/cbsshekhawat18-lab/gigai-chronicle):
+DoD #1 — 3-OS CI matrix green ([run 29413360469](https://github.com/cbsshekhawat18-lab/gigai-chronicle/actions/runs/29413360469));
+DoD #2 — forbidden-import demo [PR #1](https://github.com/cbsshekhawat18-lab/gigai-chronicle/pull/1)
+rejected by CI on the matrix and closed unmerged.
 
 ## Definition of Done (exit criteria)
 
