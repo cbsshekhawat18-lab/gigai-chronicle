@@ -4,9 +4,10 @@
  * Exit-code contract (§14, stable forever): 0 ok · 1 operational failure ·
  * 2 usage error · 3 not a chronicle project.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
-import { isId, newId, type WorkspaceId } from "@gigaichronicle/schema";
+import { openWorkspace } from "@gigaichronicle/core";
+import type { WorkspaceId } from "@gigaichronicle/schema";
 
 export const EXIT_OK = 0;
 export const EXIT_FAILURE = 1;
@@ -26,22 +27,23 @@ export function findChronicleDir(startDir: string): string | null {
 }
 
 /**
- * Workspace identity for store-authored events. M6 owns the full identity
- * model; until then this seeds `.local/machine.json` with the `wks_` id that
- * M6 will extend (same file, same key — additive).
+ * Workspace identity + continuity duties for store-touching commands.
+ * Delegates to core's openWorkspace (M6): WorkspaceMoved detection,
+ * throttled ProjectOpened, fingerprint refresh, foreign-repo flag. Identity
+ * anomalies are surfaced as warnings on stderr — never fatal (law 8).
  */
-export function resolveWorkspaceId(chronicleDir: string): WorkspaceId {
-  const machineFile = path.join(chronicleDir, ".local", "machine.json");
-  try {
-    const machine = JSON.parse(readFileSync(machineFile, "utf8")) as { workspace?: unknown };
-    if (isId(machine.workspace, "workspace")) return machine.workspace;
-  } catch {
-    // Missing or unreadable — create below.
+export async function resolveWorkspace(chronicleDir: string): Promise<WorkspaceId> {
+  const context = await openWorkspace(chronicleDir);
+  if (context.foreignRepo) {
+    console.error(
+      "⚠ E_FOREIGN_REPO: this .chronicle store's project id was recorded against a different " +
+        "root history — histories are NOT merged silently (see `chronicle doctor`)",
+    );
   }
-  const workspace = newId("workspace");
-  mkdirSync(path.dirname(machineFile), { recursive: true });
-  writeFileSync(machineFile, JSON.stringify({ workspace }, null, 2) + "\n");
-  return workspace;
+  if (context.moved !== null) {
+    console.error(`note: workspace moved (${context.moved.fromPath} → ${context.moved.toPath})`);
+  }
+  return context.workspaceId;
 }
 
 /** Print a result in the stable `--json` envelope (§14). */

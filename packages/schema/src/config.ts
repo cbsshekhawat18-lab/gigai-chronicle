@@ -31,6 +31,12 @@ export const configSchema = z
     capture: z
       .object({
         providers: z.record(z.string().min(1), providerModeSchema),
+        /**
+         * "full" (default when absent) captures redacted content;
+         * "metadata" stores event shapes/timings but no prompt text —
+         * the high-sensitivity mode offered at init (resolved decision #3).
+         */
+        mode: z.enum(["full", "metadata"]).optional(),
         redaction: z
           .object({
             secrets: z.boolean(),

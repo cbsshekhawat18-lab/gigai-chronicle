@@ -173,8 +173,14 @@ export class EventEngine {
       candidate.ts = coerced;
     }
     try {
-      const size = Buffer.byteLength(JSON.stringify(candidate.payload) ?? "", "utf8");
-      if (size > MAX_CANDIDATE_BYTES) return `payload exceeds ${MAX_CANDIDATE_BYTES} bytes`;
+      const serialized = JSON.stringify(candidate.payload) as string | undefined;
+      if (serialized === undefined) {
+        // undefined / function / symbol — not representable in JSONL.
+        return "payload is not JSON-representable";
+      }
+      if (Buffer.byteLength(serialized, "utf8") > MAX_CANDIDATE_BYTES) {
+        return `payload exceeds ${MAX_CANDIDATE_BYTES} bytes`;
+      }
     } catch {
       return "payload is not serializable";
     }
