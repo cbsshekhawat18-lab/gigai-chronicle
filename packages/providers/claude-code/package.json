@@ -1,6 +1,6 @@
 {
   "name": "@gigaichronicle/provider-claude-code",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Claude Code provider: tier-1 hooks capture + tier-2 transcript backfill (PROVIDERS.md, CAPTURE-SURFACES.md §2).",
   "license": "MIT",
   "type": "module",

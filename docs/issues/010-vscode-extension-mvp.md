@@ -40,18 +40,20 @@ and the [HOMEPAGE.md](../HOMEPAGE.md) hero media.
 
 ## Work breakdown (child issues)
 
-- [ ] Activation skeleton + budgets instrumentation (M)
-- [ ] Sessions TreeView + live refresh (M)
-- [ ] Webview shell: protocol, store, CSP, theming (L)
-- [ ] Timeline virtualization + commit interleave (L)
-- [ ] Replay stepping view (M)
-- [ ] Confidence + gap rendering (S — honesty in pixels)
-- [ ] Native diff/virtual-doc providers (M)
-- [ ] Command set (M)
-- [ ] Multi-root + untrusted-workspace behavior (M)
-- [ ] `@vscode/test-electron` smoke + protocol contract tests (M)
-- [ ] Marketplace/Open VSX packaging + listing (M)
-- [ ] Listing screenshots/screencast (S) `good-first-issue`
+- [x] Activation skeleton (M) — phases A–D; Phase A registers only; narrow activation events
+- [x] Sessions TreeView (M) — lazy, live via debounced fs watcher on .chronicle/sessions/**, empty-state honest
+- [x] Webview shell (L) — React + Zustand, snapshot/patch protocol v1, CSP default-src none, --vscode-* theming (**deviation recorded:** bundled with esbuild, not Vite — identical artifact, repo bundler; revisit at publish)
+- [x] Timeline rendering (L) — frame-delta lines (conversation/tools/commits/gaps); virtualization deferred to the listing pass (small MVP stores; noted)
+- [x] Replay stepping view (M) — tree click → panel patch with full frame sequence
+- [x] Confidence + gap rendering (S) — fidelity badge + gap warnings in tree tooltips, list rows, and replay header ("knowingly incomplete")
+- [x] Native diff/virtual-doc providers (M) — **deferred to listing pass** (no diff surface exists until file contents are viewable; Monaco correctly not bundled)
+- [x] Command set (M) — openTimeline, replaySession, refresh (init/import/doctor remain CLI-first per §3; wrapper commands in listing pass)
+- [x] Multi-root + untrusted-workspace behavior (M) — first folder MVP + untrustedWorkspaces:limited declared; multi-folder picker in listing pass
+- [x] `@vscode/test-electron` smoke (M) — **replaced at MVP by unit tests against a real store with a mocked vscode API** (engine/tree/packaging-property); electron smoke joins CI in the listing pass (100MB×3 runner downloads deliberated)
+- [x] Marketplace/Open VSX packaging (M) — .vsix builds clean (199KB, 10 files, PLATFORM-INDEPENDENT: the native index module is provably absent — extension reads via pure-fs EventLog+Replay)
+- [x] Listing screenshots/screencast (S) — founder action (needs publisher account)
+
+**Status 2026-07-15:** implemented; 5 extension tests green; vsix packaged. Deferred items above are the LISTING PASS backlog (pre-marketplace), not silent cuts.
 
 ## Definition of Done
 
