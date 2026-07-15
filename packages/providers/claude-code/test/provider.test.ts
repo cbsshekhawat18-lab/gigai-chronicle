@@ -175,7 +175,7 @@ describe("transcript parsing (fingerprinted)", () => {
 describe("backfill (idempotent, fail-soft)", () => {
   function transcriptsFixtureRoot(workspacePath: string): string {
     const root = tempDir("cc-transcripts ");
-    const dir = path.join(root, cwdSlug(workspacePath));
+    const dir = path.join(root, cwdSlug(path.resolve(workspacePath))); // same resolution as transcriptDirsFor
     mkdirSync(dir, { recursive: true });
     cpSync(path.join(FIXTURES, "session-basic.jsonl"), path.join(dir, "11111111-2222-3333-4444-555555555555.jsonl"));
     cpSync(path.join(FIXTURES, "session-future-format.jsonl"), path.join(dir, "99999999-8888-7777-6666-555555555555.jsonl"));
