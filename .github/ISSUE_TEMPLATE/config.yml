@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/cbsshekhawat18/gigai-chronicle/security/advisories/new
+    url: https://github.com/cbsshekhawat18-lab/gigai-chronicle/security/advisories/new
     about: Never file security issues publicly — use private reporting (see SECURITY.md).
