@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schemas.chronicle.dev/v1/config.json",
+  "version": 1,
+  "project": {
+    "id": "prj_01KXKDN905QK62T1YM79ZTXBYP",
+    "name": "Gigai Chronicle"
+  },
+  "capture": {
+    "providers": {
+      "claude-code": "auto",
+      "codex": "auto",
+      "gemini": "off",
+      "cursor-db": "off"
+    },
+    "redaction": {
+      "secrets": true,
+      "customPatterns": []
+    },
+    "visibility": "shared",
+    "gitTrailer": false
+  },
+  "storage": {
+    "digest": {
+      "session": true
+    },
+    "retention": {
+      "mode": "keep-all"
+    }
+  }
+}

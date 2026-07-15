@@ -5,7 +5,7 @@ import { configSchema } from "@gigaichronicle/schema";
 import { EXIT_NOT_A_PROJECT, EXIT_OK, findChronicleDir, printJson } from "../context.js";
 
 /** Provider support truth: which providers can actually capture today. */
-const SUPPORTED_PROVIDERS = new Set<string>([]); // claude-code joins in M7
+const SUPPORTED_PROVIDERS = new Set<string>(["claude-code"]); // codex/gemini join in Phase 2
 
 export async function runStatusCommand(global: { json?: boolean }): Promise<number> {
   const chronicleDir = findChronicleDir(process.cwd());

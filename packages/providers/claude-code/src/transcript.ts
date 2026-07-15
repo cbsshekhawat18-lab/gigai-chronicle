@@ -9,8 +9,28 @@
 import type { RawCandidate } from "@gigaichronicle/core/emit";
 import type { SessionId } from "@gigaichronicle/schema";
 
-/** Line types the current format fingerprint accepts. */
-const KNOWN_LINE_TYPES = new Set(["user", "assistant", "system", "summary", "file-history-snapshot"]);
+/**
+ * Line types the current format fingerprint accepts. The auxiliary types
+ * carry no journey moment but ARE part of the known format — recognizing
+ * them is what keeps real transcripts below the drift threshold (verified
+ * against live 2026-07 transcripts while dogfooding).
+ */
+const KNOWN_LINE_TYPES = new Set([
+  "user",
+  "assistant",
+  "system",
+  "summary",
+  "file-history-snapshot",
+  "file-history-delta",
+  "queue-operation",
+  "attachment",
+  "ai-title",
+  "last-prompt",
+  "pr-link",
+]);
+
+/** Bump when parsing semantics change — backfill state resets and retries. */
+export const TRANSCRIPT_PARSER_VERSION = 2;
 
 /** Above this unknown-line ratio the file is treated as a format drift. */
 const DRIFT_THRESHOLD = 0.2;

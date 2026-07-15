@@ -5,7 +5,7 @@
  * folder names are found too.
  */
 import path from "node:path";
-import { EventLog, openWorkspace } from "@gigaichronicle/core";
+import { EventLog, generateSessionDigests, openWorkspace } from "@gigaichronicle/core";
 import {
   EXIT_FAILURE,
   EXIT_NOT_A_PROJECT,
@@ -56,8 +56,22 @@ export async function runImportCommand(
     ...(options.from !== undefined ? { transcriptsRoot: path.resolve(options.from) } : {}),
   });
 
+  // Digests are replay projections (§10.1) — refresh them after new history.
+  let digests = { written: [] as string[], unchanged: 0 };
+  if (report.eventsImported > 0) {
+    const log = await EventLog.open(chronicleDir, {
+      workspaceId: workspace.workspaceId as never,
+      fsyncIntervalMs: 0,
+    });
+    try {
+      digests = await generateSessionDigests(chronicleDir, log);
+    } finally {
+      await log.close();
+    }
+  }
+
   if (global.json === true) {
-    printJson("import", { provider: providerId, report });
+    printJson("import", { provider: providerId, report, digests: digests.written.length });
   } else {
     console.log(
       [
