@@ -1,6 +1,6 @@
 {
   "name": "@gigaichronicle/plugin-kit",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Provider/plugin manifest types, host, and capability registry (ARCHITECTURE.md §16).",
   "license": "MIT",
   "type": "module",

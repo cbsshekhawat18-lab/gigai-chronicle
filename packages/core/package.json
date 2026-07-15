@@ -1,6 +1,6 @@
 {
   "name": "@gigaichronicle/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Chronicle engine: Event Engine, Chronicle Store, Replay Engine, correlation, redaction, query API (ARCHITECTURE.md §8–§11).",
   "license": "MIT",
   "type": "module",

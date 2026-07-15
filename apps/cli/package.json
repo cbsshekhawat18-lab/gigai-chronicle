@@ -1,6 +1,6 @@
 {
   "name": "@gigaichronicle/cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "The chronicle CLI — every core capability, headless (ARCHITECTURE.md §14).",
   "license": "MIT",
   "type": "module",
