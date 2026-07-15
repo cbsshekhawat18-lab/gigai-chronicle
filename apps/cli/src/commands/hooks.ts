@@ -12,8 +12,8 @@ export async function runHooksCommand(
   options: { user?: boolean },
   global: { json?: boolean },
 ): Promise<number> {
-  if (providerId !== "claude-code") {
-    console.error(`hooks: unknown provider "${providerId}"`);
+  if (providerId !== "claude-code" && providerId !== "git") {
+    console.error(`hooks: unknown provider "${providerId}" (claude-code|git)`);
     return EXIT_FAILURE;
   }
   const chronicleDir = findChronicleDir(process.cwd());
@@ -22,6 +22,25 @@ export async function runHooksCommand(
     return EXIT_NOT_A_PROJECT;
   }
   const workspaceRoot = chronicleDir === null ? process.cwd() : path.dirname(chronicleDir);
+
+  if (providerId === "git") {
+    // The opt-in Chronicle-Session trailer (design law 9 exception, ADR-0002).
+    const { installTrailerHook, uninstallTrailerHook, hooksDirFor } = await import("@gigaichronicle/core");
+    const changed = action === "install" ? installTrailerHook(workspaceRoot)
+      : action === "uninstall" ? uninstallTrailerHook(workspaceRoot)
+      : null;
+    if (changed === null) {
+      console.error(`hooks: unknown action "${action}" (install|uninstall)`);
+      return EXIT_FAILURE;
+    }
+    const where = hooksDirFor(workspaceRoot);
+    if (global.json === true) printJson("hooks", { action, provider: "git", changed, dir: where });
+    else console.log(changed
+      ? `✓ Chronicle-Session trailer hook ${action}ed (${where}/prepare-commit-msg — chained, never clobbered)`
+      : `nothing to change (${where}/prepare-commit-msg)`);
+    return EXIT_OK;
+  }
+
   const { installHooks, uninstallHooks, renderInstallPlan, settingsPathFor } = await import(
     "@gigaichronicle/provider-claude-code"
   );
