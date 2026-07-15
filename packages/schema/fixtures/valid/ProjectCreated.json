@@ -1,0 +1,26 @@
+{
+  "v": 1,
+  "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5F00",
+  "ts": "2026-07-14T10:32:11.412Z",
+  "type": "ProjectCreated",
+  "actor": {
+    "kind": "human"
+  },
+  "git": {
+    "head": "9fc1b2a",
+    "branch": "feat/auth",
+    "dirty": [
+      "src/auth.ts"
+    ]
+  },
+  "payload": {
+    "projectId": "prj_01ARZ3NDEKTSV4RRFFQ69G5F36",
+    "name": "example-project"
+  },
+  "meta": {
+    "provider": "example-tool@1.0.0",
+    "workspace": "wks_01ARZ3NDEKTSV4RRFFQ69G5F35",
+    "schema": "ProjectCreated/1",
+    "visibility": "shared"
+  }
+}

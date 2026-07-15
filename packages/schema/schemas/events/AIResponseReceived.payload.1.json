@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/AIResponseReceived/1.json",
+  "title": "AIResponseReceived/1",
+  "type": "object",
+  "properties": {
+    "text": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "$blob": {
+                  "type": "string",
+                  "pattern": "^sha256-[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "$blob"
+              ],
+              "additionalProperties": {}
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "inResponseTo": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "text",
+    "inResponseTo"
+  ],
+  "additionalProperties": {}
+}

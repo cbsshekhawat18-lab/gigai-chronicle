@@ -1,0 +1,29 @@
+{
+  "v": 1,
+  "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5F07",
+  "ts": "2026-07-14T10:32:11.412Z",
+  "type": "AIResponseReceived",
+  "session": "ses_01ARZ3NDEKTSV4RRFFQ69G5F34",
+  "actor": {
+    "kind": "agent",
+    "provider": "example-tool",
+    "model": "example-model-1"
+  },
+  "git": {
+    "head": "9fc1b2a",
+    "branch": "feat/auth",
+    "dirty": [
+      "src/auth.ts"
+    ]
+  },
+  "payload": {
+    "text": "Plan: 1) rotate on refresh, 2) revoke family on reuse.",
+    "inResponseTo": "evt_01ARZ3NDEKTSV4RRFFQ69G5F18"
+  },
+  "meta": {
+    "provider": "example-tool@1.0.0",
+    "workspace": "wks_01ARZ3NDEKTSV4RRFFQ69G5F35",
+    "schema": "AIResponseReceived/1",
+    "visibility": "shared"
+  }
+}

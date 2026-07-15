@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/FilesRejected/1.json",
+  "title": "FilesRejected/1",
+  "type": "object",
+  "properties": {
+    "paths": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "responseEvent": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "paths",
+    "responseEvent"
+  ],
+  "additionalProperties": {}
+}

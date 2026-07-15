@@ -30,17 +30,23 @@ effectively the first public draft of the spec. Linked from this epic.
 
 ## Work breakdown (child issues)
 
-- [ ] Envelope schema + zod + types (M)
-- [ ] Lifecycle events (`ProjectCreated/Opened`, `SessionStarted/Ended`, `WorkspaceMoved`) (S)
-- [ ] Conversation events (`PromptSubmitted/Edited`, `AIResponseReceived`) (S)
-- [ ] Action events (`ToolExecuted`, `FileModified`, `FilesAccepted/Rejected`) (S)
-- [ ] Git events (`GitCommitCreated`, `GitPush`, `BranchChanged`, `GitTagCreated`) (S)
-- [ ] Honesty/link events (`CaptureGap/Degraded`, `LinkConfirmed/Rejected`) (S)
-- [ ] ULID module (S) `good-first-issue`
-- [ ] `config.json` schema (S)
-- [ ] Fixture pairs per type (S×N) `good-first-issue`
-- [ ] Forward-compat property tests (M)
-- [ ] Spec v1 draft README (M)
+- [x] Envelope schema + zod + types (M) — `src/envelope.ts`, catchall-based unknown-field preservation
+- [x] Lifecycle events (`ProjectCreated/Opened`, `SessionStarted/Ended`, `WorkspaceMoved`) (S)
+- [x] Conversation events (`PromptSubmitted/Edited`, `AIResponseReceived`) (S) — text-or-blob bodies (64KB spill ref shape)
+- [x] Action events (`ToolExecuted`, `FileModified`, `FilesAccepted/Rejected`) (S)
+- [x] Git events (`GitCommitCreated`, `GitPush`, `BranchChanged`, `GitTagCreated`) (S) — ambient session binding
+- [x] Honesty/link events (`CaptureGap/Degraded`, `LinkConfirmed/Rejected`) (S)
+- [x] ULID module (S) — in-package Crockford base32, injectable time/random, WebCrypto only
+- [x] `config.json` schema (S) — trimmed v2 surface, reserved keys preserved via catchall
+- [x] Fixture pairs per type (S×N) — 20 valid + 20 invalid + 5 forward-compat with recorded expectations
+- [x] Forward-compat property tests (M) — SCHEMA_AHEAD vs INVALID distinction, unknown-field survival, tolerated-forward payload versions
+- [x] Spec v1 draft README (M) — `packages/schema/README.md` (the milestone demo artifact)
+
+**Status 2026-07-15:** implemented and validated (112 tests in 8 suites;
+22 generated JSON Schema artifacts with drift guard; neutrality
+test-enforced). Spec-level precision added and documented: per-type
+**session binding** (`required`/`optional`/`none`) — project-scoped events
+carry no session, git moments are ambient (README table).
 
 ## Definition of Done
 

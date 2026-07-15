@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/GitPush/1.json",
+  "title": "GitPush/1",
+  "type": "object",
+  "properties": {
+    "remote": {
+      "type": "string",
+      "minLength": 1
+    },
+    "branch": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "remote",
+    "branch"
+  ],
+  "additionalProperties": {}
+}

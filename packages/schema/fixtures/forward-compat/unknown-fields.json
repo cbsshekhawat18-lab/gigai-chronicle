@@ -1,0 +1,29 @@
+{
+  "v": 1,
+  "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5F3R",
+  "ts": "2026-07-14T10:32:11.412Z",
+  "type": "PromptSubmitted",
+  "session": "ses_01ARZ3NDEKTSV4RRFFQ69G5F34",
+  "actor": {
+    "kind": "human"
+  },
+  "git": {
+    "head": "9fc1b2a",
+    "branch": "feat/auth",
+    "dirty": [],
+    "futureGitField": 1
+  },
+  "payload": {
+    "text": "hello",
+    "futurePayloadField": "kept"
+  },
+  "meta": {
+    "provider": "example-tool@1.0.0",
+    "workspace": "wks_01ARZ3NDEKTSV4RRFFQ69G5F35",
+    "schema": "PromptSubmitted/1",
+    "visibility": "shared"
+  },
+  "futureTopLevelField": {
+    "anything": true
+  }
+}

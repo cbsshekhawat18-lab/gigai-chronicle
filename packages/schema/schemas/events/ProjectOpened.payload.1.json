@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/ProjectOpened/1.json",
+  "title": "ProjectOpened/1",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": {}
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/CaptureGap/1.json",
+  "title": "CaptureGap/1",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string",
+      "enum": [
+        "torn-write",
+        "unparseable-candidate",
+        "provider-gap",
+        "unknown"
+      ]
+    },
+    "detail": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "reason",
+    "detail"
+  ],
+  "additionalProperties": {}
+}

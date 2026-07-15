@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/GitTagCreated/1.json",
+  "title": "GitTagCreated/1",
+  "type": "object",
+  "properties": {
+    "tag": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    }
+  },
+  "required": [
+    "tag",
+    "sha"
+  ],
+  "additionalProperties": {}
+}

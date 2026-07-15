@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/LinkRejected/1.json",
+  "title": "LinkRejected/1",
+  "type": "object",
+  "properties": {
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "session": {
+      "type": "string",
+      "pattern": "^ses_[0-9A-HJKMNP-TV-Z]{26}$"
+    }
+  },
+  "required": [
+    "commit",
+    "session"
+  ],
+  "additionalProperties": {}
+}

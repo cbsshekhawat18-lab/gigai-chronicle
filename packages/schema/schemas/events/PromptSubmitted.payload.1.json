@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.chronicle.dev/v1/PromptSubmitted/1.json",
+  "title": "PromptSubmitted/1",
+  "type": "object",
+  "properties": {
+    "text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "$blob": {
+              "type": "string",
+              "pattern": "^sha256-[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "$blob"
+          ],
+          "additionalProperties": {}
+        }
+      ]
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "additionalProperties": {}
+}

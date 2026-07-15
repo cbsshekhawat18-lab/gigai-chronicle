@@ -1,0 +1,26 @@
+{
+  "v": 1,
+  "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5F04",
+  "ts": "2026-07-14T10:32:11.412Z",
+  "type": "WorkspaceMoved",
+  "actor": {
+    "kind": "system"
+  },
+  "git": {
+    "head": "9fc1b2a",
+    "branch": "feat/auth",
+    "dirty": [
+      "src/auth.ts"
+    ]
+  },
+  "payload": {
+    "fromPath": "/home/dev/old-name",
+    "toPath": "/home/dev/new-name"
+  },
+  "meta": {
+    "provider": "example-tool@1.0.0",
+    "workspace": "wks_01ARZ3NDEKTSV4RRFFQ69G5F35",
+    "schema": "WorkspaceMoved/1",
+    "visibility": "local"
+  }
+}
