@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./emit": {
+      "types": "./dist/emit.d.ts",
+      "default": "./dist/emit.js"
     }
   },
   "files": [

@@ -35,15 +35,23 @@ malformed candidates → resulting store shown containing only
 
 ## Work breakdown (child issues)
 
-- [ ] Validate stage + size caps (M)
-- [ ] Redaction: pattern pack (M) · entropy heuristic (M) · `.env` harvest (S)
-- [ ] Marker format + `hash8` scheme (S)
-- [ ] Enrich stage + git-snapshot cache (M)
-- [ ] Normalize stage + `Ext.*` registration (M)
-- [ ] `CaptureGap`/`CaptureDegraded` paths (S)
-- [ ] Synthetic secrets corpus (M) — `security`, no `good-first-issue` (review-sensitive)
-- [ ] Candidate fuzzing harness (M)
-- [ ] Store-access privacy test (constructors package-private) (S)
+- [x] Validate stage + size caps (M) — shape/session/ts discipline, ts coercion to canonical, 1MiB candidate cap
+- [x] Redaction: pattern pack (M) · entropy heuristic (M) · `.env` harvest (S) — deep walk over all payload strings; conservative entropy rules with explicit ID/hash/URL/path exclusions
+- [x] Marker format + `hash8` scheme (S) — `[REDACTED:kind:hash8]`, stable per secret, irreversible; markers never re-flagged
+- [x] Enrich stage + git-snapshot cache (M) — system-git reader, 200ms TTL, injectable; degrades to nulls outside git
+- [x] Normalize stage + `Ext.*` registration (M) — strict session bindings; unknown types dropped-with-CaptureGap
+- [x] `CaptureGap`/`CaptureDegraded` paths (S) — gap reasons carry NO payload content; `reportDegraded()` convenience
+- [x] Synthetic secrets corpus (M) — catch corpus per class + false-positive corpus (equally load-bearing)
+- [x] Candidate fuzzing harness (M) — 200 arbitrary candidates: never throws, store verifies clean after
+- [x] Store-access privacy test (S) — **honest form:** providers reach core only via the `./emit` subpath (boundary lint enforces the path; `emit-surface.test.ts` pins that the surface exposes engine-only, no store/index/doctor). `EventLog` stays root-exported for apps (CLI/doctor legitimately use it) — the v1 wording "constructors package-private" was unimplementable without breaking M4's sanctioned consumers
+
+**Status 2026-07-15:** implemented and validated — 34 new tests (74 core
+total). Red-line leak-guard green: every token class + a planted `.env`
+value pushed through the pipeline, raw stream files grepped clean. Full
+pipeline p99 4.4ms < 5ms budget. One deviation note: `.env` values are held
+in process memory for match-and-replace (hash-only matching cannot do
+substring search); never persisted or logged — intent of the risk-table
+mitigation preserved, wording corrected here.
 
 ## Definition of Done
 

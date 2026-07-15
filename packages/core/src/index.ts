@@ -40,5 +40,20 @@ export { INDEX_SCHEMA_VERSION } from "./index-db/ddl.js";
 export { runDoctor, type DoctorReport, type DoctorOptions, type SecretFinding } from "./doctor.js";
 export { SECRET_PATTERNS, detectSecretKinds, type SecretPattern } from "./redaction/patterns.js";
 
+// Event Engine (M5) — apps import from the root; PROVIDERS import the
+// "./emit" subpath only (boundary lint).
+export {
+  EventEngine,
+  MAX_CANDIDATE_BYTES,
+  type RawCandidate,
+  type EmitResult,
+  type ProviderIdentity,
+  type EventEngineOptions,
+} from "./engine/event-engine.js";
+export { createGitReader, fixedGitReader, type GitReader } from "./git/git-reader.js";
+export { createRedactor, marker, type Redactor } from "./redaction/redact.js";
+export { harvestEnvValues } from "./redaction/env-harvest.js";
+export { findEntropyTokens, looksLikeSecretToken, shannonEntropy } from "./redaction/entropy.js";
+
 /** Canonical package name; kept in sync with package.json by test. */
 export const PACKAGE_NAME = "@gigaichronicle/core";

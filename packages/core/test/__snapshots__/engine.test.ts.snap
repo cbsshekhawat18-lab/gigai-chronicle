@@ -1,0 +1,28 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`EventEngine.emit — the four stages > determinism: same candidate + same repo state → identical event modulo id/ts 1`] = `
+{
+  "actor": {
+    "kind": "human",
+  },
+  "git": {
+    "branch": "feat/auth",
+    "dirty": [
+      "src/auth.ts",
+    ],
+    "head": "9fc1b2a",
+  },
+  "meta": {
+    "provider": "example-tool@1.0.0",
+    "schema": "PromptSubmitted/1",
+    "visibility": "shared",
+    "workspace": "wks_SNAPSHOT00000000000000000",
+  },
+  "payload": {
+    "text": "deterministic enrichment",
+  },
+  "session": "ses_SNAPSHOT00000000000000000",
+  "type": "PromptSubmitted",
+  "v": 1,
+}
+`;
