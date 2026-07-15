@@ -4,7 +4,7 @@
  * compatibility contract, §21), and the cold-start budget.
  */
 import { execFile } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,14 +15,6 @@ import { newId, type WorkspaceId } from "@gigaichronicle/schema";
 
 const run = promisify(execFile);
 const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist/main.js");
-const budgets = JSON.parse(
-  readFileSync(
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../perf/budgets.json"),
-    "utf8",
-  ),
-) as { budgets: Array<{ id: string; budgetMs: number | null }> };
-const COLD_START_MS = budgets.budgets.find((b) => b.id === "cli.cold-start")?.budgetMs as number;
-
 async function cli(
   cwd: string,
   ...args: string[]
@@ -132,33 +124,5 @@ describe("--json envelope contract", () => {
       index: { fresh: true },
       capture: { providers: [] },
     });
-  });
-});
-
-describe("cold-start budget", () => {
-  /**
-   * The budget governs CHRONICLE's startup cost, not the platform's Node
-   * boot (Windows CI runners spend ~150ms just starting node.exe under
-   * real-time scanning). Methodology per perf/README.md: subtract the
-   * bare `node -e ""` baseline; assert our delta against the budget.
-   */
-  it(`--version adds under ${COLD_START_MS}ms over bare node boot (best of 3)`, async () => {
-    const bestOf = async (args: () => Promise<unknown>): Promise<number> => {
-      let best = Number.POSITIVE_INFINITY;
-      for (let i = 0; i < 3; i++) {
-        const start = performance.now();
-        await args();
-        best = Math.min(best, performance.now() - start);
-      }
-      return best;
-    };
-    const baseline = await bestOf(() => run(process.execPath, ["-e", "0"], { cwd: repo }));
-    const cliTime = await bestOf(() => cli(repo, "--version"));
-    const delta = cliTime - baseline;
-    // eslint-disable-next-line no-console
-    console.log(
-      `cold start best-of-3: ${cliTime.toFixed(1)}ms (node baseline ${baseline.toFixed(1)}ms, chronicle ${delta.toFixed(1)}ms)`,
-    );
-    expect(delta).toBeLessThan(COLD_START_MS);
   });
 });

@@ -15,7 +15,8 @@
     "test:scripts": "node --test scripts/check-boundaries.test.mjs",
     "typecheck": "turbo run typecheck",
     "lint": "node scripts/check-boundaries.mjs",
-    "changeset": "changeset"
+    "changeset": "changeset",
+    "test:budgets": "node --test scripts/budget-cold-start.test.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
@@ -23,6 +24,9 @@
     "typescript": "catalog:"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
   }
 }
