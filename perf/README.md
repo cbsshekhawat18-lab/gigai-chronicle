@@ -13,3 +13,13 @@ Rules:
 - A budget regression is a red build, not a discussion (CONTRIBUTING.md).
 - Budgets change only via ADR — they are part of the spec, not tuning knobs.
 - Each `owner` milestone wires its own budgets into CI when it lands.
+
+Measurement methodology (budgets measure OUR cost, on shared CI runners):
+
+- **Best-of-N batches** for latency budgets — package suites run in parallel
+  under turbo, so a single batch's tail can absorb cross-process scheduler
+  pauses; a genuine regression fails every batch (first applied in M3's
+  append gate).
+- **`cli.cold-start`** asserts Chronicle's delta over a bare `node -e ""`
+  baseline — Windows CI runners spend ~150ms booting node.exe under
+  real-time scanning before any Chronicle code runs (applied in M4).

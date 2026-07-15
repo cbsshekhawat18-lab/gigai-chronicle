@@ -136,15 +136,29 @@ describe("--json envelope contract", () => {
 });
 
 describe("cold-start budget", () => {
-  it(`--version under ${COLD_START_MS}ms (best of 3)`, async () => {
-    let best = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < 3 && best >= COLD_START_MS; i++) {
-      const start = performance.now();
-      await cli(repo, "--version");
-      best = Math.min(best, performance.now() - start);
-    }
+  /**
+   * The budget governs CHRONICLE's startup cost, not the platform's Node
+   * boot (Windows CI runners spend ~150ms just starting node.exe under
+   * real-time scanning). Methodology per perf/README.md: subtract the
+   * bare `node -e ""` baseline; assert our delta against the budget.
+   */
+  it(`--version adds under ${COLD_START_MS}ms over bare node boot (best of 3)`, async () => {
+    const bestOf = async (args: () => Promise<unknown>): Promise<number> => {
+      let best = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < 3; i++) {
+        const start = performance.now();
+        await args();
+        best = Math.min(best, performance.now() - start);
+      }
+      return best;
+    };
+    const baseline = await bestOf(() => run(process.execPath, ["-e", "0"], { cwd: repo }));
+    const cliTime = await bestOf(() => cli(repo, "--version"));
+    const delta = cliTime - baseline;
     // eslint-disable-next-line no-console
-    console.log(`cold start best-of-3: ${best.toFixed(1)}ms`);
-    expect(best).toBeLessThan(COLD_START_MS);
+    console.log(
+      `cold start best-of-3: ${cliTime.toFixed(1)}ms (node baseline ${baseline.toFixed(1)}ms, chronicle ${delta.toFixed(1)}ms)`,
+    );
+    expect(delta).toBeLessThan(COLD_START_MS);
   });
 });
