@@ -33,15 +33,21 @@ doctor` printing the empty egress configuration.
 
 ## Work breakdown (child issues)
 
-- [ ] ADR: SQLite driver + prebuild strategy (S, decision)
-- [ ] Index schema + incremental consumer (L)
-- [ ] FTS5 pipeline (S)
-- [ ] Rebuild-from-scratch path (M)
-- [ ] Query API + typed errors (M)
-- [ ] CLI skeleton + `--json` snapshot-test harness (M)
-- [ ] `chronicle doctor` (M)
-- [ ] 100k-event fixture generator (M) — shared by all perf gates
-- [ ] `--json` output snapshots (S) `good-first-issue`
+- [x] ADR: SQLite driver + prebuild strategy (S, decision) — **ADR-0008**: better-sqlite3 (lazy-loaded), node:sqlite as planned successor at Node 24 LTS floor
+- [x] Index schema + incremental consumer (L) — WAL, per-stream-file cursors in `meta`, transaction-batched
+- [x] FTS5 pipeline (S) — per-type text extraction; hostile-query-safe term quoting
+- [x] Rebuild-from-scratch path (M) — also auto-triggered on schema-version bump; delete `.cache/` proven safe by test
+- [x] Query API + typed errors (M) — `timeline/sessions/search/commitLinks` (links table ready for M9)
+- [x] CLI skeleton + `--json` snapshot-test harness (M) — commander + esbuild single file; exit codes 0/1/2/3 contract-tested
+- [x] `chronicle doctor` (M) — verify+heal, freshness, `--reindex`, `--scan-secrets` (kinds/locations only, never content), **zero-egress verdict** that flips honestly when egress is configured
+- [x] 100k-event fixture generator (M) — in perf-index suite; shared basis for later gates
+- [x] `--json` output snapshots (S) — envelope contract tests for doctor/timeline/status
+
+**Status 2026-07-15:** implemented and validated. Measured vs budgets:
+rebuild 100k **1.7s** / 30s · month query **16ms** / 100ms · FTS **1.2ms** /
+200ms · CLI cold start **44ms** / 150ms. 48 package tests green (core 40,
+cli 8). Note: `resolveWorkspaceId` seeds `.local/machine.json` minimally —
+M6 extends the same file (recorded in the M6 epic scope).
 
 ## Definition of Done
 

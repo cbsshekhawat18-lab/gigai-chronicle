@@ -16,17 +16,23 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json --noEmit && node scripts/build.mjs",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@gigaichronicle/schema": "workspace:^",
-    "@gigaichronicle/core": "workspace:^"
+    "@gigaichronicle/core": "workspace:^",
+    "better-sqlite3": "catalog:",
+    "commander": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "esbuild": "catalog:"
+  },
+  "bin": {
+    "chronicle": "./dist/main.js"
   }
 }
