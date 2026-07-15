@@ -1,0 +1,46 @@
+# CI matrix per ARCHITECTURE.md §21: ubuntu/macos/windows × Node LTS.
+# All three OSes are required checks — cross-platform pain surfaces on day
+# one, not at release (M1 epic).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # reads "packageManager" from package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - run: pnpm typecheck
+
+      # Architecture boundary lint: dependency direction + pipeline rule.
+      - run: pnpm lint
+
+      # Package suites — every run loads the network-denial harness.
+      - run: pnpm test
+
+      # Repo tooling tests (node:test; includes a clean-tree check of the
+      # boundary linter against this very repository).
+      - run: pnpm test:scripts

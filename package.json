@@ -1,0 +1,25 @@
+{
+  "name": "gigai-chronicle-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Gigai Chronicle — build software with AI, never lose the journey. Monorepo root.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.4.1",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:scripts": "node --test scripts/",
+    "typecheck": "turbo run typecheck",
+    "lint": "node scripts/check-boundaries.mjs",
+    "changeset": "changeset"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.0",
+    "turbo": "^2.3.0",
+    "typescript": "catalog:"
+  }
+}
