@@ -2,10 +2,12 @@
  * `chronicle inspect <id|sha>` — the `git show` of chronicle (§14, J3):
  * deep-dive one session, event, or commit.
  */
+import path from "node:path";
 import {
   ChronicleIndex,
   EventLog,
   openWorkspace,
+  recomputeLinks,
   replaySession,
   sessionEvents,
 } from "@gigaichronicle/core";
@@ -74,6 +76,7 @@ export async function runInspectCommand(
     }
 
     if (GIT_SHA_REGEX.test(target)) {
+      await recomputeLinks(path.dirname(chronicleDir), log, index);
       const links = index.commitLinks(target);
       const events = index.timeline({ limit: 10_000 }).filter((e) => e.git.head === target);
       if (global.json === true) {
@@ -84,7 +87,7 @@ export async function runInspectCommand(
             `commit    ${target}`,
             links.length > 0
               ? links.map((l) => `linked    ${l.session} (${l.confidence}, ${l.source})`).join("\n")
-              : "linked    no session links yet (correlation lands with M9)",
+              : "linked    no session links (no trailer, no dirty-set overlap, no window match)",
             `context   ${events.length} event(s) recorded at this head`,
           ].join("\n"),
         );

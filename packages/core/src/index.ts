@@ -75,6 +75,18 @@ export {
   type DigestReport,
 } from "./replay/digest.js";
 
+// Correlation (M9) — links are derived edges; the trailer is the one git write
+export {
+  recomputeLinks,
+  type LinkRow,
+  type CorrelationReport,
+} from "./correlation/links.js";
+export {
+  installTrailerHook,
+  uninstallTrailerHook,
+  hooksDirFor,
+} from "./correlation/trailer-hook.js";
+
 // Identity model + init (M6)
 export {
   computeRepositoryFingerprint,

@@ -108,6 +108,14 @@ program
   });
 
 program
+  .command("link <action> <sha> <session>")
+  .description("confirm|reject a commit↔session link (human judgment beats heuristics, forever)")
+  .action(async (action: string, sha: string, session: string) => {
+    const { runLinkCommand } = await import("./commands/link.js");
+    process.exitCode = await runLinkCommand(action, sha, session, program.opts<{ json?: boolean }>());
+  });
+
+program
   .command("capture <provider>")
   .description("hook ingestion path (installed hooks call this; exit 0 always)")
   .requiredOption("--event <name>", "hook event name")
