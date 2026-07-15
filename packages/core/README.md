@@ -37,5 +37,27 @@ Guarantees (all test-enforced):
 - **Advisory locks** — one writer per stream per machine
   (`.local/locks/`, `E_LOCKED`); stale locks from dead pids are reclaimed.
 
-Coming next: SQLite index + `chronicle doctor` (M4), Event Engine with
-redaction (M5), Replay Engine (M8), correlation (M9).
+## Chronicle Store layer 2 — `ChronicleIndex` + `runDoctor` (M4)
+
+Disposable SQLite cache (better-sqlite3, ADR-0008, lazy-loaded): WAL + FTS5,
+incremental per-stream cursors, rebuild as the only migration. Queries:
+`timeline / sessions / search / commitLinks`. `runDoctor`: verify+heal,
+freshness, `--scan-secrets` (kinds/locations, never content), provable
+zero-egress verdict.
+
+## The Event Engine — the only door (M5)
+
+```ts
+import { EventEngine } from "@gigaichronicle/core/emit"; // providers: THIS surface only
+
+const engine = await EventEngine.open(chronicleDir, { workspaceId, provider });
+await engine.emit({ type: "PromptSubmitted", session, payload: { text } });
+```
+
+validate → **redact (before first write)** → enrich → normalize. Malformed
+candidates become CaptureGaps — `emit()` never throws into a provider.
+Redaction: pattern pack + workspace .env harvest + conservative entropy
+heuristic → irreversible `[REDACTED:kind:hash8]` markers. See
+[docs/privacy.md](../../docs/privacy.md).
+
+Coming next: Replay Engine (M8), correlation (M9).
