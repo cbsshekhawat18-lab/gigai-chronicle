@@ -30,16 +30,20 @@ merging clean. Both linked from this epic.
 
 ## Work breakdown (child issues)
 
-- [ ] `append` + handle/fsync lifecycle (M)
-- [ ] `scan(range)` + month-shard iteration (M)
-- [ ] `verify()` torn-line truncation + `CaptureGap` emission (M)
-- [ ] Visibility routing + `.local/ops/` streams (S)
-- [ ] Blob spill-over, content-addressed sidecars (M)
-- [ ] Advisory locks (`.local/locks/`) (M)
-- [ ] Property test: order-independent convergence (M)
-- [ ] Fault-injection harness (M)
-- [ ] Two-branch merge fixture (S) `good-first-issue`
-- [ ] Torn-line fixture corpus (S) `good-first-issue`
+- [x] `append` + handle/fsync lifecycle (M) — cached handles, unref'd fsync timer, flush/close
+- [x] `scan(range)` + month-shard iteration (M) — visibility/session/ts filters; torn tails tolerated
+- [x] `verify()` torn-line truncation + `CaptureGap` emission (M) — idempotent; non-tail corruption reported, never rewritten
+- [x] Visibility routing + `.local/ops/` streams (S) — plus **ambient per-workspace streams** for sessionless shared events (**ADR-0007**, settled before implementing)
+- [x] Blob spill-over, content-addressed sidecars (M) — hash-verified `readBlob`; keep-inline-if-invalid fallback
+- [x] Advisory locks (`.local/locks/`) (M) — `E_LOCKED` for live holders, stale-pid reclaim
+- [x] Property test: order-independent convergence (M) — byte-identical trees across interleavings
+- [x] Fault-injection harness (M) — truncation-at-every-offset property **plus a real SIGKILL child-process test**
+- [x] Two-branch merge fixture (S) — real `git merge`, zero conflicts, post-merge verify clean
+- [x] Torn-line fixture corpus (S) — covered by the truncation property + explicit torn/corrupt cases in verify tests
+
+**Status 2026-07-15:** implemented and validated — 26 tests in 10 suites;
+append p99 measured ~3.8ms (< 5ms budget, asserted from perf/budgets.json);
+DoD #5 (exactly three ops) is itself a test.
 
 ## Definition of Done
 

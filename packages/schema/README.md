@@ -105,6 +105,27 @@ import {
 Parse verdicts: `SCHEMA_AHEAD` · `UNKNOWN_TYPE` · `INVALID` — never an
 exception on data.
 
+## Store layout (v1) — stream rules
+
+Defined by [ARCHITECTURE §7.2](../../docs/ARCHITECTURE.md#7-on-disk-format-the-chronicle-spec)
++ [ADR-0007](../../docs/adr/0007-store-stream-layout.md); implemented by the
+Chronicle Store (`@gigaichronicle/core`). Every event has exactly one append
+stream, every stream file is single-writer by construction:
+
+| Event | Stream file |
+|---|---|
+| shared, with session | `sessions/YYYY/MM/<ses_ulid>.jsonl` (month from the session ULID's time — one session, one file) |
+| shared, no session (ambient) | `sessions/YYYY/MM/amb_<wks_ulid>.jsonl` (month from event `ts`) |
+| `local` visibility | `.local/ops/YYYY/MM/ops.jsonl` (machine-private, never committed) |
+
+Top-level string payload fields >64KB spill to
+`<stream dir>/blobs/sha256-<hash>.md` (raw content; the hash is the
+integrity check) and are replaced by `{ "$blob": … }` — unless that would
+make the event schema-invalid, in which case they stay inline. A torn
+trailing line (crash mid-write) is truncated by `verify()` and the loss is
+recorded as a `CaptureGap` on the same stream; the log is never otherwise
+rewritten.
+
 ## Conformance corpus
 
 [`fixtures/`](fixtures/): one valid + one invalid envelope per core type,
