@@ -1,0 +1,9 @@
+src/**
+webview/**
+test/**
+scripts/**
+tsconfig*.json
+vitest.config.ts
+node_modules/**
+!dist/**
+!media/**

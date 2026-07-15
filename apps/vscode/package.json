@@ -1,11 +1,11 @@
 {
   "name": "gigaichronicle-vscode",
-  "version": "0.0.0",
-  "description": "VS Code / Cursor / Windsurf extension: Sessions tree + Timeline webview (ARCHITECTURE.md §15).",
+  "version": "0.1.0",
+  "description": "Your AI development history — recorded in-repo, linked to git, replayable.",
   "license": "MIT",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/extension.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -13,22 +13,91 @@
       "default": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node scripts/build.mjs",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.webview.json",
+    "package": "vsce package --no-dependencies"
   },
   "dependencies": {
     "@gigaichronicle/schema": "workspace:^",
     "@gigaichronicle/core": "workspace:^",
-    "@gigaichronicle/ui": "workspace:^"
+    "@gigaichronicle/ui": "workspace:^",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zustand": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@types/vscode": "^1.90.0",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vscode/vsce": "catalog:",
+    "esbuild": "catalog:"
+  },
+  "displayName": "Gigai Chronicle",
+  "publisher": "gigaichronicle",
+  "engines": {
+    "vscode": "^1.90.0",
+    "node": ">=20.19.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:.chronicle/config.json"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gigaichronicle",
+          "title": "Chronicle",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "gigaichronicle": [
+        {
+          "id": "chronicle.sessions",
+          "name": "Sessions"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "chronicle.openTimeline",
+        "title": "Chronicle: Open Timeline"
+      },
+      {
+        "command": "chronicle.replaySession",
+        "title": "Chronicle: Replay Session"
+      },
+      {
+        "command": "chronicle.refresh",
+        "title": "Chronicle: Refresh"
+      }
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "chronicle.replaySession",
+          "when": "view == chronicle.sessions"
+        }
+      ]
+    }
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Read-only in untrusted workspaces: no capture, no hook installation."
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cbsshekhawat18-lab/gigai-chronicle.git"
   }
 }

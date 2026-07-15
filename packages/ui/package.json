@@ -1,6 +1,6 @@
 {
   "name": "@gigaichronicle/ui",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Shared UI components for the Timeline webview and, later, the cloud dashboard (ARCHITECTURE.md §12).",
   "license": "MIT",
   "type": "module",
