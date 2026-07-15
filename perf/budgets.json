@@ -1,0 +1,15 @@
+{
+  "$comment": "Performance budgets from ARCHITECTURE.md §19 — budgets are merge gates, not aspirations. The runner arrives with M4's 100k-event fixture generator; each milestone wires the budgets it owns (owner column = milestone).",
+  "fixture": { "events": 100000 },
+  "budgets": [
+    { "id": "event-engine.append.p99", "budgetMs": 5, "owner": "M5", "note": "validate→append hot path, no-fsync" },
+    { "id": "replay.session-1k.full", "budgetMs": 250, "owner": "M8" },
+    { "id": "replay.frame-step", "budgetMs": 10, "owner": "M8" },
+    { "id": "query.timeline.month-10k", "budgetMs": 100, "owner": "M4" },
+    { "id": "query.fts.100k", "budgetMs": 200, "owner": "M4" },
+    { "id": "index.rebuild.100k", "budgetMs": 30000, "owner": "M4" },
+    { "id": "cli.cold-start", "budgetMs": 150, "owner": "M4" },
+    { "id": "extension.activation.phase-a", "budgetMs": 50, "owner": "M10" },
+    { "id": "extension.memory.steady-mb", "budgetMs": null, "budgetMb": 100, "owner": "M10" }
+  ]
+}

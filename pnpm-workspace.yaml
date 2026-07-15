@@ -1,0 +1,16 @@
+# Workspace layout per ARCHITECTURE.md §12.
+packages:
+  - "packages/*"
+  - "packages/providers/*"
+  - "apps/*"
+
+# Single source of truth for shared toolchain versions (pnpm catalogs).
+catalog:
+  "@types/node": "^20.14.0"
+  typescript: "^5.6.0"
+  vitest: "^3.0.0"
+
+# pnpm 10 blocks dependency build scripts by default; esbuild (vitest's
+# transform engine) is the only approved one. Additions require review.
+onlyBuiltDependencies:
+  - esbuild

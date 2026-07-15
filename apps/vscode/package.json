@@ -1,0 +1,34 @@
+{
+  "name": "gigaichronicle-vscode",
+  "version": "0.0.0",
+  "description": "VS Code / Cursor / Windsurf extension: Sessions tree + Timeline webview (ARCHITECTURE.md §15).",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@gigaichronicle/schema": "workspace:^",
+    "@gigaichronicle/core": "workspace:^",
+    "@gigaichronicle/ui": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

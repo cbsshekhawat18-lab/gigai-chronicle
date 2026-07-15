@@ -1,0 +1,32 @@
+{
+  "name": "@gigaichronicle/provider-claude-code",
+  "version": "0.0.0",
+  "description": "Claude Code provider: tier-1 hooks capture + tier-2 transcript backfill (PROVIDERS.md, CAPTURE-SURFACES.md §2).",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@gigaichronicle/schema": "workspace:^",
+    "@gigaichronicle/plugin-kit": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
