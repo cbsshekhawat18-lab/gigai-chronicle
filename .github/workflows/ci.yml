@@ -44,3 +44,7 @@ jobs:
       # Repo tooling tests (node:test; includes a clean-tree check of the
       # boundary linter against this very repository).
       - run: pnpm test:scripts
+
+      # Serial budget phase: perf gates that must not share the box with the
+      # parallel test storm (perf/README.md methodology).
+      - run: pnpm test:budgets
