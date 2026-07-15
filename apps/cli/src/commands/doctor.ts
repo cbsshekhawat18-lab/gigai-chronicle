@@ -5,7 +5,7 @@ import {
   EXIT_OK,
   findChronicleDir,
   printJson,
-  resolveWorkspaceId,
+  resolveWorkspace,
 } from "../context.js";
 
 export async function runDoctorCommand(
@@ -19,7 +19,7 @@ export async function runDoctorCommand(
   }
   try {
     const report = await runDoctor(chronicleDir, {
-      workspaceId: resolveWorkspaceId(chronicleDir),
+      workspaceId: await resolveWorkspace(chronicleDir),
       reindex: options.reindex === true,
       scanSecrets: options.scanSecrets === true,
     });

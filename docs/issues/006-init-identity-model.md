@@ -37,15 +37,24 @@ history; `git diff` after init shows exactly three touched paths.
 
 ## Work breakdown (child issues)
 
-- [ ] ADR: fingerprint algorithm + remote-URL normalization rules (S, decision)
-- [ ] Identity mint + config read/write (M)
-- [ ] Workspace state + `WorkspaceMoved` detection (M)
-- [ ] Fingerprint compute/cache + foreign-repo guard (M)
-- [ ] Scaffold + `.gitattributes` writer (S)
-- [ ] Init interview + `--yes` path (M)
-- [ ] `chronicle status` (S)
-- [ ] Identity scenario test suite (rename/move/clone/fork/two-clones/no-remote) (L)
-- [ ] Init UX copy review (S) `good-first-issue`
+- [x] ADR: fingerprint algorithm + remote-URL normalization rules (S, decision) — **ADR-0009** with a pinned conformance digest vector; foreign check compares roots, never digests
+- [x] Identity mint + config read/write (M) — `runInit`; config gains additive `capture.mode` field (decision #3 storage)
+- [x] Workspace state + `WorkspaceMoved` detection (M) — `machine.json` extends M4's seed; `openWorkspace` is every surface's front door
+- [x] Fingerprint compute/cache + foreign-repo guard (M) — shallow-aware; recorded roots kept when the current view is shallow
+- [x] Scaffold + `.gitattributes` writer (S) — append-never-clobber, idempotent
+- [x] Init interview + `--yes` path (M) — 3 questions, TTY-aware fallback to defaults
+- [x] `chronicle status` (S) — project identity, foreign-repo warning, per-provider config with honest support notes
+- [x] Identity scenario test suite (L) — all 8 §6 scenarios with real git (clone/worktree/fork), run under spaced paths
+- [x] Init UX copy review (S) — output reports the complete footprint
+
+**Status 2026-07-15:** implemented and validated — 26 new tests (100 core
+total + 11 CLI). **DoD #2 corrected during implementation:** the epic's
+3-file footprint list was incomplete — `ProjectCreated` is a shared journey
+event by design (§5.3), so its ambient stream file is committed too; init
+now reports all four touched paths and the DoD test asserts exactly that.
+The engine fuzzer also caught a real store bug mid-milestone (JSON
+round-trip asymmetry for `undefined` payloads) — fixed by validating the
+serialized line in `EventLog.append` + a deterministic regression test.
 
 ## Definition of Done
 

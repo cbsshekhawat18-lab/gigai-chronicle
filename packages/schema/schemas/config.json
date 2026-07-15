@@ -48,6 +48,13 @@
             ]
           }
         },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "full",
+            "metadata"
+          ]
+        },
         "redaction": {
           "type": "object",
           "properties": {

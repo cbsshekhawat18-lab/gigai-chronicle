@@ -55,5 +55,25 @@ export { createRedactor, marker, type Redactor } from "./redaction/redact.js";
 export { harvestEnvValues } from "./redaction/env-harvest.js";
 export { findEntropyTokens, looksLikeSecretToken, shannonEntropy } from "./redaction/entropy.js";
 
+// Identity model + init (M6)
+export {
+  computeRepositoryFingerprint,
+  digestFingerprint,
+  isForeignRepository,
+  normalizeRemoteUrl,
+  type RepositoryFingerprint,
+} from "./identity/fingerprint.js";
+export {
+  loadOrCreateMachineState,
+  saveMachineState,
+  machineFilePath,
+  utcDay,
+  type MachineState,
+} from "./identity/machine.js";
+export { openWorkspace, type WorkspaceContext } from "./identity/open-workspace.js";
+export { runInit, type InitOptions, type InitResult } from "./init/init.js";
+export { detectProviders, type ProviderMode } from "./init/detect-providers.js";
+export { isGitRepository } from "./git/git-info.js";
+
 /** Canonical package name; kept in sync with package.json by test. */
 export const PACKAGE_NAME = "@gigaichronicle/core";

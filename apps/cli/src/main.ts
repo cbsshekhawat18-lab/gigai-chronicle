@@ -4,6 +4,7 @@
  * replay with M8.)
  */
 import { Command, CommanderError } from "commander";
+import { runInitCommand } from "./commands/init.js";
 import { runDoctorCommand } from "./commands/doctor.js";
 import { runTimelineCommand } from "./commands/timeline.js";
 import { runStatusCommand } from "./commands/status.js";
@@ -19,6 +20,26 @@ program
   .version(typeof __CLI_VERSION__ === "string" ? __CLI_VERSION__ : "0.0.0")
   .option("--json", "machine-readable output (stable, versioned)")
   .exitOverride();
+
+program
+  .command("init")
+  .description("initialize this repository as a chronicle project (J1: consent-first, ≤3 questions)")
+  .option("-y, --yes", "accept all defaults, no questions")
+  .option("--name <name>", "project name (default: repo directory name)")
+  .option("--metadata-only", "high-sensitivity mode: event shapes/timings, no prompt text")
+  .option("--private-sessions", "new sessions start private (promote deliberately)")
+  .option("--git-trailer", "record the opt-in Chronicle-Session trailer choice (hook installs with M9)")
+  .action(
+    async (options: {
+      yes?: boolean;
+      name?: string;
+      metadataOnly?: boolean;
+      privateSessions?: boolean;
+      gitTrailer?: boolean;
+    }) => {
+      process.exitCode = await runInitCommand(options, program.opts<{ json?: boolean }>());
+    },
+  );
 
 program
   .command("doctor")

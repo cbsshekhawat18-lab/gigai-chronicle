@@ -115,8 +115,20 @@ export class EventLog {
       const ref = streamForEvent(candidate);
       const file = absoluteStreamPath(this.#dir, ref);
       const { event } = await spillOversizedFields(candidate, blobDirFor(file));
+      // Validate the SERIALIZED line, not just the object: JSON round-trips
+      // are lossy for undefined/NaN/functions, and what must be valid is
+      // what lands on disk (found by fuzzing — an Ext payload of `undefined`
+      // validated in memory but serialized to a payload-less line).
+      const line = JSON.stringify(event);
+      const lineVerdict = parseChronicleEventLine(line);
+      if (!lineVerdict.ok) {
+        throw new ChronicleError(
+          "E_INVALID_EVENT",
+          `event does not survive JSON serialization: ${lineVerdict.code} — ${lineVerdict.message}`,
+        );
+      }
       const stream = await this.#openStream(ref.relativeFile, file, lockNameFor(ref));
-      await stream.handle.write(JSON.stringify(event) + "\n", null, "utf8");
+      await stream.handle.write(line + "\n", null, "utf8");
     }
   }
 

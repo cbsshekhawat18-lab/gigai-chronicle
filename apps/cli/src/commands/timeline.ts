@@ -5,7 +5,7 @@ import {
   EXIT_OK,
   findChronicleDir,
   printJson,
-  resolveWorkspaceId,
+  resolveWorkspace,
 } from "../context.js";
 
 /** One-line human summary per event type; falls back to the type name. */
@@ -49,7 +49,7 @@ export async function runTimelineCommand(
   }
 
   const log = await EventLog.open(chronicleDir, {
-    workspaceId: resolveWorkspaceId(chronicleDir),
+    workspaceId: await resolveWorkspace(chronicleDir),
     fsyncIntervalMs: 0,
   });
   const index = ChronicleIndex.open(chronicleDir);

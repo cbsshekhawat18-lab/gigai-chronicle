@@ -137,6 +137,23 @@ describe("EventEngine.emit — the four stages", () => {
     expect(events.filter((e) => e.type === "CaptureGap")).toHaveLength(2);
   });
 
+  it("gap: non-JSON payloads are refused (fuzz-found regression: undefined survives zod but not JSON)", async () => {
+    const dir = tempDir();
+    const engine = await openEngine(dir);
+    // undefined passes in-memory zod unknown() but JSON.stringify drops the
+    // key, producing a line that fails re-parse — must gap, never store.
+    const result = await engine.emit({
+      type: "Ext.example-tool.Weird",
+      session: newId("session"),
+      payload: undefined,
+    });
+    await engine.close();
+    expect(result.accepted).toBe(false);
+    expect((result as { reason: string }).reason).toContain("JSON-representable");
+    const events = await storedEvents(dir);
+    expect(events.map((e) => e.type)).toEqual(["CaptureGap"]);
+  });
+
   it("gap: oversized payloads are refused with the size guard", async () => {
     const dir = tempDir();
     const engine = await openEngine(dir);

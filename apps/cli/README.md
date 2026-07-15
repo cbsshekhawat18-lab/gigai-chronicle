@@ -3,15 +3,31 @@
 Every core capability, headless ([ARCHITECTURE §14](../../docs/ARCHITECTURE.md#14-cli-design)).
 Single-file esbuild bundle; cold start budget < 150ms (test-enforced).
 
-## Commands (M4 skeleton)
+## Quickstart
+
+```bash
+cd your-git-repo
+chronicle init            # 3 questions, all skippable — or: chronicle init --yes
+chronicle status          # project identity, store, index, provider config
+chronicle doctor          # integrity + the zero-egress proof
+```
+
+`init` touches exactly: `.chronicle/config.json`, `.chronicle/.gitignore`,
+`.gitattributes` (one appended line), and your journey's first event
+(`ProjectCreated` — a committed, shared event by design). Renaming, moving,
+cloning, or forking the repo never breaks history: identity lives in the
+project ULID and root-commit fingerprint, never in paths (ADR-0009).
+
+## Commands
 
 | Command | Purpose |
 |---|---|
 | `chronicle doctor [--reindex] [--scan-secrets]` | The trust anchor: log integrity (heals torn writes), index freshness, retroactive secret audit, and the **zero-egress report** — prints every network destination Chronicle is configured to use (empty by default, provably) |
 | `chronicle timeline [--since --until --branch --session --type… --limit]` | The journey, listed. The extension's timeline is this query with pixels |
-| `chronicle status` | Store/index/capture health at a glance (honest: says no providers are installed until M6/M7 land) |
+| `chronicle init [--yes] [--name] [--metadata-only] [--private-sessions] [--git-trailer]` | Initialize: mint identity, scaffold, detect tools, record ProjectCreated (M6) |
+| `chronicle status` | Project identity (incl. foreign-repo warning), store/index health, per-provider config with honest support notes |
 
-Coming with their milestones: `init` (M6), `import`/live capture (M7),
+Coming with their milestones: `import`/live capture (M7),
 `replay`/`inspect`/`log`/`session`/`export` (M8).
 
 ## Conventions (stable forever)

@@ -4,10 +4,12 @@
  */
 
 export type ChronicleErrorCode =
-  | "E_NOT_INITIALIZED" // no chronicle store where one was expected
-  | "E_LOCKED" //          another live process holds the stream lock
-  | "E_INVALID_EVENT" //   caller tried to append data that fails the spec
-  | "E_SCHEMA_AHEAD"; //   data written by a newer chronicle
+  | "E_NOT_INITIALIZED" //     no chronicle store (or git repo) where one was expected
+  | "E_ALREADY_INITIALIZED" // init on an existing chronicle project
+  | "E_LOCKED" //              another live process holds the stream lock
+  | "E_INVALID_EVENT" //       caller tried to append data that fails the spec
+  | "E_FOREIGN_REPO" //        project id present but repo root history is disjoint (§6)
+  | "E_SCHEMA_AHEAD"; //       data written by a newer chronicle
 
 export class ChronicleError extends Error {
   override readonly name = "ChronicleError";
