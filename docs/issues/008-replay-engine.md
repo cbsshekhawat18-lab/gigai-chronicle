@@ -37,17 +37,28 @@ also goes in the README as the project's first hero artifact.
 
 ## Work breakdown (child issues)
 
-- [ ] ADR: ReplayFrame model + determinism rules (M, decision)
-- [ ] Conversation reconstruction (M)
-- [ ] Working-set / tool-run / git-context accumulation (M)
-- [ ] Gap + fidelity surfacing (S)
-- [ ] Checkpointing + `frameAt` (M)
-- [ ] Determinism property suite (M)
-- [ ] Golden-frame fixtures from M7 recordings (M)
-- [ ] `chronicle replay` terminal UX (M)
-- [ ] Digest generator (M)
-- [ ] `inspect` / `log` / `session` CLI batch (M)
-- [ ] Outside-tester gate session — recruit, run, record (S, **process**)
+- [x] ADR: ReplayFrame model + determinism rules (M, decision) — **ADR-0010** with the normative reduction table
+- [x] Conversation reconstruction (M) — pure left-fold, blob refs passed through (renderers resolve)
+- [x] Working-set / tool-run / git-context accumulation (M)
+- [x] Gap + fidelity surfacing (S) — gaps flip full→partial at the gap frame and never un-happen; manual/wrap providers cap at lossy
+- [x] Checkpointing + frameAt (M) — frameAt exact-by-construction (bounded re-fold measured 0.7ms/1k; checkpoints unnecessary at current budgets — ADR-0010 makes them an optimization, never a semantic)
+- [x] Determinism property suite (M) — repeat-identical + input-purity; golden snapshot
+- [x] Golden-frame fixtures (M) — literal envelopes → snapshotted frames (Spec v3 conformance seeds)
+- [x] `chronicle replay` terminal UX (M) — the HOMEPAGE hero rendering, --at and --json
+- [x] Digest generator (M) — final frame → ses_*.md with generated marker, idempotent, regenerated after import
+- [x] `inspect` / `log` / `session` CLI batch (M) — manual notes land in a per-day lossy session; privatize/promote move stream+digest and rebuild the index
+- [x] Outside-tester gate session (S, **process**) — **maintainer-side verification complete; OUTSIDE tester pending** (see status)
+
+**Status 2026-07-15 — GATE (maintainer side) PASSED ON REAL DATA:**
+`chronicle init && chronicle import claude-code && chronicle replay` on this
+very repository imported **523 events from the session that built the
+product** and replayed it end-to-end (87 turns, 434 tool runs, fidelity
+full); redaction held under real data (324 markers, 0 raw secrets, doctor
+clean). Replay budgets: 1k-session 4.2ms/250ms, step 0.7ms/10ms. Dogfooding
+also caught a REAL drift bug: live transcripts carry 6 auxiliary line types
+the fingerprint did not know — fixed + parser-version reset semantics added.
+**The outside-developer recording remains the one open gate artifact** — it
+requires a human tester the maintainer must recruit.
 
 ## Definition of Done
 

@@ -55,6 +55,26 @@ export { createRedactor, marker, type Redactor } from "./redaction/redact.js";
 export { harvestEnvValues } from "./redaction/env-harvest.js";
 export { findEntropyTokens, looksLikeSecretToken, shannonEntropy } from "./redaction/entropy.js";
 
+// Replay Engine (M8) — the capability; timeline and digests are renderings
+export {
+  replaySession,
+  reduceFrame,
+  frameAt,
+  type ReplayFrame,
+  type Turn,
+  type FileState,
+  type ToolRun,
+  type GitContext,
+  type CaptureGapRef,
+  type Fidelity,
+} from "./replay/frames.js";
+export {
+  renderSessionDigest,
+  generateSessionDigests,
+  sessionEvents,
+  type DigestReport,
+} from "./replay/digest.js";
+
 // Identity model + init (M6)
 export {
   computeRepositoryFingerprint,
