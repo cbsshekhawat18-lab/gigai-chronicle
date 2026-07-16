@@ -17,8 +17,10 @@ function summarize(event: ChronicleEvent): string {
     case "PromptSubmitted":
     case "PromptEdited":
       return truncate(text("text"));
-    case "AIResponseReceived":
-      return truncate(text("text"));
+    case "AIResponseReceived": {
+      const badge = typeof event.actor.model === "string" ? `[${event.actor.model}] ` : "";
+      return `${badge}${truncate(text("text"))}`;
+    }
     case "ToolExecuted":
       return `${text("tool")} → ${text("outcome") || "?"}`;
     case "GitCommitCreated":
@@ -63,6 +65,8 @@ export async function runTimelineCommand(
         ? { session: options["session"] as SessionId }
         : {}),
       ...(Array.isArray(options["type"]) ? { types: options["type"] } : {}),
+      ...(typeof options["provider"] === "string" ? { provider: options["provider"] } : {}),
+      ...(typeof options["model"] === "string" ? { model: options["model"] } : {}),
       limit: Number(options["limit"] ?? 100),
       latest: options["fromStart"] !== true, // default: the most recent window
     });

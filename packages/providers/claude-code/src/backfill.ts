@@ -112,6 +112,11 @@ export async function runBackfill(
 
       const fresh = lines.slice(already);
       const parsed = parseTranscript(fresh, session);
+      if (already > 0) {
+        // Incremental batch: the session is already open in the store — a
+        // second SessionStarted would wipe its title on replay (dogfood bug).
+        parsed.candidates = parsed.candidates.filter((c) => c.type !== "SessionStarted");
+      }
       if (parsed.drifted) {
         report.filesSkippedDrift += 1;
         await engine.reportDegraded(

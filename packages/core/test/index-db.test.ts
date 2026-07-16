@@ -140,6 +140,22 @@ describe("ChronicleIndex", () => {
     });
   });
 
+  it("provider/model filters and per-session badges", async () => {
+    const dir = tempDir();
+    const { session } = await seed(dir);
+    await withIndex(dir, async (index, log) => {
+      await index.catchUp(log);
+      expect(index.timeline({ provider: "example-tool" })).toHaveLength(4);
+      expect(index.timeline({ provider: "nonexistent" })).toHaveLength(0);
+      // seed SessionStarted carries actor.model example-model-1
+      expect(index.timeline({ model: "example-model-1" })).toHaveLength(1);
+      const summary = index.sessions()[0];
+      expect(summary?.providers).toEqual(["example-tool"]);
+      expect(summary?.models).toEqual(["example-model-1"]);
+      void session;
+    });
+  });
+
   it("sessions summaries join start/end and count events", async () => {
     const dir = tempDir();
     const { session } = await seed(dir);
@@ -205,6 +221,30 @@ describe("ChronicleIndex", () => {
     });
 
     expect(rebuilt).toEqual(incremental);
+  });
+
+  it("upgrade: a v1-shaped index file rebuilds cleanly (version check precedes DDL)", async () => {
+    const dir = tempDir();
+    await seed(dir);
+    // Forge a v1 index: old events table WITHOUT provider/model + version 1.
+    const { mkdirSync } = await import("node:fs");
+    const { createRequire } = await import("node:module");
+    const Database = createRequire(import.meta.url)("better-sqlite3");
+    mkdirSync(`${dir}/.cache`, { recursive: true });
+    const old = new Database(`${dir}/.cache/index.db`);
+    old.exec(
+      "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);" +
+        "CREATE TABLE events (id TEXT PRIMARY KEY, ts TEXT, type TEXT, session TEXT, branch TEXT, head TEXT, visibility TEXT, file TEXT, json TEXT);" +
+        "INSERT INTO meta VALUES ('index_schema_version', '1');",
+    );
+    old.close();
+
+    // Opening with the current schema must not throw — it must rebuild.
+    await withIndex(dir, async (index, log) => {
+      await index.catchUp(log);
+      expect(index.timeline({ provider: "example-tool" })).toHaveLength(4);
+      expect((await index.freshness(log)).fresh).toBe(true);
+    });
   });
 
   it("deleting the index file is always safe (disposable cache)", async () => {

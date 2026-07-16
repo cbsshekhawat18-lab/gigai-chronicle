@@ -51,11 +51,31 @@ export class ChronicleWorkspace {
       }
       const items: SessionListItem[] = [];
       for (const session of ids) {
-        const frames = replaySession(await sessionEvents(log, session));
+        const events = await sessionEvents(log, session);
+        const frames = replaySession(events);
         const last = frames[frames.length - 1];
         if (last === undefined) continue;
+        const providers = new Set<string>();
+        const models = new Set<string>();
+        for (const event of events) {
+          const at = event.meta.provider.lastIndexOf("@");
+          providers.add(at <= 0 ? event.meta.provider : event.meta.provider.slice(0, at));
+          if (typeof event.actor.model === "string" && !event.actor.model.startsWith("<")) {
+            models.add(event.actor.model);
+          }
+        }
+        const firstPrompt = last.conversation.find((t) => t.role === "human");
+        const promptPreview =
+          firstPrompt !== undefined && typeof firstPrompt.text === "string"
+            ? firstPrompt.text.replace(/\s+/g, " ").trim().slice(0, 60)
+            : null;
+        const label =
+          last.title ??
+          (promptPreview !== null && promptPreview !== "" ? promptPreview : null) ??
+          `Session · ${(last.startedTs ?? "").slice(0, 16).replace("T", " ") || session.slice(0, 12)}`;
         items.push({
           session,
+          label,
           title: last.title,
           startedTs: last.startedTs,
           endedTs: last.endedTs,
@@ -63,6 +83,8 @@ export class ChronicleWorkspace {
           tools: last.tools.length,
           fidelity: last.fidelity,
           gaps: last.gaps.length,
+          providers: [...providers].sort(),
+          models: [...models].sort(),
         });
       }
       return items.sort((a, b) => (b.startedTs ?? "").localeCompare(a.startedTs ?? ""));

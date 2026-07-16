@@ -30,7 +30,7 @@ const KNOWN_LINE_TYPES = new Set([
 ]);
 
 /** Bump when parsing semantics change — backfill state resets and retries. */
-export const TRANSCRIPT_PARSER_VERSION = 2;
+export const TRANSCRIPT_PARSER_VERSION = 3;
 
 /** Above this unknown-line ratio the file is treated as a format drift. */
 const DRIFT_THRESHOLD = 0.2;
@@ -41,6 +41,7 @@ interface TranscriptLine {
   sessionId?: string;
   message?: {
     role?: string;
+    model?: string;
     content?: string | Array<Record<string, unknown>>;
   };
 }
@@ -124,11 +125,16 @@ export function parseTranscript(lines: readonly string[], session: SessionId): P
         });
       }
     } else if (line.type === "assistant" && line.message?.role === "assistant") {
+      // Which model actually answered — the identity users filter by.
+      const rawModel = typeof line.message.model === "string" ? line.message.model : undefined;
+      // "<synthetic>" marks tool-internal messages, not a model identity.
+      const model = rawModel !== undefined && !rawModel.startsWith("<") ? rawModel : undefined;
+      const agent = { kind: "agent" as const, ...(model !== undefined ? { model } : {}) };
       for (const text of textBlocks(line.message.content)) {
         candidates.push({
           type: "AIResponseReceived",
           session,
-          actor: { kind: "agent" },
+          actor: agent,
           ...(ts !== undefined ? { ts } : {}),
           payload: { text, inResponseTo: null },
         });
@@ -137,7 +143,7 @@ export function parseTranscript(lines: readonly string[], session: SessionId): P
         candidates.push({
           type: "ToolExecuted",
           session,
-          actor: { kind: "agent" },
+          actor: agent,
           ...(ts !== undefined ? { ts } : {}),
           payload: { tool: tool.name, outcome: "success", summary: summarize(tool.input), durationMs: null },
         });
