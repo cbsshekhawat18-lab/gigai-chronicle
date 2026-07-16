@@ -69,7 +69,12 @@ export async function runTimelineCommand(
     if (global.json === true) {
       printJson("timeline", { count: events.length, events });
     } else if (events.length === 0) {
-      console.log("no events (capture arrives with the first provider — M7)");
+      const total = (await index.freshness(log)).eventsInLog;
+      console.log(
+        total === 0
+          ? "no events yet — try `chronicle import claude-code` (history) or start a new Claude Code session (live capture)"
+          : `no events match this filter (${total} recorded) — note: timestamps are UTC, which runs ~5.5h behind IST; try an earlier --since`,
+      );
     } else {
       for (const event of events) {
         console.log(`${event.ts}  ${event.type.padEnd(18)}  ${summarize(event)}`);
