@@ -19,7 +19,10 @@ await build({
   platform: "node",
   format: "cjs",
   target: "node20",
-  outfile: "dist/extension.js",
+  // .cjs: the manifest has type:module (workspace convention), so the CJS
+  // bundle must carry its own extension or VS Code loads it as ESM and the
+  // extension silently never activates (founder-testing find).
+  outfile: "dist/extension.cjs",
   external: ["vscode", "better-sqlite3"],
   logLevel: "warning",
 });
@@ -47,4 +50,4 @@ writeFileSync(
 </svg>
 `,
 );
-console.log("vscode: bundled dist/extension.js + dist/webview.js");
+console.log("vscode: bundled dist/extension.cjs + dist/webview.js");

@@ -86,8 +86,11 @@ describe("SessionsTreeProvider (honesty in pixels)", () => {
 
 describe("packaging property (ADR-0008 consequence)", () => {
   it("the extension bundle never references the native module at runtime", () => {
+    const manifest = JSON.parse(
+      readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../package.json"), "utf8"),
+    ) as { main: string };
     const bundle = readFileSync(
-      path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist/extension.js"),
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", manifest.main),
       "utf8",
     );
     // external+unused: the string may appear only in the single lazy require
