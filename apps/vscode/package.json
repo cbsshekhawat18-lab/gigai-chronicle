@@ -99,5 +99,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/cbsshekhawat18-lab/gigai-chronicle.git"
+  },
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#1b2430",
+    "theme": "dark"
   }
 }
