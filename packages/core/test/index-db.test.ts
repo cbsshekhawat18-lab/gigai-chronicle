@@ -125,6 +125,21 @@ describe("ChronicleIndex", () => {
     });
   });
 
+  it("latest window: most recent N, returned in chronological order", async () => {
+    const dir = tempDir();
+    const { session } = await seed(dir);
+    await withIndex(dir, async (index, log) => {
+      await index.catchUp(log);
+      const all = index.timeline();
+      const latest2 = index.timeline({ latest: true, limit: 2 });
+      expect(latest2).toHaveLength(2);
+      expect(latest2).toEqual(all.slice(-2)); // the TAIL of the journey, reading order
+      expect(index.timeline({ latest: true, limit: 2, session })).toEqual(
+        index.timeline({ session }).slice(-2),
+      );
+    });
+  });
+
   it("sessions summaries join start/end and count events", async () => {
     const dir = tempDir();
     const { session } = await seed(dir);

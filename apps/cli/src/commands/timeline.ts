@@ -39,7 +39,7 @@ function truncate(value: string, max = 72): string {
 }
 
 export async function runTimelineCommand(
-  options: Record<string, string | string[] | undefined>,
+  options: Record<string, string | string[] | boolean | undefined>,
   global: { json?: boolean },
 ): Promise<number> {
   const chronicleDir = findChronicleDir(process.cwd());
@@ -64,6 +64,7 @@ export async function runTimelineCommand(
         : {}),
       ...(Array.isArray(options["type"]) ? { types: options["type"] } : {}),
       limit: Number(options["limit"] ?? 100),
+      latest: options["fromStart"] !== true, // default: the most recent window
     });
 
     if (global.json === true) {
@@ -78,6 +79,9 @@ export async function runTimelineCommand(
     } else {
       for (const event of events) {
         console.log(`${event.ts}  ${event.type.padEnd(18)}  ${summarize(event)}`);
+      }
+      if (events.length === Number(options["limit"] ?? 100) && options["fromStart"] !== true) {
+        console.log(`(latest ${events.length} — older events exist: raise --limit, or --from-start for the beginning)`);
       }
     }
     return EXIT_OK;
