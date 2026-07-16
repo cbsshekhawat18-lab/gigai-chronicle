@@ -61,7 +61,8 @@ program
   .option("--session <id>", "filter by session")
   .option("--type <types...>", "filter by event type(s)")
   .option("--limit <n>", "max events", "100")
-  .action(async (options: Record<string, string | string[] | undefined>) => {
+  .option("--from-start", "oldest-first from the beginning (default shows the latest window)")
+  .action(async (options: Record<string, string | string[] | boolean | undefined>) => {
     const { runTimelineCommand } = await import("./commands/timeline.js");
     process.exitCode = await runTimelineCommand(options, program.opts<{ json?: boolean }>());
   });
