@@ -29,6 +29,10 @@ export interface TimelineQuery {
   types?: readonly string[];
   branch?: string;
   session?: SessionId;
+  /** Capturing provider id (normalized, no version) — e.g. "claude-code". */
+  provider?: string;
+  /** Model identifier as the tool reported it. */
+  model?: string;
   limit?: number;
   /** Take the most RECENT limit-sized window (returned in chronological order). */
   latest?: boolean;
@@ -42,6 +46,10 @@ export interface SessionSummary {
   model: string | null;
   title: string | null;
   events: number;
+  /** Every provider that contributed events to this session (badges). */
+  providers: string[];
+  /** Every model that answered in this session (badges). */
+  models: string[];
 }
 
 export interface SearchHit {
@@ -84,10 +92,13 @@ export class ChronicleIndex {
     let db = new Database(file);
     db.pragma("journal_mode = WAL");
     db.pragma("synchronous = NORMAL");
-    db.exec(DDL);
 
-    const version = readMeta(db, "index_schema_version");
-    if (version !== null && Number(version) !== INDEX_SCHEMA_VERSION) {
+    // Version check BEFORE any DDL: running a newer schema's DDL against an
+    // older file can itself error (e.g. an index on a column that doesn't
+    // exist yet) — found upgrading the live dogfood store v1→v2. An
+    // unreadable/absent version on a non-empty file is treated as stale.
+    const version = safeReadVersion(db);
+    if (version !== null && version !== INDEX_SCHEMA_VERSION) {
       // Version mismatch → rebuild-from-scratch is the only migration (§8).
       db.close();
       rmSync(file, { force: true });
@@ -96,8 +107,8 @@ export class ChronicleIndex {
       db = new Database(file);
       db.pragma("journal_mode = WAL");
       db.pragma("synchronous = NORMAL");
-      db.exec(DDL);
     }
+    db.exec(DDL);
     writeMeta(db, "index_schema_version", String(INDEX_SCHEMA_VERSION));
     return new ChronicleIndex(db);
   }
@@ -174,6 +185,14 @@ export class ChronicleIndex {
       where.push("session = ?");
       params.push(query.session);
     }
+    if (query.provider !== undefined) {
+      where.push("provider = ?");
+      params.push(query.provider);
+    }
+    if (query.model !== undefined) {
+      where.push("model = ?");
+      params.push(query.model);
+    }
     params.push(query.limit ?? 1000);
     const order = query.latest === true ? "ts DESC, id DESC" : "ts, id";
     const rows = this.#db
@@ -184,13 +203,27 @@ export class ChronicleIndex {
   }
 
   sessions(): SessionSummary[] {
-    return this.#db
+    const rows = this.#db
       .prepare(
-        `SELECT s.id, s.started, s.ended, s.provider, s.model, s.title,
+        `SELECT s.id,
+                (SELECT MIN(e2.ts) FROM events e2 WHERE e2.session = s.id) AS started,
+                s.ended, s.provider, s.model, s.title,
                 (SELECT COUNT(*) FROM events e WHERE e.session = s.id) AS events
-         FROM sessions s ORDER BY s.started, s.id`,
+         FROM sessions s ORDER BY started, s.id`,
       )
-      .all() as SessionSummary[];
+      .all() as Array<Omit<SessionSummary, "providers" | "models">>;
+    const providersFor = this.#db.prepare(
+      "SELECT DISTINCT provider FROM events WHERE session = ? AND provider IS NOT NULL ORDER BY provider",
+    );
+    const modelsFor = this.#db.prepare(
+      // "<...>"-wrapped values are tool-internal markers, not model identities.
+      "SELECT DISTINCT model FROM events WHERE session = ? AND model IS NOT NULL AND model NOT LIKE '<%' ORDER BY model",
+    );
+    return rows.map((row) => ({
+      ...row,
+      providers: (providersFor.all(row.id) as Array<{ provider: string }>).map((r) => r.provider),
+      models: (modelsFor.all(row.id) as Array<{ model: string }>).map((r) => r.model),
+    }));
   }
 
   search(query: string, limit = 50): SearchHit[] {
@@ -281,14 +314,16 @@ export class ChronicleIndex {
   #indexEvent(event: ChronicleEvent, file: string): void {
     this.#db
       .prepare(
-        `INSERT OR IGNORE INTO events (id, ts, type, session, branch, head, visibility, file, json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT OR IGNORE INTO events (id, ts, type, session, provider, model, branch, head, visibility, file, json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         event.id,
         event.ts,
         event.type,
         event.session ?? null,
+        stripProviderVersion(event.meta.provider),
+        event.actor.model ?? null,
         event.git.branch,
         event.git.head,
         event.meta.visibility,
@@ -330,6 +365,22 @@ export class ChronicleIndex {
     if (text !== null) {
       this.#db.prepare("INSERT INTO events_fts (text, event_id) VALUES (?, ?)").run(text, event.id);
     }
+  }
+}
+
+/** "claude-code@1.0.0" → "claude-code" — the id users filter by. */
+function stripProviderVersion(providerRef: string): string {
+  const at = providerRef.lastIndexOf("@");
+  return at <= 0 ? providerRef : providerRef.slice(0, at);
+}
+
+/** Schema version of an existing file; null when it has none (fresh file). */
+function safeReadVersion(db: BetterSqlite3.Database): number | null {
+  try {
+    const value = readMeta(db, "index_schema_version");
+    return value === null ? null : Number(value);
+  } catch {
+    return null; // no meta table — fresh or pre-meta file; DDL will create it
   }
 }
 

@@ -59,6 +59,7 @@ export function mapHookToCandidate(
   input: HookInput,
   session: SessionId,
   responseText: string | null,
+  responseModel: string | null = null,
 ): RawCandidate | null {
   switch (eventName) {
     case "SessionStart":
@@ -91,7 +92,7 @@ export function mapHookToCandidate(
       return {
         type: "AIResponseReceived",
         session,
-        actor: { kind: "agent" },
+        actor: { kind: "agent", ...(responseModel !== null ? { model: responseModel } : {}) },
         payload: { text: responseText, inResponseTo: null },
       };
     case "PostToolUse": {

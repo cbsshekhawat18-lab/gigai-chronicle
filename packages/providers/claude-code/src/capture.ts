@@ -17,8 +17,13 @@ export interface CaptureOutcome {
   note?: string;
 }
 
-/** Last assistant text from the transcript tail (bounded read — Stop enrichment). */
-export function readResponseTail(transcriptPath: string, maxBytes = 256 * 1024): string | null {
+export interface ResponseTail {
+  text: string | null;
+  model: string | null;
+}
+
+/** Last assistant text+model from the transcript tail (bounded read — Stop enrichment). */
+export function readResponseTail(transcriptPath: string, maxBytes = 256 * 1024): ResponseTail {
   try {
     const fd = openSync(transcriptPath, "r");
     try {
@@ -33,27 +38,28 @@ export function readResponseTail(transcriptPath: string, maxBytes = 256 * 1024):
         try {
           const parsed = JSON.parse(line) as {
             type?: string;
-            message?: { content?: Array<Record<string, unknown>> | string };
+            message?: { model?: string; content?: Array<Record<string, unknown>> | string };
           };
           if (parsed.type !== "assistant") continue;
+          const model = typeof parsed.message?.model === "string" ? parsed.message.model : null;
           const content = parsed.message?.content;
-          if (typeof content === "string") return content;
+          if (typeof content === "string") return { text: content, model };
           if (Array.isArray(content)) {
             const texts = content
               .filter((b) => b["type"] === "text" && typeof b["text"] === "string")
               .map((b) => b["text"] as string);
-            if (texts.length > 0) return texts.join("\n");
+            if (texts.length > 0) return { text: texts.join("\n"), model };
           }
         } catch {
           continue; // torn tail of a live transcript — keep walking up
         }
       }
-      return null;
+      return { text: null, model: null };
     } finally {
       closeSync(fd);
     }
   } catch {
-    return null;
+    return { text: null, model: null };
   }
 }
 
@@ -78,12 +84,12 @@ export async function runCapture(
     }
     const session = SessionMap.load(chronicleDir).resolve(input.session_id);
 
-    const responseText =
+    const tail =
       eventName === "Stop" && typeof input.transcript_path === "string"
         ? readResponseTail(input.transcript_path)
-        : null;
+        : { text: null, model: null };
 
-    const candidate = mapHookToCandidate(eventName, input, session, responseText);
+    const candidate = mapHookToCandidate(eventName, input, session, tail.text, tail.model);
     if (candidate === null) {
       await engine.reportDegraded(1, 4, `hook ${eventName}: unmapped or malformed input`);
       return { ok: false, note: `unmapped hook ${eventName}` };
