@@ -155,3 +155,8 @@ Your next session is about to evaporate. The one after that doesn't have to.
   in the hero — the promise is tool-agnostic (revision item 1).
 - Every claim in the Trust section must link to its proof (doctor output,
   CI network-denial badge, the spec).
+
+
+---
+
+*Brand assets (canonical): `assets/brand/logo.png` (wordmark), `assets/brand/icon.png` (+ 512/256/128 sizes). Marketplace icon and README hero are generated from these — regenerate sizes with `sips -z <n> <n> assets/brand/icon.png --out …`.*

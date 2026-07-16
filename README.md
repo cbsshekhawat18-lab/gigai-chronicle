@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/logo.png" width="380" alt="Gigai Chronicle logo — a G forged on an anvil" />
+</p>
+
 # Gigai Chronicle
 
 > **Build software with AI. Never lose the journey.**
