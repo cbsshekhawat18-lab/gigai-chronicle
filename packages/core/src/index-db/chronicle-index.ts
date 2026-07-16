@@ -30,6 +30,8 @@ export interface TimelineQuery {
   branch?: string;
   session?: SessionId;
   limit?: number;
+  /** Take the most RECENT limit-sized window (returned in chronological order). */
+  latest?: boolean;
 }
 
 export interface SessionSummary {
@@ -173,9 +175,11 @@ export class ChronicleIndex {
       params.push(query.session);
     }
     params.push(query.limit ?? 1000);
+    const order = query.latest === true ? "ts DESC, id DESC" : "ts, id";
     const rows = this.#db
-      .prepare(`SELECT json FROM events WHERE ${where.join(" AND ")} ORDER BY ts, id LIMIT ?`)
+      .prepare(`SELECT json FROM events WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ?`)
       .all(...params) as Array<{ json: string }>;
+    if (query.latest === true) rows.reverse(); // window reads oldest → newest
     return rows.map((row) => JSON.parse(row.json) as ChronicleEvent);
   }
 
