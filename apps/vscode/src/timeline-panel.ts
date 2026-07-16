@@ -1,17 +1,29 @@
 /**
- * The ONE webview (§15.2): Timeline, rendering Replay Engine frames — never
- * raw provider data (design law 4). CSP-locked, theme via --vscode-* vars,
- * versioned snapshot/patch protocol; state stays host-side.
+ * The ONE webview (§15.2): Timeline, rendering the Replay Engine's stream
+ * projection — never raw provider data (design law 4). CSP-locked, theme
+ * via --vscode-* vars, versioned snapshot/patch protocol; state stays
+ * host-side. Windows of WINDOW_SIZE entries lazy-load newest-first.
  */
 import * as vscode from "vscode";
 import type { SessionId } from "@gigaichronicle/schema";
 import type { ChronicleWorkspace } from "./engine.js";
 import type { HostMessage, WebviewMessage } from "./protocol.js";
+import { buildStream, summarize, type StreamEntry, type StreamSummary } from "./stream.js";
+
+/** Entries per window — a few screens of history per load. */
+const WINDOW_SIZE = 300;
+
+interface CachedStream {
+  session: SessionId;
+  entries: StreamEntry[];
+  summary: StreamSummary;
+}
 
 export class TimelinePanel {
   static current: TimelinePanel | null = null;
   readonly #panel: vscode.WebviewPanel;
   #workspace: ChronicleWorkspace | null;
+  #cache: CachedStream | null = null;
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -48,11 +60,35 @@ export class TimelinePanel {
     return TimelinePanel.current;
   }
 
-  /** Ask the webview to show one session (tree click path). */
+  /** Show a session: build (and cache) its stream, send the LATEST window. */
   async showSession(session: SessionId): Promise<void> {
     if (this.#workspace === null) return;
     const frames = await this.#workspace.frames(session);
-    await this.#post({ kind: "patch", v: 1, data: { session, frames } });
+    this.#cache = { session, entries: buildStream(frames), summary: summarize(frames) };
+    await this.#sendWindow(session, Math.max(0, this.#cache.entries.length - WINDOW_SIZE), "replace");
+  }
+
+  async #sendWindow(
+    session: SessionId,
+    offset: number,
+    mode: "replace" | "prepend",
+  ): Promise<void> {
+    if (this.#cache === null || this.#cache.session !== session) return;
+    const info = (await this.#workspace?.sessions())?.find((s) => s.session === session);
+    const entries = this.#cache.entries.slice(offset, offset + WINDOW_SIZE);
+    await this.#post({
+      kind: "patch",
+      v: 1,
+      data: {
+        session,
+        ...(info !== undefined ? { info } : {}),
+        summary: this.#cache.summary,
+        entries,
+        offset,
+        totalEntries: this.#cache.entries.length,
+        mode,
+      },
+    });
   }
 
   async #handle(message: WebviewMessage): Promise<void> {
@@ -64,8 +100,12 @@ export class TimelinePanel {
       }
       if (message.name === "sessions") {
         await this.#post({ kind: "snapshot", v: 1, data: { sessions: await this.#workspace.sessions() } });
-      } else {
+      } else if (message.name === "frames") {
         await this.showSession(message.args.session as SessionId);
+      } else {
+        // "earlier": the window preceding `before`, from the cached stream.
+        const start = Math.max(0, message.args.before - WINDOW_SIZE);
+        await this.#sendWindow(message.args.session as SessionId, start, "prepend");
       }
       await this.#post({ kind: "reply", v: 1, reqId: message.reqId });
     } catch (error) {
