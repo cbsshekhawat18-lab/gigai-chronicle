@@ -25,7 +25,9 @@ export class SessionsTreeProvider implements vscode.TreeDataProvider<SessionList
   getTreeItem(item: SessionListItem): vscode.TreeItem {
     const tree = new vscode.TreeItem(item.label, vscode.TreeItemCollapsibleState.None);
     tree.id = item.session;
-    tree.description = `${relativeTime(item.startedTs)} · ${item.turns} turns${item.models.length > 0 ? ` · ${item.models[item.models.length - 1]}` : ""}`;
+    tree.description = item.live
+      ? `● live now · ${item.turns} turns`
+      : `${relativeTime(item.startedTs)} · ${item.turns} turns${item.models.length > 0 ? ` · ${item.models[item.models.length - 1]}` : ""}`;
     // Honesty in pixels (§15 DoD): degraded fidelity is visible, not hidden.
     tree.tooltip = [
       item.label,
@@ -36,9 +38,11 @@ export class SessionsTreeProvider implements vscode.TreeDataProvider<SessionList
       `${item.turns} turn(s), ${item.tools} tool run(s)`,
       `id: ${item.session}`,
     ].join("\n");
-    tree.iconPath = new vscode.ThemeIcon(
-      item.fidelity === "full" ? "comment-discussion" : item.fidelity === "partial" ? "warning" : "circle-outline",
-    );
+    tree.iconPath = item.live
+      ? new vscode.ThemeIcon("record", new vscode.ThemeColor("charts.green"))
+      : new vscode.ThemeIcon(
+          item.fidelity === "full" ? "comment-discussion" : item.fidelity === "partial" ? "warning" : "circle-outline",
+        );
     tree.command = {
       command: "chronicle.replaySession",
       title: "Replay",

@@ -73,9 +73,15 @@ export class ChronicleWorkspace {
           last.title ??
           (promptPreview !== null && promptPreview !== "" ? promptPreview : null) ??
           `Session · ${(last.startedTs ?? "").slice(0, 16).replace("T", " ") || session.slice(0, 12)}`;
+        const lastTs = events[events.length - 1]?.ts ?? null;
+        const live =
+          last.endedTs === null &&
+          lastTs !== null &&
+          Date.now() - Date.parse(lastTs) < 6 * 3600 * 1000;
         items.push({
           session,
           label,
+          live,
           title: last.title,
           startedTs: last.startedTs,
           endedTs: last.endedTs,
