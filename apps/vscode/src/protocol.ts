@@ -5,6 +5,8 @@
 import type { ReplayFrame } from "@gigaichronicle/core";
 
 export interface SessionListItem {
+  /** Human display name: title, else first prompt, else date — never a raw id. */
+  label: string;
   session: string;
   title: string | null;
   startedTs: string | null;
@@ -13,6 +15,10 @@ export interface SessionListItem {
   tools: number;
   fidelity: "full" | "partial" | "lossy";
   gaps: number;
+  /** Providers that captured this session (badges + filter). */
+  providers: string[];
+  /** Models that answered in this session (badges + filter). */
+  models: string[];
 }
 
 /** host → webview */

@@ -100,7 +100,7 @@ describe("--json envelope contract", () => {
       report: {
         ok: true,
         store: { healed: [], problems: [] },
-        index: { fresh: true, schemaVersion: 1 },
+        index: { fresh: true, schemaVersion: 2 }, // v2: provider/model columns
         egress: { endpoints: [], telemetry: "none", verdict: "zero-network" },
       },
     });

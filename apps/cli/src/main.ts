@@ -60,11 +60,23 @@ program
   .option("--branch <name>", "filter by branch at event time")
   .option("--session <id>", "filter by session")
   .option("--type <types...>", "filter by event type(s)")
+  .option("--provider <id>", "filter by capturing provider (e.g. claude-code)")
+  .option("--model <name>", "filter by the model that answered")
   .option("--limit <n>", "max events", "100")
   .option("--from-start", "oldest-first from the beginning (default shows the latest window)")
   .action(async (options: Record<string, string | string[] | boolean | undefined>) => {
     const { runTimelineCommand } = await import("./commands/timeline.js");
     process.exitCode = await runTimelineCommand(options, program.opts<{ json?: boolean }>());
+  });
+
+program
+  .command("sessions")
+  .description("session history with provider/model badges — which AI did the work")
+  .option("--provider <id>", "only sessions where this provider captured (e.g. claude-code)")
+  .option("--model <name>", "only sessions where this model answered")
+  .action(async (options: { provider?: string; model?: string }) => {
+    const { runSessionsCommand } = await import("./commands/sessions.js");
+    process.exitCode = await runSessionsCommand(options, program.opts<{ json?: boolean }>());
   });
 
 program

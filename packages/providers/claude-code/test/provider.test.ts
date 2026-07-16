@@ -156,6 +156,12 @@ describe("transcript parsing (fingerprinted)", () => {
     expect(parsed.candidates[0]?.payload).toMatchObject({
       title: "Add refresh-token rotation to the auth middleware",
     });
+    // Model identity rides on every agent candidate (badges & filters).
+    for (const c of parsed.candidates) {
+      if (c.type === "AIResponseReceived" || c.type === "ToolExecuted") {
+        expect(c.actor?.model).toBe("example-model-1");
+      }
+    }
   });
 
   it("CI canary: the current-format fixture must parse with zero unknown lines", () => {

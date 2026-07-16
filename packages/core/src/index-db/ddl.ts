@@ -4,7 +4,7 @@
  * rebuild — index migrations do not exist.
  */
 
-export const INDEX_SCHEMA_VERSION = 1;
+export const INDEX_SCHEMA_VERSION = 2; // v2: events.provider/events.model (badges & filters)
 
 export const DDL = `
 CREATE TABLE IF NOT EXISTS meta (
@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS events (
   ts         TEXT NOT NULL,
   type       TEXT NOT NULL,
   session    TEXT,
+  provider   TEXT,
+  model      TEXT,
   branch     TEXT,
   head       TEXT,
   visibility TEXT NOT NULL,
@@ -25,6 +27,7 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_ts      ON events(ts);
 CREATE INDEX IF NOT EXISTS idx_events_session ON events(session);
 CREATE INDEX IF NOT EXISTS idx_events_type    ON events(type);
+CREATE INDEX IF NOT EXISTS idx_events_provider ON events(provider);
 CREATE TABLE IF NOT EXISTS sessions (
   id       TEXT PRIMARY KEY,
   started  TEXT,
