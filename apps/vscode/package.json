@@ -5,7 +5,7 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "main": "./dist/extension.js",
+  "main": "./dist/extension.cjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
