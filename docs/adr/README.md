@@ -18,6 +18,13 @@ back).
 | [0004](0004-replay-before-timeline.md) | Replay before Timeline in build order (D9) | Accepted |
 | [0005](0005-mvp-surface-trim.md) | MVP surface trim (D10) | Accepted |
 | [0006](0006-positioning-ai-development-history.md) | Positioning: AI Development History (D11) | Accepted |
+| [0007](0007-store-stream-layout.md) | Store stream layout: ambient streams, ops streams, spill scope | Accepted |
+| [0008](0008-sqlite-driver.md) | SQLite driver: better-sqlite3 (node:sqlite as planned successor) | Accepted |
+| [0009](0009-repository-fingerprint.md) | Repository fingerprint algorithm & remote-URL normalization | Accepted |
+| [0010](0010-replay-frame-model.md) | ReplayFrame model & determinism rules | Accepted |
+| [0011](0011-prompt-library-pulled-forward.md) | Prompt library pulled forward into v0.1 | Accepted |
+| [0012](0012-git-native-code-checkpoints.md) | Git-native code checkpoints & explicit restore | Accepted |
+| [0013](0013-intent-attribution-pulled-forward.md) | Intent attribution (`chronicle why`) pulled forward into v0.1 | Accepted |
 
 Template:
 

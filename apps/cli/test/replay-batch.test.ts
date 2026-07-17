@@ -143,3 +143,63 @@ describe("chronicle restore (⏪ code time-travel, ADR-0012)", () => {
     expect((JSON.parse(after.stdout) as { count: number }).count).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("chronicle why (intent attribution, ADR-0013)", () => {
+  interface Attribution {
+    eventId: string;
+    prompt: string | null;
+    openTurn: boolean;
+    files: Array<{ path: string; insertions: number | null; deletions: number | null }>;
+  }
+
+  /** Drive the real hook path: a captured prompt checkpoints the tree. */
+  async function capturePrompt(text: string): Promise<void> {
+    const { execFileSync } = await import("node:child_process");
+    execFileSync(process.execPath, [CLI, "capture", "claude-code", "--event", "UserPromptSubmit"], {
+      cwd: repo,
+      input: JSON.stringify({ session_id: "why-uuid", prompt: text }),
+    });
+  }
+
+  it("answers what was ASKED that changed a file, and marks the open turn", async () => {
+    const { writeFileSync } = await import("node:fs");
+    const nodePath = await import("node:path");
+    const target = nodePath.join(repo, "why-target.js");
+
+    writeFileSync(target, "a\n");
+    await capturePrompt("make it two lines"); // checkpoint: why-target.js = "a"
+    writeFileSync(target, "a\nb\n"); //           that turn's work
+    await capturePrompt("and a third"); //        checkpoint: why-target.js = "a b"
+    writeFileSync(target, "a\nb\nc\n"); //        this turn is still open
+
+    const human = await cli("why", "why-target.js");
+    expect(human.code).toBe(0);
+    expect(human.stdout).toContain("make it two lines");
+    expect(human.stdout).toContain("chronicle restore evt_"); // the ⏪ handoff
+
+    const json = await cli("--json", "why", "why-target.js");
+    const parsed = JSON.parse(json.stdout) as { command: string; attributions: Attribution[] };
+    expect(parsed.command).toBe("why");
+
+    // Look up by prompt text: the file's creation is legitimately attributed
+    // to whichever earlier turn it appeared in, so assert on what we asked.
+    const first = parsed.attributions.find((a) => a.prompt === "make it two lines");
+    expect(first?.files).toEqual([{ path: "why-target.js", insertions: 1, deletions: 0 }]);
+    expect(first?.openTurn).toBe(false);
+    expect(first?.eventId).toMatch(/^evt_/);
+
+    const second = parsed.attributions.find((a) => a.prompt === "and a third");
+    expect(second?.files).toEqual([{ path: "why-target.js", insertions: 1, deletions: 0 }]);
+    expect(second?.openTurn).toBe(true); // no successor checkpoint yet
+  });
+
+  it("says so honestly when nothing is known, and rejects paths outside the repo", async () => {
+    const unknown = await cli("why", "never-touched-by-a-prompt.js");
+    expect(unknown.code).toBe(0); // absence of an answer is not a failure
+    expect(unknown.stdout).toContain("no captured prompt");
+
+    const outside = await cli("why", path.join(tmpdir(), "elsewhere.js"));
+    expect(outside.code).toBe(2); // usage
+    expect(outside.stderr).toContain("outside this repository");
+  });
+});
