@@ -1,12 +1,13 @@
 # 0016 — Chronicle as a source: delivery surfaces and the Knowledge projection
 
-- Status: Proposed
+- Status: Accepted (founder decision, 2026-07-17)
 - Date: 2026-07-17
 - Relates: [ARCHITECTURE §3](../ARCHITECTURE.md) (the pipeline),
   [ARCHITECTURE §7.2](../ARCHITECTURE.md) (rule 2 — generated files),
   [ARCHITECTURE §12](../ARCHITECTURE.md) (Knowledge, Phase 2),
   [ADR-0011](0011-prompt-library-pulled-forward.md) / [ADR-0014](0014-prompt-seam-promote-captured.md) (the library this delivers),
   [CAPTURE-SURFACES.md](../CAPTURE-SURFACES.md) (the inbound analog),
+  [DELIVERY-SURFACES.md](../DELIVERY-SURFACES.md) (the audit this ADR requires),
   [PHASE-0 §5](../PHASE-0.md#5-product-boundaries) (boundary 10),
   [PHASE-0 §14](../PHASE-0.md#14-privacy-model) (consent gates)
 
@@ -65,9 +66,13 @@ The founder's underlying instinct — **the file must be small** — is correct.
 Measured on this repo's own store: a raw session digest is **118,959 bytes**;
 the same knowledge, selected and written in English, is **2,005 bytes** — a
 **98.3% reduction, with no encoding at all.** Compression comes from
-*selection*, not ciphers. Choosing what to leave out is the hard problem, and
-Chronicle is the only thing positioned to solve it, because only Chronicle
-has the journey.
+*selection*, not ciphers.
+
+**But read §4 before believing that number.** The 2,005-byte version was
+written by a *model*, and core may never call one. The reduction is real and
+the direction is right; the mechanism cannot be "Chronicle summarizes". What
+survives the law is selection over facts already on disk — which is still the
+thing only Chronicle can do, because only Chronicle has the journey.
 
 ## Decision
 
@@ -120,19 +125,45 @@ its own rubric (documented? stable? shared with the user's own edits? what
 breaks on a vendor release?). **No target ships on recall of its format.**
 That document is a precondition of implementation, not a follow-up.
 
-### 4. Knowledge is selection, in English
+### 4. Knowledge is EXTRACTION, not summarization
 
 The Knowledge projection (§12, Phase 2) renders **project memory**: the small
 set of things a new session or a new teammate must know and cannot derive from
-the code — the laws, the decisions that bite if forgotten, the things already
-tried and rejected, the open questions.
+the code — the laws, the decisions that bite if forgotten, the open questions.
+
+**The binding constraint, which nearly sank this ADR:** *"Core never calls a
+model"* (README, ARCHITECTURE §86, privacy.md, IMPLEMENTATION-MODE). It is a
+law, not a preference. Therefore:
+
+> **Chronicle may not summarize its own journey.** Turning 1,333 events into
+> two thousand words of prose is a model's job, and core is forbidden from
+> having one. Any design that assumes "Chronicle writes a good summary" is
+> unbuildable here — including the 98.3%-reduction demo that motivated this
+> ADR, which was written by a model and which Chronicle could not reproduce.
+
+What core CAN do, deterministically, is **extract and select**:
+
+- Facts already structured on disk: ADR titles, statuses, and supersessions;
+  the design laws (they are quotable, not derivable); session titles; library
+  prompts; `why` attributions; capture gaps.
+- **Pointers, not prose.** *"Read ADR-0015 before touching redaction"* is
+  cheap, precise, and verifiable. *"Here is what we learned about redaction"*
+  is a summary, and a lie waiting to rot.
+- **Selection is the product; comprehension is the reader's.** The AI that
+  loads the file already understands things — it does not need Chronicle to
+  pre-digest them. It needs to be told *which* of 1,333 events and 17 ADRs
+  matter. That is exactly what only Chronicle can know, and it needs no model
+  to answer.
 
 - **Derived and disposable**, like every projection. Regenerable from the
   store; never a source of truth; safe to delete.
 - **Its value is what it omits.** A projection that includes everything is the
-  log with worse ergonomics. Selection rules are the design work, and they are
-  deliberately left to the implementing ADR rather than guessed at here.
-- **Plain English.** Not a DSL, not shorthand.
+  log with worse ergonomics.
+- **Plain text.** Not a DSL, not shorthand, not an encoding.
+
+A model-written summary remains possible as a *user-curated* file the user
+authors and Chronicle merely keeps beside its pointers — but that is the
+user's model, invoked by the user, never core reaching for one.
 
 ### 5. Privacy boundaries (binding)
 
@@ -187,7 +218,9 @@ tried and rejected, the open questions.
 ## Open questions (for the implementing ADR)
 
 1. **Selection rules.** What earns a place in project memory, and what is the
-   size budget? This is the whole feature; it deserves its own decision.
+   size budget? This is the whole feature; it deserves its own decision — and
+   it is now a question about *ranking known facts*, not about writing prose,
+   because §4 forbids the latter.
 2. **Staleness.** A projection of a moving journey goes out of date. Regenerate
    on a hook, or report drift and let the user run it?
 3. **Region vs whole file.** Own an entire `CLAUDE.md`, or a marked region
