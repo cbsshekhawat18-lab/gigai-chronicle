@@ -18,7 +18,14 @@ import {
   resolveWorkspace,
 } from "../context.js";
 
-/** Prompt text as the store has it — absent under metadata-only capture (§14). */
+/**
+ * Prompt text as the store has it.
+ *
+ * Under metadata-only capture this is the `[METADATA-ONLY]` marker — a real
+ * string, and honest on its face (ADR-0015). Null means the body was spilled
+ * to a blob sidecar past 64KB (§7.2 rule 5), which is a different thing and
+ * must not be reported as a privacy mode.
+ */
 function promptText(event: ChronicleEvent | undefined): string | null {
   if (event === undefined) return null;
   const text = (event.payload as Record<string, unknown>)["text"];
@@ -118,7 +125,7 @@ export async function runWhyCommand(
       const when = item.ts === null ? "unknown time" : item.ts.replace("T", " ").slice(0, 16);
       const text =
         item.prompt === null
-          ? "(prompt text not captured — metadata-only mode)"
+          ? `(prompt body over 64KB, stored separately — chronicle inspect ${item.eventId})`
           : `"${truncate(item.prompt, 68)}"`;
       console.log(`  ${when}  ${item.churn.padStart(9)}  ${text}`);
       console.log(`  ${" ".repeat(when.length)}  ${" ".repeat(9)}  ⏪ chronicle restore ${item.eventId}`);
