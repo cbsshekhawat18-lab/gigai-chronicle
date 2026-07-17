@@ -21,6 +21,8 @@ function repo(): string {
   const dir = mkdtempSync(path.join(tmpdir(), "chronicle ckpt "));
   dirs.push(dir);
   git(dir, "init", "-q", "-b", "main");
+  // No user.name/email is configured here beyond the explicit -c flags —
+  // this mirrors CI runners and proves checkpoints carry their own identity.
   writeFileSync(path.join(dir, "app.js"), "// two inputs\ninput1\ninput2\n");
   git(dir, "add", "-A");
   git(dir, "commit", "-q", "-m", "v1: two inputs");
