@@ -7,16 +7,15 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
-import type { SessionListItem } from "../src/protocol.js";
-import type { Prompt } from "@gigaichronicle/core";
+import type { PromptWithHistory, SessionListItem } from "../src/protocol.js";
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 const vscode = acquireVsCodeApi();
 
 interface SidebarState {
   sessions: SessionListItem[];
-  prompts: Prompt[];
-  apply(sessions: SessionListItem[], prompts: Prompt[]): void;
+  prompts: PromptWithHistory[];
+  apply(sessions: SessionListItem[], prompts: PromptWithHistory[]): void;
 }
 
 const useStore = create<SidebarState>((set) => ({
@@ -27,7 +26,7 @@ const useStore = create<SidebarState>((set) => ({
 
 window.addEventListener(
   "message",
-  (event: MessageEvent<{ kind: string; data?: { sessions: SessionListItem[]; prompts?: Prompt[] } }>) => {
+  (event: MessageEvent<{ kind: string; data?: { sessions: SessionListItem[]; prompts?: PromptWithHistory[] } }>) => {
     if (event.data.kind === "snapshot" && event.data.data !== undefined) {
       useStore.getState().apply(event.data.data.sessions, event.data.data.prompts ?? []);
     }
@@ -78,7 +77,59 @@ const styles: Record<string, React.CSSProperties> = {
     opacity: 0.55,
     margin: "12px 2px 6px",
   },
+  // ---- prompt git-graph ----
+  graphRow: { display: "flex", gap: 10, cursor: "pointer", borderRadius: 6, padding: "2px 4px" },
+  rail: { position: "relative", width: 14, display: "flex", justifyContent: "center", flexShrink: 0 },
+  node: {
+    position: "relative",
+    zIndex: 1,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    marginTop: 5,
+    background: "var(--vscode-descriptionForeground)",
+    border: "2px solid var(--vscode-editor-background)",
+  },
+  nodeHead: { background: ACCENT, boxShadow: `0 0 6px ${ACCENT}aa` },
+  railLineTop: { position: "absolute", top: 0, bottom: "50%", width: 2, background: "var(--vscode-panel-border)" },
+  railLineBottom: { position: "absolute", top: "50%", bottom: 0, width: 2, background: "var(--vscode-panel-border)" },
+  commitBody: { flex: 1, minWidth: 0, paddingBottom: 8 },
+  commitHeadline: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  versionTag: {
+    fontSize: 10,
+    fontWeight: 600,
+    padding: "0 6px",
+    borderRadius: 4,
+    border: "1px solid var(--vscode-panel-border)",
+    fontFamily: "var(--vscode-editor-font-family)",
+  },
+  versionTagHead: { borderColor: ACCENT, color: ACCENT },
+  headLabel: {
+    fontSize: 9,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    padding: "0 5px",
+    borderRadius: 8,
+    background: `${ACCENT}22`,
+    color: ACCENT,
+  },
+  graphStat: { fontSize: 10, marginLeft: "auto", fontFamily: "var(--vscode-editor-font-family)" },
+  commitSubject: {
+    fontSize: 12,
+    opacity: 0.9,
+    marginTop: 2,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  commitTime: { fontSize: 10, opacity: 0.5, marginTop: 1 },
 };
+
+// Row hover highlight (inline styles can't do :hover) — one tiny stylesheet.
+const hoverStyle = document.createElement("style");
+hoverStyle.textContent =
+  ".chronicle-graph-row:hover{background:var(--vscode-list-hoverBackground);}";
+document.head.appendChild(hoverStyle);
 
 function dayLabel(ts: string | null): string {
   if (ts === null) return "Undated";
@@ -128,8 +179,9 @@ function Card({ item }: { item: SessionListItem }): React.JSX.Element {
   );
 }
 
-function PromptCard({ prompt }: { prompt: Prompt }): React.JSX.Element {
-  const versions = Array.from({ length: prompt.version }, (_, i) => i + 1);
+/** A prompt rendered as a git-graph: a commit rail with one node per version. */
+function PromptCard({ prompt }: { prompt: PromptWithHistory }): React.JSX.Element {
+  const history = prompt.history.length > 0 ? prompt.history : [];
   return (
     <div style={{ ...styles.card, cursor: "default" }}>
       <div style={styles.cardTitle}>{prompt.title}</div>
@@ -137,17 +189,49 @@ function PromptCard({ prompt }: { prompt: Prompt }): React.JSX.Element {
         {prompt.slug}
         {prompt.tags.length > 0 ? ` · ${prompt.tags.join(", ")}` : ""}
       </div>
-      <div style={styles.chipRow}>
-        {versions.map((v) => (
-          <button
-            key={v}
-            style={{ ...styles.chip, ...(v === prompt.version ? styles.chipOn : {}) }}
-            title={v === prompt.version ? `v${v} (current)` : `diff v${v} against current`}
-            onClick={() => vscode.postMessage({ kind: "promptDiff", slug: prompt.slug, version: v })}
-          >
-            v{v}
-          </button>
-        ))}
+      <div style={{ marginTop: 8 }}>
+        {history.map((node, i) => {
+          const isHead = i === 0; // history is newest-first
+          const isRoot = node.version === 1;
+          return (
+            <div
+              key={node.version}
+              style={styles.graphRow}
+              className="chronicle-graph-row"
+              title={
+                isRoot
+                  ? `v1 (initial) — click to view`
+                  : `v${node.version - 1} → v${node.version} — click to see what changed`
+              }
+              onClick={() =>
+                vscode.postMessage({ kind: "promptDiff", slug: prompt.slug, version: node.version })
+              }
+            >
+              {/* The rail: a vertical line + a commit dot. */}
+              <div style={styles.rail}>
+                {!isHead && <span style={styles.railLineTop} />}
+                <span style={{ ...styles.node, ...(isHead ? styles.nodeHead : {}) }} />
+                {!isRoot && <span style={styles.railLineBottom} />}
+              </div>
+              {/* The commit body. */}
+              <div style={styles.commitBody}>
+                <div style={styles.commitHeadline}>
+                  <span style={{ ...styles.versionTag, ...(isHead ? styles.versionTagHead : {}) }}>
+                    v{node.version}
+                  </span>
+                  {isHead && <span style={styles.headLabel}>current</span>}
+                  <span style={styles.graphStat}>
+                    {node.added > 0 && <span style={{ color: LIVE }}>+{node.added}</span>}
+                    {node.removed > 0 && <span style={{ color: "#f14c4c", marginLeft: 4 }}>−{node.removed}</span>}
+                    <span style={{ opacity: 0.5, marginLeft: 6 }}>{node.lines} lines</span>
+                  </span>
+                </div>
+                <div style={styles.commitSubject}>{node.preview}</div>
+                <div style={styles.commitTime}>{relative(node.savedAt)}</div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
