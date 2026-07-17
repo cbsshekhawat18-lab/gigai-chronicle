@@ -153,6 +153,9 @@ program
   .option("--tags <tags>", "comma-separated tags")
   .option("--text <text>", "prompt body inline")
   .option("--from-file <path>", "prompt body from a file")
+  .option("--from-last", "promote the last prompt you typed — no retyping (ADR-0014)")
+  .option("--from-event <evt>", "promote a captured prompt by event id")
+  .option("--from-session <ses>", "promote the last prompt of a session")
   .option("--session <id>", "provenance: the session this prompt came from")
   .action(async (action: string, slug: string | undefined, args: string[], flags: Record<string, string | undefined>) => {
     const { runPromptCommand } = await import("./commands/prompt.js");
