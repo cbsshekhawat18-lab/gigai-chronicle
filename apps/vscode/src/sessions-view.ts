@@ -5,12 +5,14 @@
  * pure-projection rules as the panel (§15.3).
  */
 import * as vscode from "vscode";
+import { listPrompts } from "@gigaichronicle/core";
 import type { ChronicleWorkspace } from "./engine.js";
 import type { SessionListItem } from "./protocol.js";
 
 type SidebarMessage =
   | { kind: "ready" }
-  | { kind: "open"; item: SessionListItem };
+  | { kind: "open"; item: SessionListItem }
+  | { kind: "promptDiff"; slug: string; version: number };
 
 export class SessionsViewProvider implements vscode.WebviewViewProvider {
   #view: vscode.WebviewView | null = null;
@@ -26,7 +28,9 @@ export class SessionsViewProvider implements vscode.WebviewViewProvider {
   async refresh(): Promise<void> {
     if (this.#view === null) return;
     const sessions = this.#workspace === null ? [] : await this.#workspace.sessions();
-    await this.#view.webview.postMessage({ kind: "snapshot", v: 1, data: { sessions } });
+    const prompts =
+      this.#workspace === null ? [] : await listPrompts(this.#workspace.chronicleDir).catch(() => []);
+    await this.#view.webview.postMessage({ kind: "snapshot", v: 1, data: { sessions, prompts } });
   }
 
   resolveWebviewView(view: vscode.WebviewView): void {
@@ -56,6 +60,8 @@ export class SessionsViewProvider implements vscode.WebviewViewProvider {
       if (message.kind === "ready") void this.refresh();
       else if (message.kind === "open") {
         void vscode.commands.executeCommand("chronicle.replaySession", message.item);
+      } else if (message.kind === "promptDiff") {
+        void vscode.commands.executeCommand("chronicle.promptDiff", message.slug, message.version);
       }
     });
     view.onDidChangeVisibility(() => {
