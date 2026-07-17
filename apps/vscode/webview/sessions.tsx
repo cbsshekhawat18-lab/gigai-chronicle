@@ -8,25 +8,28 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import type { SessionListItem } from "../src/protocol.js";
+import type { Prompt } from "@gigaichronicle/core";
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 const vscode = acquireVsCodeApi();
 
 interface SidebarState {
   sessions: SessionListItem[];
-  apply(sessions: SessionListItem[]): void;
+  prompts: Prompt[];
+  apply(sessions: SessionListItem[], prompts: Prompt[]): void;
 }
 
 const useStore = create<SidebarState>((set) => ({
   sessions: [],
-  apply: (sessions) => set({ sessions }),
+  prompts: [],
+  apply: (sessions, prompts) => set({ sessions, prompts }),
 }));
 
 window.addEventListener(
   "message",
-  (event: MessageEvent<{ kind: string; data?: { sessions: SessionListItem[] } }>) => {
+  (event: MessageEvent<{ kind: string; data?: { sessions: SessionListItem[]; prompts?: Prompt[] } }>) => {
     if (event.data.kind === "snapshot" && event.data.data !== undefined) {
-      useStore.getState().apply(event.data.data.sessions);
+      useStore.getState().apply(event.data.data.sessions, event.data.data.prompts ?? []);
     }
   },
 );
@@ -125,8 +128,33 @@ function Card({ item }: { item: SessionListItem }): React.JSX.Element {
   );
 }
 
+function PromptCard({ prompt }: { prompt: Prompt }): React.JSX.Element {
+  const versions = Array.from({ length: prompt.version }, (_, i) => i + 1);
+  return (
+    <div style={{ ...styles.card, cursor: "default" }}>
+      <div style={styles.cardTitle}>{prompt.title}</div>
+      <div style={styles.meta}>
+        {prompt.slug}
+        {prompt.tags.length > 0 ? ` · ${prompt.tags.join(", ")}` : ""}
+      </div>
+      <div style={styles.chipRow}>
+        {versions.map((v) => (
+          <button
+            key={v}
+            style={{ ...styles.chip, ...(v === prompt.version ? styles.chipOn : {}) }}
+            title={v === prompt.version ? `v${v} (current)` : `diff v${v} against current`}
+            onClick={() => vscode.postMessage({ kind: "promptDiff", slug: prompt.slug, version: v })}
+          >
+            v{v}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function App(): React.JSX.Element {
-  const { sessions } = useStore();
+  const { sessions, prompts } = useStore();
   const [providerFilter, setProviderFilter] = React.useState<string | null>(null);
 
   const allProviders = React.useMemo(
@@ -183,6 +211,14 @@ function App(): React.JSX.Element {
           ))}
         </div>
       ))}
+      {prompts.length > 0 && (
+        <div>
+          <div style={styles.dayHeader}>Prompts · version history</div>
+          {prompts.map((p) => (
+            <PromptCard key={p.slug} prompt={p} />
+          ))}
+        </div>
+      )}
       {empty.length > 0 && (
         <details style={styles.emptyGroup}>
           <summary style={{ cursor: "pointer" }}>

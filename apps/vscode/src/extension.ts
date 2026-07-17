@@ -5,6 +5,7 @@
  * VS Code, Cursor, Windsurf.
  */
 import * as vscode from "vscode";
+import { getPrompt } from "@gigaichronicle/core";
 import type { SessionId } from "@gigaichronicle/schema";
 import { ChronicleWorkspace } from "./engine.js";
 import { SessionsViewProvider } from "./sessions-view.js";
@@ -32,6 +33,31 @@ export function activate(context: vscode.ExtensionContext): void {
       await panel.showSession(item.session as SessionId);
     }),
     vscode.commands.registerCommand("chronicle.refresh", () => void sidebar.refresh()),
+    // Prompt versions in the NATIVE diff editor — the git-style version UI
+    // (§15.2: virtual documents via TextDocumentContentProvider, no Monaco).
+    vscode.workspace.registerTextDocumentContentProvider("chronicle-prompt", {
+      provideTextDocumentContent: async (uri: vscode.Uri): Promise<string> => {
+        if (workspace === null) return "(not a chronicle project)";
+        const [, slug, versionPart] = uri.path.split("/");
+        if (slug === undefined || versionPart === undefined) return "(bad prompt uri)";
+        const version = versionPart === "current" ? undefined : Number(versionPart);
+        const prompt = await getPrompt(workspace.chronicleDir, slug, version).catch(() => null);
+        return prompt === null ? "(version not found)" : prompt.body + "\n";
+      },
+    }),
+    vscode.commands.registerCommand(
+      "chronicle.promptDiff",
+      async (slug: string, version: number) => {
+        const older = vscode.Uri.parse(`chronicle-prompt:/${slug}/${version}.md`);
+        const current = vscode.Uri.parse(`chronicle-prompt:/${slug}/current.md`);
+        await vscode.commands.executeCommand(
+          "vscode.diff",
+          older,
+          current,
+          `${slug}: v${version} ↔ current`,
+        );
+      },
+    ),
   );
 
   // ---- Phase B (async): open the store ----------------------------------
