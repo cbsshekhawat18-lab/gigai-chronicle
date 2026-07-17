@@ -331,6 +331,17 @@ export class ChronicleIndex {
         JSON.stringify(event),
       );
 
+    // A session exists because events belong to it — not because a lifecycle
+    // event announced it. If a SessionStart hook is missed or a provider
+    // never emits one, the prompts are still captured and still replayable;
+    // hiding the session would be a silent lie about what we hold, and the
+    // extension (which derives sessions from any event carrying a session id)
+    // would disagree with us about what exists. Lifecycle events below enrich
+    // this row; they no longer gate its existence.
+    if (event.session !== undefined) {
+      this.#db.prepare("INSERT OR IGNORE INTO sessions (id) VALUES (?)").run(event.session);
+    }
+
     if (event.type === "SessionStarted" && event.session !== undefined) {
       const payload = event.payload as { title: string | null };
       this.#db
