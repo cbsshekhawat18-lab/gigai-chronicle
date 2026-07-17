@@ -85,3 +85,26 @@ describe("chronicle log → replay → inspect", () => {
     expect((await cli("replay", session)).code).toBe(0);
   });
 });
+
+describe("chronicle prompt (version control for prompts)", () => {
+  it("save → list → new version → diff → show frozen version", async () => {
+    const save1 = await cli("prompt", "save", "auth-review", "--text", "Check token rotation.", "--title", "Auth review", "--tags", "security,review");
+    expect(save1.code).toBe(0);
+    expect(save1.stdout).toContain("auth-review v1");
+
+    const save2 = await cli("prompt", "save", "auth-review", "--text", "Check token rotation.\nAlso revoke family on reuse.");
+    expect(save2.stdout).toContain("v2");
+
+    const list = await cli("--json", "prompt", "list");
+    const parsed = JSON.parse(list.stdout) as { prompts: Array<{ slug: string; version: number }> };
+    expect(parsed.prompts).toEqual([expect.objectContaining({ slug: "auth-review", version: 2 })]);
+
+    const diff = await cli("prompt", "diff", "auth-review", "1", "2");
+    expect(diff.stdout).toContain("+ Also revoke family on reuse.");
+
+    const v1 = await cli("--json", "prompt", "show", "auth-review", "1");
+    expect((JSON.parse(v1.stdout) as { prompt: { body: string } }).prompt.body).toBe("Check token rotation.");
+
+    expect((await cli("prompt", "diff", "auth-review")).code).toBe(2); // usage
+  });
+});
