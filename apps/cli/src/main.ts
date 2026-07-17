@@ -129,6 +129,15 @@ program
   });
 
 program
+  .command("why <file>")
+  .description("what was ASKED that made this file look like this (git blame says who; this says why — ADR-0013)")
+  .option("--limit <n>", "max attributed prompts", "10")
+  .action(async (file: string, options: { limit?: string }) => {
+    const { runWhyCommand } = await import("./commands/why.js");
+    process.exitCode = await runWhyCommand(file, options, program.opts<{ json?: boolean }>());
+  });
+
+program
   .command("restore <eventId>")
   .description("⏪ put your code back to how it was at a captured prompt (safety-checkpointed, ADR-0012)")
   .option("--force", "skip the confirmation (scripts)")
