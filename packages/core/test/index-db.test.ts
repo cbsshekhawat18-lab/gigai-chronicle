@@ -156,6 +156,36 @@ describe("ChronicleIndex", () => {
     });
   });
 
+  it("a session exists because events belong to it, not because SessionStarted announced it", async () => {
+    // The regression: a missed SessionStart hook (or a provider that never
+    // emits one) used to make a whole session invisible to the CLI while the
+    // extension — which derives sessions from any event with a session id —
+    // still listed it. Two surfaces, one store, different answers.
+    const dir = tempDir();
+    const orphan = newId("session") as SessionId;
+    const log = await EventLog.open(dir, { workspaceId: WORKSPACE, fsyncIntervalMs: 0 });
+    try {
+      // Prompts only. No SessionStarted, no SessionEnded.
+      await log.append([promptEvent(orphan, "first"), promptEvent(orphan, "second")]);
+    } finally {
+      await log.close();
+    }
+
+    await withIndex(dir, async (index, freshLog) => {
+      await index.catchUp(freshLog);
+      const summaries = index.sessions();
+      expect(summaries).toHaveLength(1);
+      expect(summaries[0]).toMatchObject({
+        id: orphan,
+        title: null, //  honest: nothing announced a title
+        ended: null,
+        events: 2, //     the prompts are real and counted
+      });
+      // started is derived from the events themselves, so it still works.
+      expect(summaries[0]?.started).not.toBeNull();
+    });
+  });
+
   it("sessions summaries join start/end and count events", async () => {
     const dir = tempDir();
     const { session } = await seed(dir);
