@@ -19,7 +19,16 @@ export interface ToolRunLite {
 export type StreamEntry =
   | { kind: "day"; day: string }
   | { kind: "session"; ts: string; note: string }
-  | { kind: "turn"; ts: string; role: "human" | "agent"; text: string | null; large: string | null }
+  | {
+      kind: "turn";
+      ts: string;
+      role: "human" | "agent";
+      text: string | null;
+      large: string | null;
+      eventId: string;
+      /** A code checkpoint exists for this moment (ADR-0012 restore). */
+      restorable: boolean;
+    }
   | { kind: "tools"; ts: string; runs: ToolRunLite[] }
   | { kind: "commit"; ts: string; sha: string; subject: string }
   | { kind: "file"; ts: string; path: string; status: string }
@@ -51,7 +60,10 @@ function liteSummary(value: unknown): string | null {
 }
 
 /** Fold frames into delta entries; consecutive tool runs group into one entry. */
-export function buildStream(frames: readonly ReplayFrame[]): StreamEntry[] {
+export function buildStream(
+  frames: readonly ReplayFrame[],
+  restorableEvents: ReadonlySet<string> = new Set(),
+): StreamEntry[] {
   const entries: StreamEntry[] = [];
   let day = "";
   const push = (entry: StreamEntry, ts: string): void => {
@@ -73,7 +85,15 @@ export function buildStream(frames: readonly ReplayFrame[]): StreamEntry[] {
       if (turn !== undefined) {
         const body = liteText(turn.text);
         push(
-          { kind: "turn", ts: frame.ts, role: turn.role, text: body.text, large: body.large },
+          {
+            kind: "turn",
+            ts: frame.ts,
+            role: turn.role,
+            text: body.text,
+            large: body.large,
+            eventId: turn.eventId,
+            restorable: restorableEvents.has(turn.eventId),
+          },
           frame.ts,
         );
       }

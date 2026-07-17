@@ -5,6 +5,8 @@
  * host-side. Windows of WINDOW_SIZE entries lazy-load newest-first.
  */
 import * as vscode from "vscode";
+import path from "node:path";
+import { listCheckpointedEvents } from "@gigaichronicle/core";
 import type { SessionId } from "@gigaichronicle/schema";
 import type { ChronicleWorkspace } from "./engine.js";
 import type { HostMessage, WebviewMessage } from "./protocol.js";
@@ -64,7 +66,9 @@ export class TimelinePanel {
   async showSession(session: SessionId): Promise<void> {
     if (this.#workspace === null) return;
     const frames = await this.#workspace.frames(session);
-    this.#cache = { session, entries: buildStream(frames), summary: summarize(frames) };
+    const repoRoot = path.dirname(this.#workspace.chronicleDir);
+    const restorable = await listCheckpointedEvents(repoRoot).catch(() => new Set<string>());
+    this.#cache = { session, entries: buildStream(frames, restorable), summary: summarize(frames) };
     await this.#sendWindow(session, Math.max(0, this.#cache.entries.length - WINDOW_SIZE), "replace");
   }
 
@@ -92,6 +96,10 @@ export class TimelinePanel {
   }
 
   async #handle(message: WebviewMessage): Promise<void> {
+    if (message.kind === "restore") {
+      await vscode.commands.executeCommand("chronicle.restoreCheckpoint", message.eventId);
+      return;
+    }
     if (message.kind !== "query") return;
     try {
       if (this.#workspace === null) {

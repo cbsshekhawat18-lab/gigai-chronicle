@@ -55,6 +55,9 @@
             "metadata"
           ]
         },
+        "checkpoints": {
+          "type": "boolean"
+        },
         "redaction": {
           "type": "object",
           "properties": {

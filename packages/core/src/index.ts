@@ -87,6 +87,16 @@ export {
   hooksDirFor,
 } from "./correlation/trailer-hook.js";
 
+// Git-native code checkpoints + explicit restore (ADR-0012)
+export {
+  createCheckpoint,
+  checkpointFor,
+  listCheckpointedEvents,
+  restorePreview,
+  restoreCheckpoint,
+  type RestoreResult,
+} from "./checkpoints/checkpoints.js";
+
 // Prompt library — version control for prompts (§5.4, ADR-0011)
 export {
   savePrompt,

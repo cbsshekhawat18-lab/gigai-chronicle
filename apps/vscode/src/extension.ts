@@ -5,7 +5,8 @@
  * VS Code, Cursor, Windsurf.
  */
 import * as vscode from "vscode";
-import { getPrompt } from "@gigaichronicle/core";
+import { getPrompt, restoreCheckpoint, restorePreview } from "@gigaichronicle/core";
+import path from "node:path";
 import type { SessionId } from "@gigaichronicle/schema";
 import { ChronicleWorkspace } from "./engine.js";
 import { SessionsViewProvider } from "./sessions-view.js";
@@ -33,6 +34,32 @@ export function activate(context: vscode.ExtensionContext): void {
       await panel.showSession(item.session as SessionId);
     }),
     vscode.commands.registerCommand("chronicle.refresh", () => void sidebar.refresh()),
+    vscode.commands.registerCommand("chronicle.restoreCheckpoint", async (eventId: string) => {
+      if (workspace === null) return;
+      const repoRoot = path.dirname(workspace.chronicleDir);
+      const changing = await restorePreview(repoRoot, eventId).catch(() => []);
+      if (changing.length === 0) {
+        void vscode.window.showInformationMessage("Chronicle: code already matches that moment.");
+        return;
+      }
+      const pick = await vscode.window.showWarningMessage(
+        `Restore ${changing.length} file(s) to how they were at this prompt? A safety checkpoint of the current state is taken first — nothing is lost.`,
+        { modal: true, detail: changing.slice(0, 12).join("\n") + (changing.length > 12 ? `\n… and ${changing.length - 12} more` : "") },
+        "Restore",
+      );
+      if (pick !== "Restore") return;
+      try {
+        const result = await restoreCheckpoint(repoRoot, eventId);
+        void vscode.window.showInformationMessage(
+          `Chronicle: restored ${result.restored.length} file(s).` +
+            (result.untouchedNewFiles.length > 0
+              ? ` ${result.untouchedNewFiles.length} newer file(s) left in place.`
+              : ""),
+        );
+      } catch (error) {
+        void vscode.window.showErrorMessage(`Chronicle restore failed: ${(error as Error).message}`);
+      }
+    }),
     // Prompt versions in the NATIVE diff editor — the git-style version UI
     // (§15.2: virtual documents via TextDocumentContentProvider, no Monaco).
     vscode.workspace.registerTextDocumentContentProvider("chronicle-prompt", {

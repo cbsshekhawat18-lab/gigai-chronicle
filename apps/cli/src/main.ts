@@ -129,6 +129,15 @@ program
   });
 
 program
+  .command("restore <eventId>")
+  .description("⏪ put your code back to how it was at a captured prompt (safety-checkpointed, ADR-0012)")
+  .option("--force", "skip the confirmation (scripts)")
+  .action(async (eventId: string, options: { force?: boolean }) => {
+    const { runRestoreCommand } = await import("./commands/restore.js");
+    process.exitCode = await runRestoreCommand(eventId, options, program.opts<{ json?: boolean }>());
+  });
+
+program
   .command("prompt <action> [slug] [args...]")
   .description("prompt version control: save|list|show|versions|diff (§5.4)")
   .option("--title <title>", "prompt title")

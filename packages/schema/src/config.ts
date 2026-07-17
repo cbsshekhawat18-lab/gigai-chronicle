@@ -37,6 +37,8 @@ export const configSchema = z
          * the high-sensitivity mode offered at init (resolved decision #3).
          */
         mode: z.enum(["full", "metadata"]).optional(),
+        /** Shadow code checkpoints per captured prompt (ADR-0012). Default on. */
+        checkpoints: z.boolean().optional(),
         redaction: z
           .object({
             secrets: z.boolean(),
