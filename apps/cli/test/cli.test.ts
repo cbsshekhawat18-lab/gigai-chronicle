@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { INDEX_SCHEMA_VERSION } from "@gigaichronicle/core";
 import { EventLog } from "@gigaichronicle/core";
 import { newId, type WorkspaceId } from "@gigaichronicle/schema";
 
@@ -100,7 +101,12 @@ describe("--json envelope contract", () => {
       report: {
         ok: true,
         store: { healed: [], problems: [] },
-        index: { fresh: true, schemaVersion: 2 }, // v2: provider/model columns
+        // The contract is that doctor REPORTS the index schema version — not
+        // that it is any particular number. The index is a disposable cache
+        // whose version is meant to bump (a mismatch rebuilds; migrations do
+        // not exist), so pinning a literal here would fail every legitimate
+        // bump and teach the next engineer to edit the test reflexively.
+        index: { fresh: true, schemaVersion: INDEX_SCHEMA_VERSION },
         egress: { endpoints: [], telemetry: "none", verdict: "zero-network" },
       },
     });
