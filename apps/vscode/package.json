@@ -62,6 +62,7 @@
     "views": {
       "gigaichronicle": [
         {
+          "type": "webview",
           "id": "chronicle.sessions",
           "name": "Sessions"
         }
@@ -80,15 +81,7 @@
         "command": "chronicle.refresh",
         "title": "Chronicle: Refresh"
       }
-    ],
-    "menus": {
-      "view/item/context": [
-        {
-          "command": "chronicle.replaySession",
-          "when": "view == chronicle.sessions"
-        }
-      ]
-    }
+    ]
   },
   "capabilities": {
     "untrustedWorkspaces": {
