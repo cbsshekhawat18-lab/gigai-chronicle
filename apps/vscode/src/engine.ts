@@ -22,7 +22,11 @@ import type { SessionListItem } from "./protocol.js";
 /** One attributed prompt for the "why is this file like this?" view. */
 export interface WhyEntry {
   eventId: string;
-  /** The prompt text that shaped the file (null under metadata-only capture). */
+  /**
+   * The prompt text that shaped the file. Under metadata-only capture this
+   * is the `[METADATA-ONLY]` marker (ADR-0015); null means the body spilled
+   * to a blob sidecar past 64KB.
+   */
   prompt: string | null;
   session: string | null;
   ts: string | null;
