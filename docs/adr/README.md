@@ -27,6 +27,7 @@ back).
 | [0013](0013-intent-attribution-pulled-forward.md) | Intent attribution (`chronicle why`) pulled forward into v0.1 | Accepted |
 | [0014](0014-prompt-seam-promote-captured.md) | The prompt seam: promote a captured prompt into the library | Accepted |
 | [0015](0015-metadata-mode-enforced-in-the-engine.md) | High-sensitivity capture mode enforced in the engine (privacy fix) | Accepted |
+| [0016](0016-delivery-surfaces-and-the-knowledge-projection.md) | Chronicle as a source: delivery surfaces & the Knowledge projection | **Proposed** |
 
 Template:
 
