@@ -63,9 +63,18 @@ async function snapshot(repoRoot: string, ref: string, label: string): Promise<s
     if (head !== null && tree === headTree) {
       commit = head; // clean tree — the checkpoint IS the current commit
     } else {
+      // Carry our own identity — `commit-tree` needs one, and a checkpoint
+      // must work even where the user has no global git identity (CI, fresh
+      // machines). Never depends on, nor touches, the user's git config.
+      const identity = {
+        GIT_AUTHOR_NAME: "chronicle",
+        GIT_AUTHOR_EMAIL: "checkpoint@chronicle.local",
+        GIT_COMMITTER_NAME: "chronicle",
+        GIT_COMMITTER_EMAIL: "checkpoint@chronicle.local",
+      };
       const args = ["commit-tree", tree, "-m", `chronicle checkpoint ${label}`];
       if (head !== null) args.push("-p", head);
-      const created = (await git(repoRoot, args))?.trim();
+      const created = (await git(repoRoot, args, identity))?.trim();
       if (created === undefined) return null;
       commit = created;
     }
