@@ -87,6 +87,19 @@ export {
   hooksDirFor,
 } from "./correlation/trailer-hook.js";
 
+// Prompt library — version control for prompts (§5.4, ADR-0011)
+export {
+  savePrompt,
+  getPrompt,
+  listPrompts,
+  promptVersions,
+  parsePrompt,
+  type Prompt,
+  type PromptMeta,
+  type SavePromptOptions,
+} from "./prompts/prompts.js";
+export { unifiedDiff } from "./prompts/diff.js";
+
 // Identity model + init (M6)
 export {
   computeRepositoryFingerprint,

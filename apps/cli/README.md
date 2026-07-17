@@ -25,6 +25,7 @@ project ULID and root-commit fingerprint, never in paths (ADR-0009).
 | `chronicle doctor [--reindex] [--scan-secrets]` | The trust anchor: log integrity (heals torn writes), index freshness, retroactive secret audit, and the **zero-egress report** — prints every network destination Chronicle is configured to use (empty by default, provably) |
 | `chronicle timeline [--since --until --branch --session --type… --limit]` | The journey, listed. The extension's timeline is this query with pixels |
 | `chronicle init [--yes] [--name] [--metadata-only] [--private-sessions] [--git-trailer]` | Initialize: mint identity, scaffold, detect tools, record ProjectCreated (M6) |
+| `chronicle prompt save\|list\|show\|versions\|diff` | Version control for prompts: immutable versions, plain-text diffs, git-synced (§5.4, ADR-0011) |
 | `chronicle status` | Project identity (incl. foreign-repo warning), store/index health, per-provider config with honest support notes |
 
 Coming with their milestones: `import`/live capture (M7),

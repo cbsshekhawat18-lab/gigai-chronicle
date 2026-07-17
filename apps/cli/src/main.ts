@@ -129,6 +129,19 @@ program
   });
 
 program
+  .command("prompt <action> [slug] [args...]")
+  .description("prompt version control: save|list|show|versions|diff (§5.4)")
+  .option("--title <title>", "prompt title")
+  .option("--tags <tags>", "comma-separated tags")
+  .option("--text <text>", "prompt body inline")
+  .option("--from-file <path>", "prompt body from a file")
+  .option("--session <id>", "provenance: the session this prompt came from")
+  .action(async (action: string, slug: string | undefined, args: string[], flags: Record<string, string | undefined>) => {
+    const { runPromptCommand } = await import("./commands/prompt.js");
+    process.exitCode = await runPromptCommand(action, slug, args, flags, program.opts<{ json?: boolean }>());
+  });
+
+program
   .command("capture <provider>")
   .description("hook ingestion path (installed hooks call this; exit 0 always)")
   .requiredOption("--event <name>", "hook event name")
