@@ -8,10 +8,12 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import {
   EventLog,
+  capturedPrompts,
   changesByPrompt,
   openWorkspace,
   replaySession,
   sessionEvents,
+  type CapturedPrompt,
   type ReplayFrame,
 } from "@gigaichronicle/core";
 import type { SessionId, WorkspaceId } from "@gigaichronicle/schema";
@@ -114,6 +116,18 @@ export class ChronicleWorkspace {
   /** Full frame sequence for one session (the webview timeline). */
   async frames(session: SessionId): Promise<ReplayFrame[]> {
     return this.#withLog(async (log) => replaySession(await sessionEvents(log, session)));
+  }
+
+  /**
+   * Prompts you have actually typed, newest first — the picker behind "Save
+   * prompt" (ADR-0014). Without this the library can only be fed by
+   * retyping, which is the manual hoarding P1 describes.
+   */
+  async recentPrompts(limit = 25): Promise<CapturedPrompt[]> {
+    return this.#withLog(async (log) => {
+      const all = await capturedPrompts(this.chronicleDir, log);
+      return all.reverse().slice(0, limit);
+    });
   }
 
   /**

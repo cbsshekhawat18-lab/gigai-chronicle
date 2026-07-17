@@ -107,6 +107,53 @@ describe("chronicle prompt (version control for prompts)", () => {
 
     expect((await cli("prompt", "diff", "auth-review")).code).toBe(2); // usage
   });
+
+  // The seam (ADR-0014): the library must be feedable from prompts you
+  // already typed. Retyping is the manual hoarding P1 describes.
+  it("--from-last promotes the prompt you just typed, with provenance, no retyping", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const text = "Audit the session store for unbounded growth.";
+    execFileSync(process.execPath, [CLI, "capture", "claude-code", "--event", "UserPromptSubmit"], {
+      cwd: repo,
+      input: JSON.stringify({ session_id: "seam-uuid", prompt: text }),
+    });
+
+    const saved = await cli("prompt", "save", "store-audit", "--from-last", "--title", "Store audit");
+    expect(saved.code).toBe(0);
+    expect(saved.stdout).toContain("store-audit v1");
+    expect(saved.stdout).toContain("promoted from evt_");
+
+    const json = await cli("--json", "prompt", "show", "store-audit");
+    const shown = JSON.parse(json.stdout) as {
+      prompt: { body: string; sourceSession: string | null };
+    };
+    expect(shown.prompt.body).toBe(text); // byte-identical — not retyped
+    expect(shown.prompt.sourceSession).toMatch(/^ses_/); // provenance, free
+  });
+
+  it("--from-event promotes a specific prompt; a bad id fails cleanly", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const text = "Explain the retention policy in plain words.";
+    execFileSync(process.execPath, [CLI, "capture", "claude-code", "--event", "UserPromptSubmit"], {
+      cwd: repo,
+      input: JSON.stringify({ session_id: "seam-uuid", prompt: text }),
+    });
+
+    const { stdout } = await cli("--json", "timeline", "--type", "PromptSubmitted", "--limit", "200");
+    const events = (JSON.parse(stdout) as { events: Array<{ id: string; payload: { text: string } }> })
+      .events;
+    const target = events.find((e) => e.payload.text === text);
+    expect(target).toBeDefined();
+
+    const saved = await cli("prompt", "save", "retention-doc", "--from-event", (target as { id: string }).id);
+    expect(saved.code).toBe(0);
+    const shown = await cli("--json", "prompt", "show", "retention-doc");
+    expect((JSON.parse(shown.stdout) as { prompt: { body: string } }).prompt.body).toBe(text);
+
+    const bad = await cli("prompt", "save", "nope", "--from-event", "evt_01ZZZZZZZZZZZZZZZZZZZZZZZZ");
+    expect(bad.code).toBe(1);
+    expect(bad.stderr).toContain("no captured prompt text");
+  });
 });
 
 describe("chronicle restore (⏪ code time-travel, ADR-0012)", () => {

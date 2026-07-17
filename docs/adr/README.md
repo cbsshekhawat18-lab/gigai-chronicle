@@ -25,6 +25,7 @@ back).
 | [0011](0011-prompt-library-pulled-forward.md) | Prompt library pulled forward into v0.1 | Accepted |
 | [0012](0012-git-native-code-checkpoints.md) | Git-native code checkpoints & explicit restore | Accepted |
 | [0013](0013-intent-attribution-pulled-forward.md) | Intent attribution (`chronicle why`) pulled forward into v0.1 | Accepted |
+| [0014](0014-prompt-seam-promote-captured.md) | The prompt seam: promote a captured prompt into the library | Accepted |
 
 Template:
 
