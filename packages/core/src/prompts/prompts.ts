@@ -21,11 +21,25 @@ export interface PromptMeta {
   tags: string[];
   version: number;
   created: string;
+  /** When THIS version was saved (per-version; distinct from `created`). */
+  savedAt: string;
   sourceSession: string | null;
 }
 
 export interface Prompt extends PromptMeta {
   body: string;
+}
+
+/** One node in a prompt's version history (git-graph rendering). */
+export interface PromptVersionNode {
+  version: number;
+  savedAt: string;
+  lines: number;
+  /** First non-empty line of the body — the "commit subject". */
+  preview: string;
+  /** Lines added/removed vs the previous version (parent). */
+  added: number;
+  removed: number;
 }
 
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -53,6 +67,7 @@ function serialize(meta: PromptMeta, body: string): string {
     `tags: [${meta.tags.join(", ")}]`,
     `version: ${meta.version}`,
     `created: ${meta.created}`,
+    `savedAt: ${meta.savedAt}`,
     ...(meta.sourceSession !== null ? [`sourceSession: ${meta.sourceSession}`] : []),
     "---",
     "",
@@ -87,6 +102,7 @@ export function parsePrompt(content: string): Prompt | null {
     tags,
     version,
     created: fields.get("created") ?? "",
+    savedAt: fields.get("savedAt") ?? fields.get("created") ?? "",
     sourceSession: source !== null && isId(source, "session") ? source : null,
     // Canonical body: no trailing whitespace — serialize adds exactly one
     // final newline, so round-trips stay byte-stable across hand edits.
@@ -126,13 +142,15 @@ export async function savePrompt(
     return existing; // identical content — saving a no-op version would be noise
   }
 
+  const now = new Date().toISOString().replace(/(\.\d{3})\d*Z$/, "$1Z");
   const meta: PromptMeta = {
     id: existing?.id ?? newId("prompt"),
     slug: options.slug,
     title: options.title ?? existing?.title ?? options.slug,
     tags: options.tags ?? existing?.tags ?? [],
     version: (existing?.version ?? 0) + 1,
-    created: existing?.created ?? new Date().toISOString().replace(/(\.\d{3})\d*Z$/, "$1Z"),
+    created: existing?.created ?? now,
+    savedAt: now,
     sourceSession: options.sourceSession ?? existing?.sourceSession ?? null,
   };
 
@@ -181,6 +199,52 @@ export async function promptVersions(chronicleDir: string, slug: string): Promis
     .filter((v): v is string => v !== undefined)
     .map(Number)
     .sort((a, b) => a - b);
+}
+
+/** Count added/removed lines of `b` relative to `a` (git-diff-style multiset). */
+function lineDelta(a: string, b: string): { added: number; removed: number } {
+  const count = (text: string): Map<string, number> => {
+    const map = new Map<string, number>();
+    for (const line of text.split("\n")) map.set(line, (map.get(line) ?? 0) + 1);
+    return map;
+  };
+  const ca = count(a);
+  const cb = count(b);
+  let added = 0;
+  let removed = 0;
+  for (const [line, n] of cb) added += Math.max(0, n - (ca.get(line) ?? 0));
+  for (const [line, n] of ca) removed += Math.max(0, n - (cb.get(line) ?? 0));
+  return { added, removed };
+}
+
+/**
+ * Full version history for the git-graph view — one node per version,
+ * newest first, each carrying its save time, size, subject line, and the
+ * diff stats against its parent (the previous version).
+ */
+export async function promptHistory(
+  chronicleDir: string,
+  slug: string,
+): Promise<PromptVersionNode[]> {
+  const versions = await promptVersions(chronicleDir, slug);
+  const nodes: PromptVersionNode[] = [];
+  let prevBody = "";
+  for (const version of versions) {
+    const prompt = await getPrompt(chronicleDir, slug, version).catch(() => null);
+    if (prompt === null) continue;
+    const delta = lineDelta(prevBody, prompt.body);
+    const preview = prompt.body.split("\n").find((l) => l.trim() !== "")?.slice(0, 80) ?? "(empty)";
+    nodes.push({
+      version,
+      savedAt: prompt.savedAt,
+      lines: prompt.body.split("\n").length,
+      preview,
+      added: delta.added,
+      removed: delta.removed,
+    });
+    prevBody = prompt.body;
+  }
+  return nodes.reverse(); // newest first (git log order)
 }
 
 async function exists(file: string): Promise<boolean> {

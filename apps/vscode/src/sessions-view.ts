@@ -5,7 +5,7 @@
  * pure-projection rules as the panel (§15.3).
  */
 import * as vscode from "vscode";
-import { listPrompts } from "@gigaichronicle/core";
+import { listPrompts, promptHistory } from "@gigaichronicle/core";
 import type { ChronicleWorkspace } from "./engine.js";
 import type { SessionListItem } from "./protocol.js";
 
@@ -28,8 +28,14 @@ export class SessionsViewProvider implements vscode.WebviewViewProvider {
   async refresh(): Promise<void> {
     if (this.#view === null) return;
     const sessions = this.#workspace === null ? [] : await this.#workspace.sessions();
-    const prompts =
-      this.#workspace === null ? [] : await listPrompts(this.#workspace.chronicleDir).catch(() => []);
+    let prompts: unknown[] = [];
+    if (this.#workspace !== null) {
+      const dir = this.#workspace.chronicleDir;
+      const base = await listPrompts(dir).catch(() => []);
+      prompts = await Promise.all(
+        base.map(async (p) => ({ ...p, history: await promptHistory(dir, p.slug).catch(() => []) })),
+      );
+    }
     await this.#view.webview.postMessage({ kind: "snapshot", v: 1, data: { sessions, prompts } });
   }
 

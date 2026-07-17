@@ -67,7 +67,9 @@ export function activate(context: vscode.ExtensionContext): void {
         if (workspace === null) return "(not a chronicle project)";
         const [, slug, versionPart] = uri.path.split("/");
         if (slug === undefined || versionPart === undefined) return "(bad prompt uri)";
-        const version = versionPart === "current" ? undefined : Number(versionPart);
+        if (versionPart === "empty.md") return "";
+        const vp = versionPart.replace(/\.md$/, "");
+        const version = vp === "current" ? undefined : Number(vp);
         const prompt = await getPrompt(workspace.chronicleDir, slug, version).catch(() => null);
         return prompt === null ? "(version not found)" : prompt.body + "\n";
       },
@@ -75,16 +77,27 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       "chronicle.promptDiff",
       async (slug: string, version: number) => {
-        const older = vscode.Uri.parse(`chronicle-prompt:/${slug}/${version}.md`);
-        const current = vscode.Uri.parse(`chronicle-prompt:/${slug}/current.md`);
+        // Git-log behavior: a version diffs against its PARENT (what changed
+        // IN this version). v1 has no parent — show it against the empty tree.
+        const left =
+          version <= 1
+            ? vscode.Uri.parse(`chronicle-prompt:/${slug}/empty.md`)
+            : vscode.Uri.parse(`chronicle-prompt:/${slug}/${version - 1}.md`);
+        const right = vscode.Uri.parse(`chronicle-prompt:/${slug}/${version}.md`);
         await vscode.commands.executeCommand(
           "vscode.diff",
-          older,
-          current,
-          `${slug}: v${version} ↔ current`,
+          left,
+          right,
+          version <= 1 ? `${slug}: v1 (initial)` : `${slug}: v${version - 1} → v${version}`,
         );
       },
     ),
+    vscode.commands.registerCommand("chronicle.promptOpen", async (slug: string, version: number) => {
+      const doc = await vscode.workspace.openTextDocument(
+        vscode.Uri.parse(`chronicle-prompt:/${slug}/${version}.md`),
+      );
+      await vscode.window.showTextDocument(doc, { preview: true });
+    }),
   );
 
   // ---- Phase B (async): open the store ----------------------------------
