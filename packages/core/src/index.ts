@@ -55,11 +55,13 @@ export { createGitReader, fixedGitReader, type GitReader } from "./git/git-reade
 // (ADR-0015 — it was configurable but inert before).
 export {
   captureModeOf,
+  capturePolicyOf,
   stripTextBodies,
   METADATA_ONLY_MARKER,
   type CaptureMode,
+  type CapturePolicy,
 } from "./config/capture-mode.js";
-export { createRedactor, marker, type Redactor } from "./redaction/redact.js";
+export { createRedactor, marker, type Redactor, type RedactorOptions } from "./redaction/redact.js";
 export { harvestEnvValues } from "./redaction/env-harvest.js";
 export { findEntropyTokens, looksLikeSecretToken, shannonEntropy } from "./redaction/entropy.js";
 
