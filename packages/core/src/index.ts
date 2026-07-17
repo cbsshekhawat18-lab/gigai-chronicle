@@ -103,9 +103,11 @@ export {
   getPrompt,
   listPrompts,
   promptVersions,
+  promptHistory,
   parsePrompt,
   type Prompt,
   type PromptMeta,
+  type PromptVersionNode,
   type SavePromptOptions,
 } from "./prompts/prompts.js";
 export { unifiedDiff } from "./prompts/diff.js";

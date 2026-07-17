@@ -7,6 +7,7 @@ import {
   getPrompt,
   listPrompts,
   parsePrompt,
+  promptHistory,
   promptVersions,
   savePrompt,
   unifiedDiff,
@@ -105,6 +106,24 @@ describe("prompt library", () => {
     expect(diff).toContain("+ d");
     expect(diff).toContain("  a");
     expect(unifiedDiff("same", "same", "v1", "v2")).toContain("identical");
+  });
+
+  it("promptHistory renders a git-graph: newest-first nodes with parent diff stats", async () => {
+    const dir = tempDir();
+    await savePrompt(dir, { slug: "form", title: "Signup form", body: "input1\ninput2" });
+    await savePrompt(dir, { slug: "form", body: "input1\ninput2\ninput3\ninput4\ninput5" });
+
+    const history = await promptHistory(dir, "form");
+    expect(history.map((n) => n.version)).toEqual([2, 1]); // newest first
+    const [head, root] = history;
+    expect(head?.version).toBe(2);
+    expect(head?.added).toBe(3); //     three inputs added vs v1
+    expect(head?.removed).toBe(0);
+    expect(head?.lines).toBe(5);
+    expect(head?.preview).toBe("input1");
+    expect(root?.version).toBe(1);
+    expect(root?.added).toBe(2); //     v1 vs empty parent
+    expect(typeof head?.savedAt).toBe("string");
   });
 
   it("empty store: list is empty, versions dir tolerated missing", async () => {
