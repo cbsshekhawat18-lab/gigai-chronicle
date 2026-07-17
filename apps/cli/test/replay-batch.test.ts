@@ -135,7 +135,8 @@ describe("chronicle restore (⏪ code time-travel, ADR-0012)", () => {
     const restore = await cli("restore", (evt as { id: string }).id, "--force");
     expect(restore.code).toBe(0);
     expect(restore.stdout).toContain("restored 1 file(s)");
-    expect(readFileSync(nodePath.join(repo, "form.js"), "utf8")).toBe("input1\ninput2\n");
+    // Normalize CRLF: Windows git checks out with \r\n; the restore is correct either way.
+    expect(readFileSync(nodePath.join(repo, "form.js"), "utf8").replace(/\r\n/g, "\n")).toBe("input1\ninput2\n");
 
     // The restore itself is on the record.
     const after = await cli("--json", "timeline", "--type", "Ext.chronicle.WorkspaceRestored", "--limit", "10");
