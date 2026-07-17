@@ -68,7 +68,26 @@ const styles: Record<string, React.CSSProperties> = {
   quiet: { fontSize: 10, padding: "1px 8px", borderRadius: 9, border: "1px solid var(--vscode-panel-border)", opacity: 0.75 },
   liveBadge: { fontSize: 10, padding: "1px 8px", borderRadius: 9, border: `1px solid ${LIVE}`, color: LIVE, fontWeight: 600 },
   emptyGroup: { fontSize: 11, opacity: 0.8, marginTop: 10 },
+  dayHeader: {
+    fontSize: 10,
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+    opacity: 0.55,
+    margin: "12px 2px 6px",
+  },
 };
+
+function dayLabel(ts: string | null): string {
+  if (ts === null) return "Undated";
+  const date = new Date(ts);
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 86_400_000);
+  const sameDay = (a: Date, b: Date): boolean =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(date, today)) return "Today";
+  if (sameDay(date, yesterday)) return "Yesterday";
+  return date.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+}
 
 function relative(ts: string | null): string {
   if (ts === null) return "?";
@@ -121,6 +140,16 @@ function App(): React.JSX.Element {
   const withContent = filtered.filter((s) => s.turns > 0 || s.tools > 0 || s.live);
   const empty = filtered.filter((s) => s.turns === 0 && s.tools === 0 && !s.live);
 
+  // History by dates (founder request): browser-history style day groups,
+  // newest day first; sessions within a day stay newest-first too.
+  const groups: Array<{ day: string; items: SessionListItem[] }> = [];
+  for (const item of withContent) {
+    const day = dayLabel(item.startedTs);
+    const group = groups[groups.length - 1];
+    if (group !== undefined && group.day === day) group.items.push(item);
+    else groups.push({ day, items: [item] });
+  }
+
   return (
     <div style={styles.app}>
       {allProviders.length > 1 && (
@@ -146,8 +175,13 @@ function App(): React.JSX.Element {
           AI tool.
         </p>
       )}
-      {withContent.map((s) => (
-        <Card key={s.session} item={s} />
+      {groups.map((group) => (
+        <div key={group.day}>
+          <div style={styles.dayHeader}>{group.day}</div>
+          {group.items.map((s) => (
+            <Card key={s.session} item={s} />
+          ))}
+        </div>
       ))}
       {empty.length > 0 && (
         <details style={styles.emptyGroup}>
