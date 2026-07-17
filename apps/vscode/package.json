@@ -80,8 +80,43 @@
       {
         "command": "chronicle.refresh",
         "title": "Chronicle: Refresh"
+      },
+      {
+        "command": "chronicle.whyFile",
+        "title": "Chronicle: Why is this file like this?",
+        "category": "Chronicle",
+        "icon": "$(git-commit)"
       }
-    ]
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "chronicle.whyFile",
+          "when": "editorTextFocus && resourceScheme == file",
+          "group": "chronicle@1"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "chronicle.whyFile",
+          "when": "resourceScheme == file",
+          "group": "chronicle@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "chronicle.whyFile",
+          "when": "resourceScheme == file && !explorerResourceIsFolder",
+          "group": "chronicle@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "chronicle.whyFile",
+          "when": "editorIsOpen"
+        }
+      ]
+    }
   },
   "capabilities": {
     "untrustedWorkspaces": {
