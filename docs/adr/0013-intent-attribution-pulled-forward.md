@@ -2,10 +2,14 @@
 
 - Status: Accepted
 - Date: 2026-07-17
-- Relates: [ADR-0012](0012-git-native-code-checkpoints.md) (the data this reads),
+- Relates: [ADR-0012](0012-git-native-code-checkpoints.md) (the data this reads —
+  and the timing invariant this depends on),
   [ADR-0011](0011-prompt-library-pulled-forward.md) (the precedent for pulling a
-  surface forward), [PHASE-0 §1.1](../PHASE-0.md#11-the-problem-stated-precisely) (P3, P4),
-  [PHASE-0 §2](../PHASE-0.md#2-competitive-analysis) (Git AI),
+  surface forward), [ADR-0006](0006-positioning-ai-development-history.md)
+  (replay stays the hero; this does not displace it),
+  [PHASE-0 §1.1](../PHASE-0.md#11-the-problem-stated-precisely) (**P1, P2** — the
+  individual pains; P3/P4 are explicitly *not* served, see Consequences),
+  [PHASE-0 §5](../PHASE-0.md#5-product-boundaries) (boundary 10: never scores developers),
   [ARCHITECTURE.md §11](../ARCHITECTURE.md) (derived views never live in the log)
 
 ## Context
@@ -18,13 +22,19 @@ banks on episodic pains (P3–P6) converting retention into advocacy.
 
 Two facts made this ADR:
 
-1. **PHASE-0 §2 concedes attribution to a competitor.** Git AI "attributes
-   AI-generated lines to agent/model/prompt" and is named *"strategically the
-   most serious competitor for teams"*. Chronicle's stated counter is the
-   journey/replay model — but replay is browsing, and "why is this code like
-   this?" is the question developers actually ask, at a precise moment of
-   pain, with the most-used forensic tool in software (`git blame`) as its
-   obvious analog.
+1. **The individual has no point-of-pain surface.** "Why is this code like
+   this?" is the question developers actually ask, at a precise moment,
+   with the most-used forensic tool in software (`git blame`) as its obvious
+   analog. Browsing a timeline answers it only if you already know to go
+   looking.
+
+   This ADR does **not** claim the Git AI gap. PHASE-0 §2 names Git AI
+   *"strategically the most serious competitor for **teams**"*, and its
+   attribution lives in the repository, so it survives a clone. Chronicle's
+   checkpoints do not (see Consequences) — `why` is a personal tool and
+   closes nothing for teams. Chronicle's team answer remains replay
+   ([ADR-0006](0006-positioning-ai-development-history.md)), which travels
+   because the journal is committed plain text.
 
 2. **ADR-0012 already shipped the answer without noticing.** Capture takes a
    shadow checkpoint at every captured prompt. A checkpoint therefore holds
@@ -71,11 +81,40 @@ Ship `chronicle why <file>`, backed by `changesByPrompt()` in core.
 
 ## Consequences
 
-- P3 (unreviewable provenance) and P4 (incident forensics) gain a
-  point-of-pain answer in v0.1, and the competitive gap PHASE-0 conceded
-  closes using data that already existed.
+- **`why` is a personal tool. It does not travel — this is the defining
+  limit.** ADR-0012 keeps checkpoints in `refs/chronicle/ckpt/*`, which git
+  does not push (not under `refs/heads/*`, no refspec configured). Verified
+  against a fresh clone of the dogfooding repo: 11 session logs arrive, **0
+  checkpoints**, and `why` correctly answers "no captured prompt is known to
+  have changed this file". Therefore:
+  - **P1/P2 (the individual pains) are served** — "why is *my* code like
+    this", answered where the developer already stands.
+  - **P3 (unreviewable provenance) and P4 (incident forensics) are NOT
+    served**, and this ADR does not pretend otherwise. Both are team pains
+    across machines; a reviewer's clone has no checkpoints. Chronicle's
+    answer for them is replay, which travels because the journal is
+    committed plain text — that same clone replays every prompt, response,
+    and tool call with zero setup.
+  - The Git AI competitive gap (PHASE-0 §2, a *teams* gap) therefore stays
+    open. Closing it would require checkpoint refs to be pushed — a distinct
+    decision with a real privacy cost (it puts a prompt→code map on the
+    remote) and it belongs in its own ADR, on its own merits, not smuggled
+    in here.
 - `git blame` says *who*. `chronicle why` says *what was asked*. The two
   compose; neither replaces the other.
+- **Boundary 10 holds: this never scores developers.** Attribution here is
+  prompt→diff, never developer→metric, and there is deliberately no
+  aggregation, no ranking, and no per-author rollup. The road from per-turn
+  attribution to a leaderboard is short, and PHASE-0 §5 already fenced it —
+  that fence is restated, not relaxed. Any aggregate view over `why` needs a
+  superseding ADR that argues against boundary 10 explicitly.
+- **This ADR depends on an ADR-0012 invariant that nothing enforces.** The
+  off-by-one is correct *only* because checkpoints fire at prompt-submit
+  (pre-turn). A provider that ever checkpoints post-turn would silently
+  invert every answer — attributing each turn's work to the *next* prompt,
+  with no error and no visible symptom. The invariant is currently protected
+  by tests inside this feature, not by a contract at the capture boundary.
+  Any change to checkpoint timing must treat this as a breaking change.
 - **Attribution is per-turn, not per-intent — the honest caveat.** A turn's
   diff is everything that changed while it was open, including the human's
   own edits and any work the agent carried over from a previous request. On

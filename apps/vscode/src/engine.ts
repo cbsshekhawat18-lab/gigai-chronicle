@@ -8,6 +8,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import {
   EventLog,
+  changesByPrompt,
   openWorkspace,
   replaySession,
   sessionEvents,
@@ -15,6 +16,19 @@ import {
 } from "@gigaichronicle/core";
 import type { SessionId, WorkspaceId } from "@gigaichronicle/schema";
 import type { SessionListItem } from "./protocol.js";
+
+/** One attributed prompt for the "why is this file like this?" view. */
+export interface WhyEntry {
+  eventId: string;
+  /** The prompt text that shaped the file (null under metadata-only capture). */
+  prompt: string | null;
+  session: string | null;
+  ts: string | null;
+  insertions: number;
+  deletions: number;
+  /** True when line counts are unavailable (binary file). */
+  binary: boolean;
+}
 
 export class ChronicleWorkspace {
   private constructor(
@@ -100,5 +114,48 @@ export class ChronicleWorkspace {
   /** Full frame sequence for one session (the webview timeline). */
   async frames(session: SessionId): Promise<ReplayFrame[]> {
     return this.#withLog(async (log) => replaySession(await sessionEvents(log, session)));
+  }
+
+  /**
+   * Intent attribution for one file (ADR-0013): which prompts shaped it,
+   * newest first. Joins core's checkpoint-derived churn with each prompt's
+   * text (scanned from the log — pure-fs, no index). Empty when capture
+   * wasn't running for this file's history.
+   */
+  async why(relativePath: string): Promise<WhyEntry[]> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    const changes = await changesByPrompt(repoRoot, { path: relativePath, limit: 20 });
+    if (changes.length === 0) return [];
+
+    // eventId → { text, session, ts } for the attributed prompt events only.
+    const wanted = new Set(changes.map((c) => c.eventId));
+    const meta = new Map<string, { text: string | null; session: string | null; ts: string }>();
+    await this.#withLog(async (log) => {
+      for await (const { event } of log.scan({ visibility: "all" })) {
+        if (!wanted.has(event.id)) continue;
+        const text = (event.payload as Record<string, unknown>)["text"];
+        meta.set(event.id, {
+          text: typeof text === "string" ? text : null,
+          session: event.session ?? null,
+          ts: event.ts,
+        });
+      }
+    });
+
+    return changes
+      .map((change) => {
+        const info = meta.get(change.eventId);
+        const binary = change.files.some((f) => f.insertions === null);
+        return {
+          eventId: change.eventId,
+          prompt: info?.text ?? null,
+          session: info?.session ?? null,
+          ts: info?.ts ?? null,
+          insertions: binary ? 0 : change.files.reduce((s, f) => s + (f.insertions ?? 0), 0),
+          deletions: binary ? 0 : change.files.reduce((s, f) => s + (f.deletions ?? 0), 0),
+          binary,
+        };
+      })
+      .reverse(); // newest first for the UI
   }
 }
