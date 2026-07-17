@@ -92,10 +92,22 @@ export {
   createCheckpoint,
   checkpointFor,
   listCheckpointedEvents,
+  listCheckpoints,
   restorePreview,
   restoreCheckpoint,
+  type CheckpointRef,
   type RestoreResult,
 } from "./checkpoints/checkpoints.js";
+
+// Intent attribution — what was ASKED that made this code (ADR-0013).
+// Derived from checkpoints on demand; nothing new is stored.
+export {
+  changesByPrompt,
+  parseNumstat,
+  type ChangesByPromptOptions,
+  type FileChange,
+  type PromptChange,
+} from "./attribution/why.js";
 
 // Prompt library — version control for prompts (§5.4, ADR-0011)
 export {
