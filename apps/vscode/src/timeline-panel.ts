@@ -124,7 +124,7 @@ export class TimelinePanel {
 }
 
 function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
-  const script = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", "webview.js"));
+  const script = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", "timeline.js"));
   const nonce = Array.from({ length: 24 }, () => Math.floor(Math.random() * 36).toString(36)).join("");
   // CSP: default-src 'none' — scripts only from the extension, nothing remote (§15.3).
   return `<!DOCTYPE html>

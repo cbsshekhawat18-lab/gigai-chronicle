@@ -28,12 +28,13 @@ await build({
 });
 
 await build({
-  entryPoints: ["webview/index.tsx"],
+  entryPoints: ["webview/timeline.tsx", "webview/sessions.tsx"],
   bundle: true,
   platform: "browser",
   format: "iife",
   target: "es2022",
-  outfile: "dist/webview.js",
+  outdir: "dist",
+  entryNames: "[name]",
   jsx: "automatic",
   define: { "process.env.NODE_ENV": '"production"' },
   logLevel: "warning",
@@ -50,4 +51,4 @@ writeFileSync(
 </svg>
 `,
 );
-console.log("vscode: bundled dist/extension.cjs + dist/webview.js");
+console.log("vscode: bundled extension.cjs + timeline.js + sessions.js");

@@ -12,7 +12,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { EventEngine, fixedGitReader, runInit } from "@gigaichronicle/core";
 import { newId, type SessionId, type WorkspaceId } from "@gigaichronicle/schema";
 import { ChronicleWorkspace } from "../src/engine.js";
-import { SessionsTreeProvider } from "../src/sessions-tree.js";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -63,24 +62,39 @@ describe("ChronicleWorkspace (pure-fs engine)", () => {
   });
 });
 
-describe("SessionsTreeProvider (honesty in pixels)", () => {
-  it("renders items with fidelity/gap visibility and replay wiring", async () => {
+describe("sessions view data (honesty in pixels)", () => {
+  it("items carry label, badges, live flag, and fidelity for the card UI", async () => {
     const { folder, session } = await seedProject();
-    const provider = new SessionsTreeProvider();
-    provider.setWorkspace(await ChronicleWorkspace.open(folder));
-
-    const children = await provider.getChildren();
-    const item = children.find((c) => c.session === session);
+    const workspace = await ChronicleWorkspace.open(folder);
+    const items = await workspace!.sessions();
+    const item = items.find((s) => s.session === session);
     expect(item).toBeDefined();
-    const treeItem = provider.getTreeItem(item!);
-    expect(treeItem.label).toBe("Ext demo");
-    expect(String(treeItem.tooltip)).toContain("fidelity: full");
-    expect((treeItem.command as { command: string }).command).toBe("chronicle.replaySession");
+    expect(item!.label).toBe("Ext demo");
+    expect(item!.providers).toEqual(["example-tool"]);
+    expect(item!.live).toBe(false); // SessionEnded → not live
+    expect(item!.fidelity).toBe("full");
   });
 
-  it("empty state: no workspace → no children (never a fake list)", async () => {
-    const provider = new SessionsTreeProvider();
-    expect(await provider.getChildren()).toEqual([]);
+  it("a session without SessionEnded and with recent activity is live", async () => {
+    const { folder } = await seedProject();
+    const chronicleDir = (await import("node:path")).join(folder, ".chronicle");
+    const machine = JSON.parse(
+      readFileSync((await import("node:path")).join(chronicleDir, ".local", "machine.json"), "utf8"),
+    ) as { workspace: WorkspaceId };
+    const engine = await EventEngine.open(chronicleDir, {
+      workspaceId: machine.workspace,
+      provider: { id: "example-tool", version: "1.0.0" },
+      gitReader: fixedGitReader(),
+      fsyncIntervalMs: 0,
+    });
+    const open = newId("session");
+    await engine.emit({ type: "SessionStarted", session: open, actor: { kind: "human" }, payload: { title: null, resumedFrom: null } });
+    await engine.close();
+
+    const workspace = await ChronicleWorkspace.open(folder);
+    const item = (await workspace!.sessions()).find((s) => s.session === open);
+    expect(item!.live).toBe(true);
+    expect(item!.label).toMatch(/^Session · /); // date fallback, never a raw id
   });
 });
 

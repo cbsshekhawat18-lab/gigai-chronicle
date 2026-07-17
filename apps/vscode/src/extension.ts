@@ -7,14 +7,18 @@
 import * as vscode from "vscode";
 import type { SessionId } from "@gigaichronicle/schema";
 import { ChronicleWorkspace } from "./engine.js";
-import { SessionsTreeProvider } from "./sessions-tree.js";
+import { SessionsViewProvider } from "./sessions-view.js";
 import { TimelinePanel } from "./timeline-panel.js";
 import type { SessionListItem } from "./protocol.js";
 
 export function activate(context: vscode.ExtensionContext): void {
   // ---- Phase A (sync): register everything, render empty states ---------
-  const tree = new SessionsTreeProvider();
-  context.subscriptions.push(vscode.window.registerTreeDataProvider("chronicle.sessions", tree));
+  const sidebar = new SessionsViewProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("chronicle.sessions", sidebar, {
+      webviewOptions: { retainContextWhenHidden: true },
+    }),
+  );
 
   let workspace: ChronicleWorkspace | null = null;
 
@@ -27,7 +31,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const panel = TimelinePanel.show(context.extensionUri, workspace);
       await panel.showSession(item.session as SessionId);
     }),
-    vscode.commands.registerCommand("chronicle.refresh", () => tree.refresh()),
+    vscode.commands.registerCommand("chronicle.refresh", () => void sidebar.refresh()),
   );
 
   // ---- Phase B (async): open the store ----------------------------------
@@ -37,7 +41,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Untrusted workspaces: read-only surface — we still SHOW the journey
     // (reading committed files is what an editor does) but never capture.
     workspace = await ChronicleWorkspace.open(folder.uri.fsPath).catch(() => null);
-    tree.setWorkspace(workspace);
+    sidebar.setWorkspace(workspace);
 
     // ---- Phase C: watchers (debounced) — the extension owns fs watching (§15) ----
     if (workspace !== null) {
@@ -46,7 +50,7 @@ export function activate(context: vscode.ExtensionContext): void {
       let timer: NodeJS.Timeout | undefined;
       const bump = (): void => {
         if (timer !== undefined) clearTimeout(timer);
-        timer = setTimeout(() => tree.refresh(), 500);
+        timer = setTimeout(() => void sidebar.refresh(), 500);
       };
       watcher.onDidChange(bump);
       watcher.onDidCreate(bump);
