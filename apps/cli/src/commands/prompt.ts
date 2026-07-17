@@ -4,12 +4,16 @@
  */
 import { readFileSync } from "node:fs";
 import {
+  EventLog,
+  capturedPromptByEvent,
   getPrompt,
   isChronicleError,
+  lastCapturedPrompt,
   listPrompts,
   promptVersions,
   savePrompt,
   unifiedDiff,
+  type CapturedPrompt,
 } from "@gigaichronicle/core";
 import {
   EXIT_FAILURE,
@@ -18,6 +22,7 @@ import {
   EXIT_USAGE,
   findChronicleDir,
   printJson,
+  resolveWorkspace,
 } from "../context.js";
 
 export interface PromptFlags {
@@ -26,6 +31,39 @@ export interface PromptFlags {
   text?: string;
   fromFile?: string;
   session?: string;
+  fromEvent?: string;
+  fromSession?: string;
+  fromLast?: boolean;
+}
+
+/**
+ * Resolve `--from-event | --from-session | --from-last` to the captured
+ * prompt they name (ADR-0014). Null when no --from-* flag was passed.
+ */
+async function resolveCaptured(
+  chronicleDir: string,
+  flags: PromptFlags,
+): Promise<CapturedPrompt | null | "none"> {
+  const wants =
+    flags.fromEvent !== undefined || flags.fromSession !== undefined || flags.fromLast === true;
+  if (!wants) return "none";
+
+  const log = await EventLog.open(chronicleDir, {
+    workspaceId: await resolveWorkspace(chronicleDir),
+    fsyncIntervalMs: 0,
+  });
+  try {
+    if (flags.fromEvent !== undefined) {
+      return await capturedPromptByEvent(chronicleDir, log, flags.fromEvent);
+    }
+    return await lastCapturedPrompt(
+      chronicleDir,
+      log,
+      flags.fromSession !== undefined ? { session: flags.fromSession } : {},
+    );
+  } finally {
+    await log.close();
+  }
 }
 
 export async function runPromptCommand(
@@ -45,11 +83,26 @@ export async function runPromptCommand(
     switch (action) {
       case "save": {
         if (slug === undefined) {
-          console.error("usage: chronicle prompt save <slug> [--text …|--from-file …]");
+          console.error(
+            "usage: chronicle prompt save <slug> [--text …|--from-file …|--from-last|--from-event evt_…|--from-session ses_…]",
+          );
           return EXIT_USAGE;
         }
+        // A prompt you already typed can be promoted as-is — no retyping (ADR-0014).
+        const captured = await resolveCaptured(chronicleDir, flags);
+        if (captured === null) {
+          console.error(
+            flags.fromEvent !== undefined
+              ? `prompt save: no captured prompt text for ${flags.fromEvent} (unknown event, or metadata-only capture)`
+              : "prompt save: no captured prompt found to promote — type one first, or pass --text",
+          );
+          return EXIT_FAILURE;
+        }
+        const promoted = captured === "none" ? null : captured;
         const body =
-          flags.text ?? (flags.fromFile !== undefined ? readFileSync(flags.fromFile, "utf8") : undefined);
+          promoted?.text ??
+          flags.text ??
+          (flags.fromFile !== undefined ? readFileSync(flags.fromFile, "utf8") : undefined);
         const saved = await savePrompt(chronicleDir, {
           slug,
           ...(body !== undefined ? { body } : {}),
@@ -57,13 +110,28 @@ export async function runPromptCommand(
           ...(flags.tags !== undefined
             ? { tags: flags.tags.split(",").map((t) => t.trim()).filter((t) => t !== "") }
             : {}),
-          ...(flags.session !== undefined ? { sourceSession: flags.session } : {}),
+          // Explicit --session wins; otherwise a promoted prompt carries its
+          // own provenance for free.
+          ...(flags.session !== undefined
+            ? { sourceSession: flags.session }
+            : promoted?.session != null
+              ? { sourceSession: promoted.session }
+              : {}),
         });
-        if (global.json === true) printJson("prompt", { action, prompt: saved });
-        else
+        if (global.json === true) {
+          printJson("prompt", {
+            action,
+            prompt: saved,
+            ...(promoted !== null ? { promotedFrom: promoted.eventId } : {}),
+          });
+        } else {
           console.log(
             `✓ ${saved.slug} v${saved.version} saved (.chronicle/prompts/${saved.slug}/) — commit it and the team gets it`,
           );
+          if (promoted !== null) {
+            console.log(`  promoted from ${promoted.eventId} — the prompt you typed, not retyped`);
+          }
+        }
         return EXIT_OK;
       }
       case "list": {
