@@ -123,6 +123,14 @@ export {
   type SavePromptOptions,
 } from "./prompts/prompts.js";
 export { unifiedDiff } from "./prompts/diff.js";
+// The seam: promote a prompt you already typed into the library (ADR-0014)
+export {
+  capturedPrompts,
+  capturedPromptByEvent,
+  lastCapturedPrompt,
+  suggestSlug,
+  type CapturedPrompt,
+} from "./prompts/from-capture.js";
 
 // Identity model + init (M6)
 export {
