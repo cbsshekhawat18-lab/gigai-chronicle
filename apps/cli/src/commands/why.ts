@@ -1,0 +1,135 @@
+/**
+ * `chronicle why <file>` — why does this code look like this? (ADR-0013)
+ *
+ * `git blame` says *you* changed the line. This says what was *asked*. The
+ * answer is joined from two things that already exist: the checkpoint a
+ * capture takes at every prompt (ADR-0012) and the PromptSubmitted text in
+ * the index. Nothing new is recorded to answer it.
+ */
+import path from "node:path";
+import { ChronicleIndex, EventLog, changesByPrompt } from "@gigaichronicle/core";
+import type { ChronicleEvent } from "@gigaichronicle/schema";
+import {
+  EXIT_NOT_A_PROJECT,
+  EXIT_OK,
+  EXIT_USAGE,
+  findChronicleDir,
+  printJson,
+  resolveWorkspace,
+} from "../context.js";
+
+/** Prompt text as the store has it — absent under metadata-only capture (§14). */
+function promptText(event: ChronicleEvent | undefined): string | null {
+  if (event === undefined) return null;
+  const text = (event.payload as Record<string, unknown>)["text"];
+  return typeof text === "string" ? text : null;
+}
+
+function truncate(value: string, max: number): string {
+  const flat = value.replace(/\s+/gu, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+}
+
+/** "+12 −3" for one turn, summed across the files in scope. Binary → "bin". */
+function churn(files: { insertions: number | null; deletions: number | null }[]): string {
+  if (files.some((f) => f.insertions === null)) return "bin";
+  const plus = files.reduce((sum, f) => sum + (f.insertions ?? 0), 0);
+  const minus = files.reduce((sum, f) => sum + (f.deletions ?? 0), 0);
+  return `+${plus} −${minus}`;
+}
+
+/**
+ * Resolve the user's path (absolute, or relative to cwd) to a repo-relative
+ * git pathspec. Returns null when it points outside the repository.
+ */
+export function toRepoRelative(repoRoot: string, cwd: string, file: string): string | null {
+  const relative = path.relative(repoRoot, path.resolve(cwd, file));
+  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) return null;
+  return relative.split(path.sep).join("/"); // git pathspecs are always POSIX
+}
+
+export async function runWhyCommand(
+  file: string,
+  options: { limit?: string },
+  global: { json?: boolean },
+): Promise<number> {
+  const chronicleDir = findChronicleDir(process.cwd());
+  if (chronicleDir === null) {
+    console.error("not a chronicle project (no .chronicle directory found)");
+    return EXIT_NOT_A_PROJECT;
+  }
+  const repoRoot = path.dirname(chronicleDir);
+  const target = toRepoRelative(repoRoot, process.cwd(), file);
+  if (target === null) {
+    console.error(`why: "${file}" is outside this repository`);
+    return EXIT_USAGE;
+  }
+  const limit = Number(options.limit ?? 10);
+  if (!Number.isInteger(limit) || limit < 1) {
+    console.error(`why: --limit must be a positive integer, got "${options.limit}"`);
+    return EXIT_USAGE;
+  }
+
+  const changes = await changesByPrompt(repoRoot, { path: target, limit });
+
+  const log = await EventLog.open(chronicleDir, {
+    workspaceId: await resolveWorkspace(chronicleDir),
+    fsyncIntervalMs: 0,
+  });
+  const index = ChronicleIndex.open(chronicleDir);
+  try {
+    await index.catchUp(log);
+    // All reads come from the index (§8). Prompts are few relative to tool
+    // events, so one windowed query joins cheaply against the attributions.
+    const prompts = new Map<string, ChronicleEvent>(
+      index
+        .timeline({ types: ["PromptSubmitted"], limit: 10_000 })
+        .map((event) => [event.id, event]),
+    );
+
+    const attributed = changes.map((change) => {
+      const event = prompts.get(change.eventId);
+      return {
+        eventId: change.eventId,
+        ts: event?.ts ?? null,
+        prompt: promptText(event),
+        churn: churn(change.files),
+        files: change.files,
+        openTurn: change.to === null,
+      };
+    });
+
+    if (global.json === true) {
+      printJson("why", { file: target, count: attributed.length, attributions: attributed });
+      return EXIT_OK;
+    }
+
+    if (attributed.length === 0) {
+      console.log(
+        `no captured prompt is known to have changed ${target}\n` +
+          "  why records nothing of its own — it reads the checkpoints capture takes at each\n" +
+          "  prompt (ADR-0012), so it can only answer for work done since capture was running.",
+      );
+      return EXIT_OK;
+    }
+
+    console.log(`why ${target} looks like this — ${attributed.length} prompt(s):\n`);
+    for (const item of attributed) {
+      const when = item.ts === null ? "unknown time" : item.ts.replace("T", " ").slice(0, 16);
+      const text =
+        item.prompt === null
+          ? "(prompt text not captured — metadata-only mode)"
+          : `"${truncate(item.prompt, 68)}"`;
+      console.log(`  ${when}  ${item.churn.padStart(9)}  ${text}`);
+      console.log(`  ${" ".repeat(when.length)}  ${" ".repeat(9)}  ⏪ chronicle restore ${item.eventId}`);
+      if (item.openTurn) {
+        console.log(`  ${" ".repeat(when.length)}  ${" ".repeat(9)}  · still open (compared against your working tree)`);
+      }
+      console.log("");
+    }
+    return EXIT_OK;
+  } finally {
+    index.close();
+    await log.close();
+  }
+}
