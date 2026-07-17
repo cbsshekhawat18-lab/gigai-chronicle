@@ -236,7 +236,13 @@ export function activate(context: vscode.ExtensionContext): void {
       const items: WhyPick[] = entries.map((e) => {
         const when = e.ts === null ? "unknown time" : e.ts.replace("T", " ").slice(0, 16);
         const churn = e.binary ? "binary" : `+${e.insertions} −${e.deletions}`;
-        const text = e.prompt === null ? "(prompt text not captured — metadata-only mode)" : e.prompt.replace(/\s+/g, " ").trim();
+        // Metadata-only capture yields the [METADATA-ONLY] marker, which is
+        // honest on its face; null means a >64KB body in a blob sidecar —
+        // a different thing, and not a privacy mode (ADR-0015).
+        const text =
+          e.prompt === null
+            ? "(prompt body over 64KB — stored separately)"
+            : e.prompt.replace(/\s+/g, " ").trim();
         return {
           label: text.length > 74 ? `${text.slice(0, 73)}…` : text,
           description: churn,

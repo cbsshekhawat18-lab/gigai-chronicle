@@ -51,6 +51,14 @@ export {
   type EventEngineOptions,
 } from "./engine/event-engine.js";
 export { createGitReader, fixedGitReader, type GitReader } from "./git/git-reader.js";
+// Consent gate 1: the high-sensitivity capture mode, enforced in the engine
+// (ADR-0015 — it was configurable but inert before).
+export {
+  captureModeOf,
+  stripTextBodies,
+  METADATA_ONLY_MARKER,
+  type CaptureMode,
+} from "./config/capture-mode.js";
 export { createRedactor, marker, type Redactor } from "./redaction/redact.js";
 export { harvestEnvValues } from "./redaction/env-harvest.js";
 export { findEntropyTokens, looksLikeSecretToken, shannonEntropy } from "./redaction/entropy.js";
