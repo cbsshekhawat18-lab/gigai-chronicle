@@ -4,13 +4,13 @@
  * the packaged surface never touches the native index.
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { EventEngine, fixedGitReader, runInit } from "@gigaichronicle/core";
-import { newId, type SessionId, type WorkspaceId } from "@gigaichronicle/schema";
+import { EventEngine, createCheckpoint, fixedGitReader, runInit } from "@gigaichronicle/core";
+import { newId, type EventId, type SessionId, type WorkspaceId } from "@gigaichronicle/schema";
 import { ChronicleWorkspace } from "../src/engine.js";
 
 const roots: string[] = [];
@@ -95,6 +95,56 @@ describe("sessions view data (honesty in pixels)", () => {
     const item = (await workspace!.sessions()).find((s) => s.session === open);
     expect(item!.live).toBe(true);
     expect(item!.label).toMatch(/^Session · /); // date fallback, never a raw id
+  });
+});
+
+describe("intent attribution (why is this file like this?)", () => {
+  it("joins a file's checkpoint churn back to the prompt that produced it", async () => {
+    const folder = mkdtempSync(path.join(tmpdir(), "chronicle why "));
+    roots.push(folder);
+    execFileSync("git", ["-C", folder, "init", "-q"]);
+    execFileSync("git", ["-C", folder, "-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-q", "--allow-empty", "-m", "root"]);
+    await runInit(folder, { detectedProviders: {} });
+
+    const chronicleDir = path.join(folder, ".chronicle");
+    const machine = JSON.parse(readFileSync(path.join(chronicleDir, ".local", "machine.json"), "utf8")) as { workspace: WorkspaceId };
+    const engine = await EventEngine.open(chronicleDir, {
+      workspaceId: machine.workspace,
+      provider: { id: "example-tool", version: "1.0.0" },
+      gitReader: fixedGitReader(),
+      fsyncIntervalMs: 0,
+    });
+    const session = newId("session");
+    await engine.emit({ type: "SessionStarted", session, actor: { kind: "human" }, payload: { title: "why demo", resumedFrom: null } });
+
+    // Turn 1's checkpoint captures the state it STARTED from — greeting absent.
+    const p1 = await engine.emit({ type: "PromptSubmitted", session, actor: { kind: "human" }, payload: { text: "add a greeting file" } });
+    const id1 = (p1 as { eventId: EventId }).eventId;
+    await createCheckpoint(folder, id1);
+
+    // Turn 1's work: the file appears.
+    writeFileSync(path.join(folder, "greeting.txt"), "hello world\n");
+
+    // Turn 2 starts — its checkpoint sees greeting present, so diff(ckpt1,ckpt2)
+    // is turn 1's work and gets attributed to the prompt that opened turn 1.
+    const p2 = await engine.emit({ type: "PromptSubmitted", session, actor: { kind: "human" }, payload: { text: "something unrelated" } });
+    await createCheckpoint(folder, (p2 as { eventId: EventId }).eventId);
+    await engine.close();
+
+    const workspace = await ChronicleWorkspace.open(folder);
+    const entries = await workspace!.why("greeting.txt");
+    expect(entries).toHaveLength(1); // only turn 1 touched greeting.txt
+    expect(entries[0]).toMatchObject({
+      eventId: id1,
+      prompt: "add a greeting file",
+      session,
+      insertions: 1,
+      deletions: 0,
+      binary: false,
+    });
+
+    // A file no prompt ever changed has no answer — and never guesses one.
+    expect(await workspace!.why("does-not-exist.txt")).toEqual([]);
   });
 });
 

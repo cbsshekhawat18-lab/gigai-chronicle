@@ -98,6 +98,81 @@ export function activate(context: vscode.ExtensionContext): void {
       );
       await vscode.window.showTextDocument(doc, { preview: true });
     }),
+    // "Why is this file like this?" (ADR-0013) — git blame says WHO, this says
+    // what was ASKED. A native QuickPick lists the prompts that shaped the
+    // file; each row can open the session replay or restore that moment.
+    vscode.commands.registerCommand("chronicle.whyFile", async (target?: vscode.Uri) => {
+      if (workspace === null) {
+        void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+        return;
+      }
+      const uri = target ?? vscode.window.activeTextEditor?.document.uri;
+      if (uri === undefined || uri.scheme !== "file") {
+        void vscode.window.showInformationMessage("Chronicle: open a file to ask why it looks like this.");
+        return;
+      }
+      const repoRoot = path.dirname(workspace.chronicleDir);
+      const relative = path.relative(repoRoot, uri.fsPath);
+      if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
+        void vscode.window.showInformationMessage("Chronicle: that file is outside this repository.");
+        return;
+      }
+      const posix = relative.split(path.sep).join("/");
+
+      const entries = await workspace
+        .why(posix)
+        .catch((error: unknown) => {
+          void vscode.window.showErrorMessage(`Chronicle why failed: ${(error as Error).message}`);
+          return [];
+        });
+      if (entries.length === 0) {
+        void vscode.window.showInformationMessage(
+          `Chronicle: no captured prompt is known to have changed ${posix}. ` +
+            "why reads the checkpoints capture takes at each prompt — it can only answer for work done since capture was running.",
+        );
+        return;
+      }
+
+      const restoreButton: vscode.QuickInputButton = {
+        iconPath: new vscode.ThemeIcon("history"),
+        tooltip: "Restore your code to this moment",
+      };
+      type WhyPick = vscode.QuickPickItem & { session: string | null; eventId: string };
+      const items: WhyPick[] = entries.map((e) => {
+        const when = e.ts === null ? "unknown time" : e.ts.replace("T", " ").slice(0, 16);
+        const churn = e.binary ? "binary" : `+${e.insertions} −${e.deletions}`;
+        const text = e.prompt === null ? "(prompt text not captured — metadata-only mode)" : e.prompt.replace(/\s+/g, " ").trim();
+        return {
+          label: text.length > 74 ? `${text.slice(0, 73)}…` : text,
+          description: churn,
+          detail: `${when}  ·  ${e.eventId}`,
+          buttons: [restoreButton],
+          session: e.session,
+          eventId: e.eventId,
+        };
+      });
+
+      const qp = vscode.window.createQuickPick<WhyPick>();
+      qp.title = `Why ${posix} looks like this — ${entries.length} prompt(s)`;
+      qp.placeholder = "Enter: replay that session · ⟳ button: restore your code to that moment";
+      qp.items = items;
+      qp.matchOnDescription = true;
+      qp.matchOnDetail = true;
+      qp.onDidTriggerItemButton(async ({ item }) => {
+        qp.hide();
+        await vscode.commands.executeCommand("chronicle.restoreCheckpoint", item.eventId);
+      });
+      qp.onDidAccept(async () => {
+        const item = qp.selectedItems[0];
+        qp.hide();
+        if (item?.session != null && workspace !== null) {
+          const panel = TimelinePanel.show(context.extensionUri, workspace);
+          await panel.showSession(item.session as SessionId);
+        }
+      });
+      qp.onDidHide(() => qp.dispose());
+      qp.show();
+    }),
   );
 
   // ---- Phase B (async): open the store ----------------------------------
