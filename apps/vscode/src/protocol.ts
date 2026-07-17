@@ -6,6 +6,7 @@
  * never as raw frames — raw frames are quadratic in session size.
  */
 import type { StreamEntry, StreamSummary } from "./stream.js";
+import type { Prompt } from "@gigaichronicle/core";
 
 export interface SessionListItem {
   /** Human display name: title, else first prompt, else date — never a raw id. */
@@ -40,7 +41,7 @@ export interface ReplayWindow {
 
 /** host → webview */
 export type HostMessage =
-  | { kind: "snapshot"; v: 1; data: { sessions: SessionListItem[] } }
+  | { kind: "snapshot"; v: 1; data: { sessions: SessionListItem[]; prompts?: Prompt[] } }
   | { kind: "patch"; v: 1; data: ReplayWindow }
   | { kind: "reply"; v: 1; reqId: number; error?: string };
 
