@@ -15,6 +15,8 @@ import { mapHookToCandidate, type HookInput } from "./hooks.js";
 export interface CaptureOutcome {
   ok: boolean;
   note?: string;
+  /** Chronicle event id when the emit was accepted (checkpoint keying). */
+  eventId?: string;
 }
 
 export interface ResponseTail {
@@ -95,7 +97,9 @@ export async function runCapture(
       return { ok: false, note: `unmapped hook ${eventName}` };
     }
     const result = await engine.emit(candidate);
-    return result.accepted ? { ok: true } : { ok: false, note: result.reason };
+    return result.accepted
+      ? { ok: true, eventId: result.eventId }
+      : { ok: false, note: result.reason };
   } catch (error) {
     // Absolute floor: no error may escape toward the hook process.
     return { ok: false, note: (error as Error).message };

@@ -108,3 +108,37 @@ describe("chronicle prompt (version control for prompts)", () => {
     expect((await cli("prompt", "diff", "auth-review")).code).toBe(2); // usage
   });
 });
+
+describe("chronicle restore (⏪ code time-travel, ADR-0012)", () => {
+  it("prompt capture checkpoints the tree; restore --force brings the code back", async () => {
+    const { writeFileSync, readFileSync } = await import("node:fs");
+    const { execFileSync } = await import("node:child_process");
+    const nodePath = await import("node:path");
+
+    // v1 state: two inputs.
+    writeFileSync(nodePath.join(repo, "form.js"), "input1\ninput2\n");
+    execFileSync("git", ["-C", repo, "add", "-A"]);
+    execFileSync("git", ["-C", repo, "-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-q", "-m", "form v1"]);
+
+    // A captured prompt (hook path, stdin) checkpoints the current tree.
+    const stdin = JSON.stringify({ session_id: "ckpt-uuid", prompt: "add more inputs" });
+    execFileSync(process.execPath, [CLI, "capture", "claude-code", "--event", "UserPromptSubmit"], { cwd: repo, input: stdin });
+
+    const timeline = await cli("--json", "timeline", "--type", "PromptSubmitted", "--limit", "200");
+    const events = (JSON.parse(timeline.stdout) as { events: Array<{ id: string; payload: { text: string } }> }).events;
+    const evt = events.find((e) => e.payload.text === "add more inputs");
+    expect(evt).toBeDefined();
+
+    // v2 "improvement" that is worse.
+    writeFileSync(nodePath.join(repo, "form.js"), "input1\ninput2\ninput3\ninput4\ninput5\n");
+
+    const restore = await cli("restore", (evt as { id: string }).id, "--force");
+    expect(restore.code).toBe(0);
+    expect(restore.stdout).toContain("restored 1 file(s)");
+    expect(readFileSync(nodePath.join(repo, "form.js"), "utf8")).toBe("input1\ninput2\n");
+
+    // The restore itself is on the record.
+    const after = await cli("--json", "timeline", "--type", "Ext.chronicle.WorkspaceRestored", "--limit", "10");
+    expect((JSON.parse(after.stdout) as { count: number }).count).toBeGreaterThanOrEqual(1);
+  });
+});

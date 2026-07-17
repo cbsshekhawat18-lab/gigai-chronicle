@@ -49,4 +49,5 @@ export type HostMessage =
 export type WebviewMessage =
   | { kind: "query"; v: 1; reqId: number; name: "sessions" }
   | { kind: "query"; v: 1; reqId: number; name: "frames"; args: { session: string } }
-  | { kind: "query"; v: 1; reqId: number; name: "earlier"; args: { session: string; before: number } };
+  | { kind: "query"; v: 1; reqId: number; name: "earlier"; args: { session: string; before: number } }
+  | { kind: "restore"; v: 1; eventId: string };
