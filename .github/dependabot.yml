@@ -1,0 +1,21 @@
+# Dependency updates. Chronicle is zero-network at RUNTIME (design law 7); that
+# says nothing about the supply chain we build from, which is exactly why this
+# exists — a local-first tool still ships whatever its dependencies ship.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    commit-message:
+      prefix: "chore(deps)"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(ci)"
