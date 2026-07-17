@@ -17,7 +17,7 @@
     "build": "node scripts/build.mjs",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.webview.json",
-    "package": "vsce package --no-dependencies"
+    "package": "vsce package --no-dependencies --out gigaichronicle-vscode.vsix"
   },
   "dependencies": {
     "@gigaichronicle/schema": "workspace:^",
