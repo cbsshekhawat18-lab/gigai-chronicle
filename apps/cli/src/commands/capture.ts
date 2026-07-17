@@ -38,6 +38,23 @@ export async function runCaptureCommand(providerId: string, eventName: string): 
     if (!outcome.ok && outcome.note !== undefined) {
       console.error(`capture: ${outcome.note}`);
     }
+    // Shadow checkpoint per captured prompt (ADR-0012): the app layer owns
+    // this so providers stay emit-only. Silent on failure — never block.
+    if (outcome.ok && outcome.eventId !== undefined && eventName === "UserPromptSubmit") {
+      try {
+        const { readFileSync } = await import("node:fs");
+        const path = await import("node:path");
+        const config = JSON.parse(
+          readFileSync(path.join(chronicleDir, "config.json"), "utf8"),
+        ) as { capture?: { checkpoints?: boolean } };
+        if (config.capture?.checkpoints !== false) {
+          const { createCheckpoint } = await import("@gigaichronicle/core");
+          await createCheckpoint(path.dirname(chronicleDir), outcome.eventId);
+        }
+      } catch {
+        // no config / not a repo / plumbing hiccup — capture already succeeded
+      }
+    }
   } catch (error) {
     console.error(`capture: ${(error as Error).message}`);
   }

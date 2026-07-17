@@ -159,7 +159,21 @@ function Entry({ entry }: { entry: StreamEntry }): React.JSX.Element | null {
         </div>
       ) : entry.kind === "turn" ? (
         <div style={entry.role === "human" ? styles.bubbleHuman : styles.bubbleAgent}>
-          <div style={styles.who}>{entry.role === "human" ? "You" : "Agent"}</div>
+          <div style={styles.who}>
+            {entry.role === "human" ? "You" : "Agent"}
+            {entry.role === "human" && entry.restorable && (
+              <button
+                style={{ ...styles.chip, marginLeft: 8, cursor: "pointer" }}
+                title="Put your code back to how it was at this prompt (safety-checkpointed)"
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  vscode.postMessage({ kind: "restore", v: 1, eventId: entry.eventId });
+                }}
+              >
+                ⏪ restore code
+              </button>
+            )}
+          </div>
           {turnText(entry)}
         </div>
       ) : entry.kind === "tools" ? (

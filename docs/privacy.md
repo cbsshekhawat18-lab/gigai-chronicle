@@ -57,7 +57,21 @@ fails.** That test failing blocks every release.
 
 ## What Chronicle never does
 
-Never calls a model. Never phones home. Never stores your file contents.
-Never writes your git history (one opt-in commit trailer excepted). Never
+Never calls a model. Never phones home. Never stores your file contents
+in `.chronicle/`. Never writes your git *history* (two opt-in exceptions:
+the commit trailer, and — new — code checkpoints). Never
 ranks developers. Cloud sync, if you ever enable it (Phase 4), is opt-in,
 tiered, and rejects file contents server-side.
+
+
+## Code checkpoints (ADR-0012, opt-out)
+
+To make "⏪ restore my code to how it was at that prompt" possible without
+storing your files, Chronicle snapshots the working tree on each captured
+prompt into a hidden ref (`refs/chronicle/ckpt/*`) inside **your own git
+object store** — the place that already holds your code. File contents
+still never enter `.chronicle/`, and checkpoints exclude `.chronicle/`
+itself, so a restore never rewrites your journey. Checkpoint refs are local
+(not pushed). Restore is always explicit, previews the changed files, and
+takes a safety checkpoint of the current state first — nothing is ever
+lost. Turn it off with `capture.checkpoints: false` in config.json.
