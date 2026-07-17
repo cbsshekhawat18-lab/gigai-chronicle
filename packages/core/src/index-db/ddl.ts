@@ -4,7 +4,11 @@
  * rebuild — index migrations do not exist.
  */
 
-export const INDEX_SCHEMA_VERSION = 2; // v2: events.provider/events.model (badges & filters)
+// v3: a session row exists for ANY event carrying a session id, not only for
+// SessionStarted/SessionEnded. The bump is load-bearing: per-file cursors mean
+// already-consumed events are never re-indexed, so without it existing stores
+// would keep hiding sessions whose lifecycle events were missed.
+export const INDEX_SCHEMA_VERSION = 3;
 
 export const DDL = `
 CREATE TABLE IF NOT EXISTS meta (
