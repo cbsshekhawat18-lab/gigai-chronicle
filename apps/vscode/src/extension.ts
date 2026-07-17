@@ -5,7 +5,14 @@
  * VS Code, Cursor, Windsurf.
  */
 import * as vscode from "vscode";
-import { getPrompt, restoreCheckpoint, restorePreview } from "@gigaichronicle/core";
+import {
+  getPrompt,
+  listPrompts,
+  restoreCheckpoint,
+  restorePreview,
+  savePrompt,
+  suggestSlug,
+} from "@gigaichronicle/core";
 import path from "node:path";
 import type { SessionId } from "@gigaichronicle/schema";
 import { ChronicleWorkspace } from "./engine.js";
@@ -97,6 +104,94 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.Uri.parse(`chronicle-prompt:/${slug}/${version}.md`),
       );
       await vscode.window.showTextDocument(doc, { preview: true });
+    }),
+    // "Save prompt" (ADR-0014) — the seam between the two prompt worlds.
+    // Chronicle already captured every prompt you typed; the library holds
+    // the curated ones. Without this the only way to library a prompt you
+    // wrote is to RETYPE it — the exact manual hoarding P1 describes. Pick a
+    // captured prompt, pick where it goes, done.
+    vscode.commands.registerCommand("chronicle.savePrompt", async () => {
+      if (workspace === null) {
+        void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+        return;
+      }
+      const dir = workspace.chronicleDir;
+      const recent = await workspace.recentPrompts().catch(() => []);
+      if (recent.length === 0) {
+        void vscode.window.showInformationMessage(
+          "Chronicle: no captured prompts yet. Type a prompt in your AI tool and it appears here — nothing to copy by hand.",
+        );
+        return;
+      }
+
+      type PromptPick = vscode.QuickPickItem & { index: number };
+      const picked = await vscode.window.showQuickPick<PromptPick>(
+        recent.map((p, index) => ({
+          label: p.text.replace(/\s+/g, " ").trim().slice(0, 74),
+          detail: `${p.ts.replace("T", " ").slice(0, 16)}  ·  ${p.text.split("\n").length} line(s)`,
+          index,
+        })),
+        { title: "Save a prompt to the library", placeHolder: "Which prompt do you want to keep?" },
+      );
+      if (picked === undefined) return;
+      const source = recent[picked.index];
+      if (source === undefined) return;
+
+      // Where it lands. Choosing an existing prompt adds a VERSION — this is
+      // the step that makes the versioning model visible instead of implied.
+      const existing = await listPrompts(dir).catch(() => []);
+      const NEW = "$(add) New prompt…";
+      const target = await vscode.window.showQuickPick(
+        [
+          { label: NEW, detail: "Start a new prompt at v1" },
+          ...existing.map((p) => ({
+            label: p.slug,
+            description: `v${p.version} → v${p.version + 1}`,
+            detail: p.title,
+          })),
+        ],
+        { title: "Save as", placeHolder: "New prompt, or a new version of an existing one" },
+      );
+      if (target === undefined) return;
+
+      let slug = target.label;
+      let title: string | undefined;
+      if (target.label === NEW) {
+        const entered = await vscode.window.showInputBox({
+          title: "New prompt — slug",
+          value: suggestSlug(source.text),
+          prompt: "kebab-case id, e.g. auth-review",
+          validateInput: (value) =>
+            /^[a-z0-9][a-z0-9-]{0,63}$/.test(value) ? null : "lowercase letters, digits and dashes only",
+        });
+        if (entered === undefined) return;
+        slug = entered;
+        title = await vscode.window.showInputBox({
+          title: "New prompt — title",
+          value: source.text.replace(/\s+/g, " ").trim().slice(0, 60),
+          prompt: "Human name for this prompt",
+        });
+        if (title === undefined) return;
+      }
+
+      try {
+        const saved = await savePrompt(dir, {
+          slug,
+          body: source.text,
+          ...(title !== undefined ? { title } : {}),
+          ...(source.session !== null ? { sourceSession: source.session } : {}),
+        });
+        await sidebar.refresh();
+        const open = await vscode.window.showInformationMessage(
+          `Chronicle: saved ${saved.slug} v${saved.version} — the prompt you typed, not retyped. Commit .chronicle/prompts/ and your team gets it.`,
+          "Open",
+        );
+        if (open === "Open") {
+          await vscode.commands.executeCommand("chronicle.promptOpen", saved.slug, saved.version);
+        }
+      } catch (error) {
+        void vscode.window.showErrorMessage(`Chronicle: save failed — ${(error as Error).message}`);
+      }
     }),
     // "Why is this file like this?" (ADR-0013) — git blame says WHO, this says
     // what was ASKED. A native QuickPick lists the prompts that shaped the

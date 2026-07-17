@@ -86,9 +86,22 @@
         "title": "Chronicle: Why is this file like this?",
         "category": "Chronicle",
         "icon": "$(git-commit)"
+      },
+      {
+        "command": "chronicle.savePrompt",
+        "title": "Chronicle: Save a prompt to the library",
+        "category": "Chronicle",
+        "icon": "$(save)"
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "chronicle.savePrompt",
+          "when": "view == chronicle.sessions",
+          "group": "navigation@1"
+        }
+      ],
       "editor/context": [
         {
           "command": "chronicle.whyFile",
