@@ -31,7 +31,12 @@ import { EventLog } from "../store/event-log.js";
 import { createRedactor, type Redactor } from "../redaction/redact.js";
 import { harvestEnvValues } from "../redaction/env-harvest.js";
 import { createGitReader, type GitReader } from "../git/git-reader.js";
-import { captureModeOf, stripTextBodies, type CaptureMode } from "../config/capture-mode.js";
+import {
+  capturePolicyOf,
+  stripTextBodies,
+  type CaptureMode,
+  type CapturePolicy,
+} from "../config/capture-mode.js";
 
 /** What a provider is allowed to say about a moment. Everything else is stamped. */
 export interface RawCandidate {
@@ -112,12 +117,17 @@ export class EventEngine {
     });
     const workspaceRoot = path.dirname(chronicleDir);
     const envValues = [...(await harvestEnvValues(workspaceRoot)), ...(options.extraEnvValues ?? [])];
-    const redactor = createRedactor(envValues);
     const git = options.gitReader ?? createGitReader(workspaceRoot);
-    // Read from the store, not from the caller: consent gate 1 must hold for
-    // every provider and every path into emit(), including ones not written
-    // yet (ADR-0015).
-    const captureMode = options.captureMode ?? (await captureModeOf(chronicleDir));
+    // Read from the store, not from the caller: every promise `capture` makes
+    // must hold for every provider and every path into emit(), including ones
+    // not written yet. Both ADR-0015 and ADR-0017 exist because a config key
+    // whose enforcement is the caller's job is a key nobody enforces.
+    const policy = await capturePolicyOf(chronicleDir);
+    const captureMode = options.captureMode ?? policy.mode;
+    const redactor = createRedactor(envValues, {
+      secrets: policy.redaction.secrets,
+      customPatterns: policy.redaction.customPatterns,
+    });
     return new EventEngine(chronicleDir, log, redactor, git, captureMode, options);
   }
 
