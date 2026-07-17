@@ -31,6 +31,7 @@ import { EventLog } from "../store/event-log.js";
 import { createRedactor, type Redactor } from "../redaction/redact.js";
 import { harvestEnvValues } from "../redaction/env-harvest.js";
 import { createGitReader, type GitReader } from "../git/git-reader.js";
+import { captureModeOf, stripTextBodies, type CaptureMode } from "../config/capture-mode.js";
 
 /** What a provider is allowed to say about a moment. Everything else is stamped. */
 export interface RawCandidate {
@@ -63,6 +64,14 @@ export interface EventEngineOptions {
   /** Extra env-secret literals (tests); merged with the workspace harvest. */
   extraEnvValues?: readonly string[];
   fsyncIntervalMs?: number;
+  /**
+   * Override the configured capture mode (tests only).
+   *
+   * Deliberately an override, never a requirement: the mode is READ FROM THE
+   * STORE by default, so no caller can forget to honor it. Requiring callers
+   * to pass it is precisely how it stayed inert (ADR-0015).
+   */
+  captureMode?: CaptureMode;
 }
 
 /** Candidates above this size become CaptureGaps (abuse guard; blob spill handles big text fields). */
@@ -75,18 +84,21 @@ export class EventEngine {
   readonly #workspaceId: WorkspaceId;
   readonly #providerRef: string;
   readonly #chronicleDir: string;
+  readonly #captureMode: CaptureMode;
 
   private constructor(
     chronicleDir: string,
     log: EventLog,
     redactor: Redactor,
     git: GitReader,
+    captureMode: CaptureMode,
     options: EventEngineOptions,
   ) {
     this.#chronicleDir = chronicleDir;
     this.#log = log;
     this.#redactor = redactor;
     this.#git = git;
+    this.#captureMode = captureMode;
     this.#workspaceId = options.workspaceId;
     this.#providerRef = `${options.provider.id}@${options.provider.version}`;
   }
@@ -102,7 +114,11 @@ export class EventEngine {
     const envValues = [...(await harvestEnvValues(workspaceRoot)), ...(options.extraEnvValues ?? [])];
     const redactor = createRedactor(envValues);
     const git = options.gitReader ?? createGitReader(workspaceRoot);
-    return new EventEngine(chronicleDir, log, redactor, git, options);
+    // Read from the store, not from the caller: consent gate 1 must hold for
+    // every provider and every path into emit(), including ones not written
+    // yet (ADR-0015).
+    const captureMode = options.captureMode ?? (await captureModeOf(chronicleDir));
+    return new EventEngine(chronicleDir, log, redactor, git, captureMode, options);
   }
 
   /** The pipeline. Never throws on candidate data. */
@@ -112,7 +128,13 @@ export class EventEngine {
     if (shapeIssue !== null) return this.#gap(candidate, shapeIssue);
 
     // ---- stage 2: REDACT (before anything can reach disk) --------------
-    const payload = this.#redactor.redactDeep(candidate.payload);
+    // High-sensitivity mode is a redaction policy, so it runs here, at the
+    // same "nothing reaches disk unredacted" guarantee — text bodies are
+    // dropped BEFORE secret redaction, because content the user asked us
+    // never to store should not be scanned, spilled, or written at all.
+    const content =
+      this.#captureMode === "metadata" ? stripTextBodies(candidate.payload) : candidate.payload;
+    const payload = this.#redactor.redactDeep(content);
 
     // ---- stage 3: ENRICH ----------------------------------------------
     const git = await this.#git.snapshot();
