@@ -1,9 +1,30 @@
 {
   "name": "@gigaichronicle/cli",
   "version": "0.1.0",
-  "description": "The chronicle CLI — every core capability, headless (ARCHITECTURE.md §14).",
+  "description": "chronicle — your AI development history, recorded in-repo, linked to git, replayable. git blame says who; `chronicle why` says what was asked.",
   "license": "MIT",
   "type": "module",
+  "keywords": [
+    "ai",
+    "git",
+    "history",
+    "prompts",
+    "claude-code",
+    "version-control",
+    "provenance",
+    "local-first",
+    "cli",
+    "developer-tools"
+  ],
+  "homepage": "https://github.com/cbsshekhawat18-lab/gigai-chronicle#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cbsshekhawat18-lab/gigai-chronicle.git",
+    "directory": "apps/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/cbsshekhawat18-lab/gigai-chronicle/issues"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
