@@ -1,2 +1,10 @@
 .cache/
 .local/
+
+# This public repository does not commit its own captured sessions — the
+# founder's prompts are not part of what a cloner needs, and the git history
+# was purged of them before launch. Chronicle's default is to SHARE sessions
+# (they travel with the repo); this line is a deliberate, repo-specific
+# opt-out for the public mirror. Remove it if you want this repo to dogfood
+# the shared-journey model in public again.
+sessions/
