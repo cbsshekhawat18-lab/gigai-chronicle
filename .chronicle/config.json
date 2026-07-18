@@ -16,7 +16,7 @@
       "secrets": true,
       "customPatterns": []
     },
-    "visibility": "shared",
+    "visibility": "private",
     "gitTrailer": false
   },
   "storage": {
