@@ -7,6 +7,7 @@
 <p align="center"><strong>Build software with AI. Never lose the journey.</strong></p>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/gigai-chronicle"><img alt="npm" src="https://img.shields.io/npm/v/gigai-chronicle?color=%23F1541A&label=npm"></a>
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/code-MIT-blue.svg"></a>
   <img alt="Node" src="https://img.shields.io/badge/node-%E2%89%A520.19-brightgreen.svg">
   <img alt="Zero network" src="https://img.shields.io/badge/network-zero%20by%20default-success.svg">
