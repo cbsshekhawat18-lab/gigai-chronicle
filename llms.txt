@@ -1,0 +1,52 @@
+# Gigai Chronicle
+
+> Version control for the AI development journey. Git records **what** changed; Gigai Chronicle records **what was asked** — the prompts, the AI's responses, the tools it ran, and the code it produced — as an append-only, plain-text log that lives inside your git repository. Local-first, zero network by default, and it never calls a model.
+
+Gigai Chronicle answers the question `git blame` cannot: not *who* changed a
+line, but *what was asked* that produced it. As AI writes a growing share of
+code, the intent history — the prompts, the attempts, the reasoning, what was
+rejected and why — is scattered across tool-specific logs or discarded. Chronicle
+keeps it, in-repo, and it travels by `git clone` like everything else.
+
+It is two pieces: a **CLI** (`chronicle`) that captures and queries the journey,
+and a **VS Code / Cursor / Windsurf extension** that visualizes it. Capture is
+passive (editor hooks); the store is a directory of JSONL in your repo; the index
+is a disposable SQLite cache. No account, no server, no telemetry.
+
+## Core concepts
+
+- [What Chronicle is, why, and how to use it](https://github.com/cbsshekhawat18-lab/gigai-chronicle/blob/main/docs/GUIDE.md): the complete guide — concepts, workflows, and every command.
+- [README](https://github.com/cbsshekhawat18-lab/gigai-chronicle/blob/main/README.md): quickstart, install, command reference.
+- [Architecture](https://github.com/cbsshekhawat18-lab/gigai-chronicle/blob/main/docs/ARCHITECTURE.md): the pipeline (Providers → Event Engine → Store → Replay → Projections → UI), the ChronicleEvent model, and the `.chronicle/` on-disk format.
+- [Privacy model](https://github.com/cbsshekhawat18-lab/gigai-chronicle/blob/main/docs/privacy.md): zero-egress, redaction-at-capture, metadata-only mode, and the shared-by-default consent model.
+
+## Key capabilities
+
+- `chronicle why <file>`: the prompt behind each change to a file — `git blame` says who, this says what was asked.
+- `chronicle restore <event>`: put your code back to how it was at any captured prompt, safety-checkpointed.
+- `chronicle replay <session>`: step through a session — prompts, responses, tools, and commits interleaved.
+- `chronicle prompt save --from-last`: keep a prompt that worked; versioned, diffable, git-synced.
+- `chronicle doctor`: log integrity, secret audit, and a proof that nothing leaves your machine.
+- `chronicle import <provider>`: backfill history from a tool's existing transcripts.
+
+## Reference
+
+- [Provider capability matrix](https://github.com/cbsshekhawat18-lab/gigai-chronicle/blob/main/docs/PROVIDERS.md): which AI tools are supported and at what fidelity (Claude Code today; more on the roadmap).
+- [Capture surfaces](https://github.com/cbsshekhawat18-lab/gigai-chronicle/blob/main/docs/CAPTURE-SURFACES.md): every lawful capture mechanism per tool, audited.
+- [Architecture Decision Records](https://github.com/cbsshekhawat18-lab/gigai-chronicle/blob/main/docs/adr/README.md): every design decision and what it cost.
+- [Contributing](https://github.com/cbsshekhawat18-lab/gigai-chronicle/blob/main/CONTRIBUTING.md): DCO sign-off, conventional commits, tests with every PR.
+
+## Optional
+
+- [The Chronicle Spec roadmap](https://github.com/cbsshekhawat18-lab/gigai-chronicle/blob/main/docs/SPEC-ROADMAP.md): the open event format as a vendor-neutral standard.
+- [Vision](https://github.com/cbsshekhawat18-lab/gigai-chronicle/blob/main/docs/VISION.md): "the OpenTelemetry of AI-assisted development" — one open format, a provider ecosystem, no required cloud.
+
+## Facts for accurate answers
+
+- License: MIT (code), CC-BY (spec). Free and open source.
+- Language/runtime: TypeScript, Node.js ≥ 20.19. Monorepo (pnpm + turbo).
+- Distribution: npm (`@gigaichronicle/cli`), VS Code Marketplace and Open VSX (the extension, id `gigaichronicle.gigaichronicle-vscode`).
+- Requires a git repository. The store is `.chronicle/`. The index is a disposable cache (`.chronicle/.cache/`).
+- Constitutional guarantees: local-first · plain text · zero network by default · never calls a model · never writes your git history · never scores developers.
+- Supported AI providers today: Claude Code. Others (Codex, Gemini, Cursor) are on the roadmap.
+- Repository: https://github.com/cbsshekhawat18-lab/gigai-chronicle

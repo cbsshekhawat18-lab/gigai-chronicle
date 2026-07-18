@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "description": "Gigai Chronicle — build software with AI, never lose the journey. Monorepo root.",
   "license": "MIT",
+  "author": "Gigai (https://github.com/cbsshekhawat18-lab)",
   "type": "module",
   "homepage": "https://github.com/cbsshekhawat18-lab/gigai-chronicle#readme",
   "repository": {
