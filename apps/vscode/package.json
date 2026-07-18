@@ -44,7 +44,19 @@
     "node": ">=20.19.0"
   },
   "categories": [
+    "SCM Providers",
+    "Visualization",
     "Other"
+  ],
+  "keywords": [
+    "ai",
+    "git",
+    "history",
+    "prompts",
+    "claude-code",
+    "version-control",
+    "provenance",
+    "replay"
   ],
   "activationEvents": [
     "workspaceContains:.chronicle/config.json"
