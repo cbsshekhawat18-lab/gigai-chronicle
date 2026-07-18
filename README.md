@@ -7,11 +7,13 @@
 <p align="center"><strong>Build software with AI. Never lose the journey.</strong></p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/gigai-chronicle"><img alt="npm" src="https://img.shields.io/npm/v/gigai-chronicle?color=%23F1541A&label=npm"></a>
-  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/code-MIT-blue.svg"></a>
+  <a href="https://www.npmjs.com/package/gigai-chronicle"><img alt="npm" src="https://img.shields.io/npm/v/gigai-chronicle?color=%23F1541A&label=npm&logo=npm"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=gigaichronicle.gigaichronicle-vscode"><img alt="VS Code Marketplace" src="https://img.shields.io/visual-studio-marketplace/v/gigaichronicle.gigaichronicle-vscode?color=%23F1541A&label=VS%20Code&logo=visualstudiocode"></a>
+  <a href="https://open-vsx.org/extension/gigaichronicle/gigaichronicle-vscode"><img alt="Open VSX" src="https://img.shields.io/open-vsx/v/gigaichronicle/gigaichronicle-vscode?color=%23F1541A&label=Open%20VSX"></a>
+  <a href="https://github.com/cbsshekhawat18-lab/gigai-chronicle/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/cbsshekhawat18-lab/gigai-chronicle?color=%23F1541A&logo=github&label=star"></a>
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Node" src="https://img.shields.io/badge/node-%E2%89%A520.19-brightgreen.svg">
   <img alt="Zero network" src="https://img.shields.io/badge/network-zero%20by%20default-success.svg">
-  <img alt="Local-first" src="https://img.shields.io/badge/data-local--first-success.svg">
 </p>
 
 ---
