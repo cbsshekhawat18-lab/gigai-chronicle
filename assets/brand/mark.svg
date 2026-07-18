@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!--
+    Gigai Chronicle — the mark, as clean scalable vector.
+
+    A bold navy G with a git-commit node in its counter (dot · ring · edge)
+    and an orange spark in the mouth. The commit node is the idea: Chronicle
+    is version control for the AI-development journey.
+
+    Two brand colours, easy to retune:
+      navy   #17233B   (the G)
+      orange #F1541A   (the commit ring, the spark, the live edge)
+
+    This is a hand-authored reconstruction of the raster logo — crisp at any
+    size and ~1.5KB versus the traced icon.svg's 104KB. Tune the two hex
+    values or nudge coordinates freely.
+  -->
+
+  <!-- The G: bold arc opening upper-right, finished with its bar -->
+  <path d="M84.9 33.1 A38 38 0 1 0 95.2 67.9 L66 67.9"
+        stroke="#17233B" stroke-width="20"
+        stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- The spark: a thick diagonal in the G's mouth -->
+  <path d="M95 55 L110 39" stroke="#F1541A" stroke-width="11" stroke-linecap="round" />
+
+  <!-- The git-commit node across the counter, feeding the G's bar -->
+  <circle cx="40" cy="68" r="6" fill="#17233B" />
+  <path d="M46 68 L57 68" stroke="#17233B" stroke-width="4" stroke-linecap="round" />
+  <circle cx="66" cy="68" r="7.5" stroke="#F1541A" stroke-width="5" />
+  <path d="M73.5 68 L84 68" stroke="#F1541A" stroke-width="4" stroke-linecap="round" />
+</svg>

@@ -1,10 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <!-- The "G": a bold ring opening to the right, echoing the Gigai mark -->
-  <path d="M16.8 6.6A6 6 0 1 0 18 10.4h-4.4" />
-  <!-- Anvil top face + horn -->
-  <path d="M4.5 16.3h13l-1 2H6.5z" fill="currentColor" stroke="none" />
-  <!-- Anvil base -->
-  <path d="M8.6 18.3h4.8l-.6 3h-3.6z" fill="currentColor" stroke="none" />
-  <!-- Forge sparks -->
-  <path d="M18.4 15l1.6-1.4M20.6 16.4l1.3-.4" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="miter">
+  <!--
+    Activity-bar icon: the Gigai mark — a bold G with a git-commit node in its
+    counter — sized and shaped to match the logo and to sit at the same visual
+    weight as VS Code's own activity-bar icons.
+
+    Two things this fixes over the first draft:
+    · SIZE — the mark now fills ~18 of 24px (was ~13, which read as too small
+      and off-centre). Outer edge runs ~1.7 → 19.3.
+    · The SQUARED bottom-right — the logo's G is not a plain ring. Top and left
+      are a rounded arc; the arc ends at the BOTTOM heading right, then a flat
+      bottom, a right-angle corner (linejoin miter keeps it crisp), the right
+      wall, and the bar jutting in. No backtrack, a clean square.
+
+    Stroke 4.0 on Ø19.6 = 20%, a bold letterform — with the commit node,
+    unmistakably version control, not a clock.
+  -->
+
+  <!-- The G: rounded arc (top/left) → flat bottom → squared corner → bar -->
+  <path d="M16.7 5.7 A7.8 7.8 0 1 0 11.5 19.3 L17.3 19.3 L17.3 12.1 L13.1 12.1"
+        stroke-width="4" />
+
+  <!-- The commit node: a ring on an edge, into the G's bar -->
+  <circle cx="9" cy="12.1" r="2" stroke-width="1.1" stroke-linejoin="round" />
+  <path d="M11 12.1 L13.1 12.1" stroke-width="1.4" />
 </svg>
