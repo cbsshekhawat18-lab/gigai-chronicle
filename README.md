@@ -195,8 +195,8 @@ attribute lines. Replay is the team surface; `why` is your personal one.
 
 | Doc | What it is |
 |---|---|
+| [GUIDE.md](docs/GUIDE.md) | The complete guide — what/why/how, install, workflows, FAQ |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | The technical spec — pipeline, event model, store format |
-| [PHASE-0.md](docs/PHASE-0.md) | Product validation, positioning, competitive analysis |
 | [privacy.md](docs/privacy.md) | The privacy model, in full |
 | [CAPTURE-SURFACES.md](docs/CAPTURE-SURFACES.md) | Every lawful capture mechanism, per tool, audited |
 | [DELIVERY-SURFACES.md](docs/DELIVERY-SURFACES.md) | What we may write into another tool's territory |
@@ -204,7 +204,6 @@ attribute lines. Replay is the team surface; `why` is your personal one.
 | [SPEC-ROADMAP.md](docs/SPEC-ROADMAP.md) | The Chronicle Spec as an open standard |
 | [VISION.md](docs/VISION.md) | The OpenTelemetry-for-AI-development endgame |
 | [adr/](docs/adr/README.md) | Architecture Decision Records — every decision, and what it cost |
-| [IMPLEMENTATION-MODE.md](docs/IMPLEMENTATION-MODE.md) | The engineering operating contract |
 
 ## Development
 
