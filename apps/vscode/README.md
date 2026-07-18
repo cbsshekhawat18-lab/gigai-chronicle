@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/cbsshekhawat18-lab/gigai-chronicle/main/assets/brand/banner.png" alt="Gigai Chronicle — git blame says who; chronicle why says what was asked" width="100%" />
+</p>
+
 # Gigai Chronicle — for VS Code, Cursor & Windsurf
 
 > **Your AI development history — recorded in-repo, linked to git, replayable.**

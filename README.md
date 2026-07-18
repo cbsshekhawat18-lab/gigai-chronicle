@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/brand/logo.png" width="380" alt="Gigai Chronicle logo — a G forged on an anvil" />
+  <img src="assets/brand/banner.png" alt="Gigai Chronicle — git blame says who; chronicle why says what was asked" width="100%" />
 </p>
 
 <h1 align="center">Gigai Chronicle</h1>
