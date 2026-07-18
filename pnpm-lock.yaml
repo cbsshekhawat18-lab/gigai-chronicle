@@ -68,6 +68,10 @@ importers:
 
   apps/cli:
     dependencies:
+      better-sqlite3:
+        specifier: 'catalog:'
+        version: 12.11.1
+    devDependencies:
       '@gigaichronicle/core':
         specifier: workspace:^
         version: link:../../packages/core
@@ -77,16 +81,12 @@ importers:
       '@gigaichronicle/schema':
         specifier: workspace:^
         version: link:../../packages/schema
-      better-sqlite3:
-        specifier: 'catalog:'
-        version: 12.11.1
-      commander:
-        specifier: 'catalog:'
-        version: 14.0.3
-    devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 26.1.1
+      commander:
+        specifier: 'catalog:'
+        version: 14.0.3
       esbuild:
         specifier: 'catalog:'
         version: 0.28.1

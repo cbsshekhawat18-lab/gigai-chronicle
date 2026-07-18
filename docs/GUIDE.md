@@ -85,14 +85,14 @@ Full technical spec: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ### The CLI
 
-Once published to npm:
+From npm ([gigai-chronicle](https://www.npmjs.com/package/gigai-chronicle)):
 
 ```bash
-npm install -g @gigaichronicle/cli
+npm install -g gigai-chronicle
 chronicle --help
 ```
 
-From source (works today):
+Or from source:
 
 ```bash
 git clone https://github.com/cbsshekhawat18-lab/gigai-chronicle.git

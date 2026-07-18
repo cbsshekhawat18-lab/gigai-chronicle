@@ -1,5 +1,5 @@
 {
-  "name": "@gigaichronicle/cli",
+  "name": "gigai-chronicle",
   "version": "0.1.0",
   "description": "chronicle — your AI development history, recorded in-repo, linked to git, replayable. git blame says who; `chronicle why` says what was asked.",
   "license": "MIT",
@@ -43,13 +43,13 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@gigaichronicle/schema": "workspace:^",
-    "@gigaichronicle/core": "workspace:^",
-    "better-sqlite3": "catalog:",
-    "commander": "catalog:",
-    "@gigaichronicle/provider-claude-code": "workspace:^"
+    "better-sqlite3": "catalog:"
   },
   "devDependencies": {
+    "@gigaichronicle/schema": "workspace:^",
+    "@gigaichronicle/core": "workspace:^",
+    "@gigaichronicle/provider-claude-code": "workspace:^",
+    "commander": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",

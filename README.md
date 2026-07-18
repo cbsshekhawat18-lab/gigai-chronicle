@@ -54,31 +54,30 @@ git-style graph, and **Why is this file like this?** in the editor.
 
 ## Install
 
-> **Status:** v0.1 is complete and dogfoods itself — this repository records
-> its own development with it. Distribution via npm and the VS Code
-> Marketplace is **not published yet**, so the source install below is the
-> honest path today.
-
 Requires **Node ≥ 20.19** and **git**.
+
+**The CLI** — [on npm](https://www.npmjs.com/package/gigai-chronicle):
+
+```bash
+npm install -g gigai-chronicle
+chronicle --help
+```
+
+**The editor extension** (VS Code, Cursor, Windsurf) — grab the `.vsix` from
+[Releases](https://github.com/cbsshekhawat18-lab/gigai-chronicle/releases) →
+Command Palette → *Extensions: Install from VSIX…*. (Marketplace and Open VSX
+listings are rolling out.)
+
+<details>
+<summary>Or build from source</summary>
 
 ```bash
 git clone https://github.com/cbsshekhawat18-lab/gigai-chronicle.git
 cd gigai-chronicle
-corepack pnpm install
-corepack pnpm build
-
-# run it from anywhere…
-node /path/to/gigai-chronicle/apps/cli/dist/main.js --help
-# …or link it as `chronicle`
-cd apps/cli && npm link
+corepack pnpm install && corepack pnpm build
+cd apps/cli && npm link          # exposes `chronicle`
 ```
-
-**VS Code / Cursor / Windsurf extension:**
-
-```bash
-cd apps/vscode && corepack pnpm package
-# Cmd+Shift+P → "Extensions: Install from VSIX…" → gigaichronicle-vscode.vsix
-```
+</details>
 
 ## Quickstart (60 seconds)
 
