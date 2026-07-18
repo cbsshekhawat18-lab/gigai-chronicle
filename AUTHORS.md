@@ -1,8 +1,9 @@
 # Authors & Credits
 
-Gigai Chronicle is created and maintained by **Gigai**.
+Gigai Chronicle is created and maintained by **Gigai Kripa Services**
+(<https://gigaikripaservices.com>).
 
-- **[@cbsshekhawat18](https://github.com/cbsshekhawat18-lab)** — creator & maintainer
+- **[@cbsshekhawat18-lab](https://github.com/cbsshekhawat18-lab)** — creator & maintainer
 
 ## Contributors
 

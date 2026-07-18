@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "chronicle — your AI development history, recorded in-repo, linked to git, replayable. git blame says who; `chronicle why` says what was asked.",
   "license": "MIT",
-  "author": "Gigai (https://github.com/cbsshekhawat18-lab)",
+  "author": "Gigai Kripa Services (https://gigaikripaservices.com)",
   "type": "module",
   "keywords": [
     "ai",
