@@ -8,16 +8,19 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import {
   EventLog,
+  capturedPromptByEvent,
   capturedPrompts,
   changesByPrompt,
+  listPrompts,
   openWorkspace,
+  promptHistory,
   replaySession,
   sessionEvents,
   type CapturedPrompt,
   type ReplayFrame,
 } from "@gigaichronicle/core";
 import type { SessionId, WorkspaceId } from "@gigaichronicle/schema";
-import type { SessionListItem } from "./protocol.js";
+import type { PromptWithHistory, SessionListItem } from "./protocol.js";
 
 /** One attributed prompt for the "why is this file like this?" view. */
 export interface WhyEntry {
@@ -132,6 +135,25 @@ export class ChronicleWorkspace {
       const all = await capturedPrompts(this.chronicleDir, log);
       return all.reverse().slice(0, limit);
     });
+  }
+
+  /** One captured prompt's text by event id — behind the dashboard's Compare. */
+  async promptText(eventId: string): Promise<string | null> {
+    const prompt = await this.#withLog((log) =>
+      capturedPromptByEvent(this.chronicleDir, log, eventId),
+    );
+    return prompt?.text ?? null;
+  }
+
+  /** The curated prompt library, each with its version graph — the Prompts view. */
+  async libraryPrompts(): Promise<PromptWithHistory[]> {
+    const base = await listPrompts(this.chronicleDir);
+    return Promise.all(
+      base.map(async (p) => ({
+        ...p,
+        history: await promptHistory(this.chronicleDir, p.slug).catch(() => []),
+      })),
+    );
   }
 
   /**

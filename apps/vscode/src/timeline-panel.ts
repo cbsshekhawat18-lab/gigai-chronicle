@@ -100,6 +100,14 @@ export class TimelinePanel {
       await vscode.commands.executeCommand("chronicle.restoreCheckpoint", message.eventId);
       return;
     }
+    if (message.kind === "compare") {
+      await vscode.commands.executeCommand("chronicle.comparePrompts", message.a, message.b);
+      return;
+    }
+    if (message.kind === "openPrompt") {
+      await vscode.commands.executeCommand("chronicle.promptOpen", message.slug, message.version);
+      return;
+    }
     if (message.kind !== "query") return;
     try {
       if (this.#workspace === null) {
@@ -107,7 +115,11 @@ export class TimelinePanel {
         return;
       }
       if (message.name === "sessions") {
-        await this.#post({ kind: "snapshot", v: 1, data: { sessions: await this.#workspace.sessions() } });
+        const [sessions, prompts] = await Promise.all([
+          this.#workspace.sessions(),
+          this.#workspace.libraryPrompts(),
+        ]);
+        await this.#post({ kind: "snapshot", v: 1, data: { sessions, prompts } });
       } else if (message.name === "frames") {
         await this.showSession(message.args.session as SessionId);
       } else {

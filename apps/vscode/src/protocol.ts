@@ -54,4 +54,8 @@ export type WebviewMessage =
   | { kind: "query"; v: 1; reqId: number; name: "sessions" }
   | { kind: "query"; v: 1; reqId: number; name: "frames"; args: { session: string } }
   | { kind: "query"; v: 1; reqId: number; name: "earlier"; args: { session: string; before: number } }
-  | { kind: "restore"; v: 1; eventId: string };
+  | { kind: "restore"; v: 1; eventId: string }
+  /** Open the two chosen prompts in the native diff editor (ADR-0013 evolution). */
+  | { kind: "compare"; v: 1; a: string; b: string }
+  /** Open a library prompt version in the native editor. */
+  | { kind: "openPrompt"; v: 1; slug: string; version: number };

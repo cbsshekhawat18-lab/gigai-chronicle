@@ -1,13 +1,18 @@
 /**
- * Timeline webview (§15.2/15.3): PURE REPLAY over the host's compact stream
- * projection, lazy-loaded in newest-first windows (raw frames never cross
- * the wire — they're quadratic). The native sidebar is the one session
- * list; clicking there patches this panel. No business logic here.
+ * The Chronicle dashboard (§15.2, roadmap v0.2): ONE webview, now a workspace
+ * — a nav rail, a tabbed session view, a prompt library, and settings — still
+ * PURE REPLAY over the host's compact stream projection. Raw frames never
+ * cross the wire (they're quadratic); windows lazy-load newest-first. No
+ * business logic, no fs/git here.
+ *
+ * Honesty rule the UI obeys: it shows only what the store actually holds —
+ * turns, tool runs, files touched, fidelity, gaps. There is no token meter,
+ * because Chronicle captures no token counts.
  */
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
-import type { HostMessage, SessionListItem } from "../src/protocol.js";
+import type { HostMessage, PromptWithHistory, SessionListItem } from "../src/protocol.js";
 import type { StreamEntry, StreamSummary, ToolRunLite } from "../src/stream.js";
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
@@ -20,6 +25,8 @@ interface TimelineState {
   entries: StreamEntry[];
   offset: number;
   totalEntries: number;
+  sessions: SessionListItem[];
+  prompts: PromptWithHistory[];
   apply(message: HostMessage): void;
 }
 
@@ -30,7 +37,16 @@ const useStore = create<TimelineState>((set, get) => ({
   entries: [],
   offset: 0,
   totalEntries: 0,
+  sessions: [],
+  prompts: [],
   apply: (message) => {
+    if (message.kind === "snapshot") {
+      set({
+        sessions: message.data.sessions,
+        ...(message.data.prompts !== undefined ? { prompts: message.data.prompts } : {}),
+      });
+      return;
+    }
     if (message.kind !== "patch") return;
     const data = message.data;
     if (data.mode === "prepend" && get().activeSession === data.session) {
@@ -54,8 +70,17 @@ const useStore = create<TimelineState>((set, get) => ({
 }));
 
 let reqId = 0;
+function send(message: Record<string, unknown>): void {
+  vscode.postMessage({ v: 1, reqId: ++reqId, ...message });
+}
+function loadSessions(): void {
+  send({ kind: "query", name: "sessions" });
+}
+function openSession(session: string): void {
+  send({ kind: "query", name: "frames", args: { session } });
+}
 function loadEarlier(session: string, before: number): void {
-  vscode.postMessage({ kind: "query", v: 1, reqId: ++reqId, name: "earlier", args: { session, before } });
+  send({ kind: "query", name: "earlier", args: { session, before } });
 }
 
 window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
@@ -65,52 +90,88 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
 /** Brand accent (assets/brand) + live-session green. */
 const ACCENT = "#f97316";
 const LIVE = "var(--vscode-charts-green, #3fb950)";
+const BORDER = "1px solid var(--vscode-panel-border)";
 
 const styles: Record<string, React.CSSProperties> = {
   app: {
     fontFamily: "var(--vscode-font-family)",
     color: "var(--vscode-foreground)",
     display: "flex",
-    flexDirection: "column",
     height: "100vh",
     boxSizing: "border-box",
+    overflow: "hidden",
   },
+  // ---- nav rail ---------------------------------------------------------
+  rail: {
+    width: 208,
+    flexShrink: 0,
+    borderRight: BORDER,
+    background: "var(--vscode-sideBar-background, var(--vscode-editor-background))",
+    display: "flex",
+    flexDirection: "column",
+    overflowY: "auto",
+  },
+  brand: { padding: "14px 16px 10px", display: "flex", alignItems: "center", gap: 8 },
+  brandDot: { width: 10, height: 10, borderRadius: 3, background: ACCENT, boxShadow: `0 0 8px ${ACCENT}88` },
+  brandName: { fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", opacity: 0.85 },
+  navGroupLabel: { padding: "10px 16px 4px", fontSize: 10, letterSpacing: 0.8, textTransform: "uppercase", opacity: 0.45 },
+  navItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "6px 16px",
+    fontSize: 13,
+    cursor: "pointer",
+    border: "none",
+    background: "transparent",
+    color: "var(--vscode-foreground)",
+    width: "100%",
+    textAlign: "left",
+  },
+  navItemOn: { background: "var(--vscode-list-activeSelectionBackground)", color: "var(--vscode-list-activeSelectionForeground)", boxShadow: `inset 3px 0 0 ${ACCENT}` },
+  navGlyph: { width: 16, textAlign: "center", opacity: 0.85 },
+  recentItem: { padding: "6px 16px 6px 18px", cursor: "pointer", border: "none", background: "transparent", color: "var(--vscode-foreground)", width: "100%", textAlign: "left", display: "block", borderLeft: "2px solid transparent" },
+  recentItemOn: { borderLeft: `2px solid ${ACCENT}`, background: "var(--vscode-list-inactiveSelectionBackground)" },
+  recentTitle: { fontSize: 12.5, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  recentMeta: { fontSize: 10, opacity: 0.55, marginTop: 1 },
+  // ---- main -------------------------------------------------------------
+  main: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0 },
   meta: { fontSize: 11, opacity: 0.75 },
   warn: { color: "var(--vscode-editorWarning-foreground)" },
   badge: { fontSize: 10, padding: "1px 8px", borderRadius: 9, border: `1px solid ${ACCENT}55`, color: ACCENT },
   liveBadge: { fontSize: 10, padding: "1px 8px", borderRadius: 9, border: `1px solid ${LIVE}`, color: LIVE, fontWeight: 600 },
-  header: { padding: "12px 18px 10px", borderBottom: "1px solid var(--vscode-panel-border)", background: "var(--vscode-editor-background)" },
-  headerTitle: { fontSize: 15, fontWeight: 600, marginBottom: 4 },
-  toolbar: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 8 },
-  chip: { fontSize: 10, padding: "1px 8px", borderRadius: 9, cursor: "pointer", border: "1px solid var(--vscode-panel-border)", background: "transparent", color: "var(--vscode-foreground)" },
-  chipOn: { background: "var(--vscode-badge-background)", color: "var(--vscode-badge-foreground)", borderColor: "var(--vscode-badge-background)" },
-  search: { fontSize: 12, padding: "3px 10px", borderRadius: 12, border: "1px solid var(--vscode-input-border, var(--vscode-panel-border))", background: "var(--vscode-input-background)", color: "var(--vscode-input-foreground)", outline: "none", minWidth: 170 },
-  stream: { overflowY: "auto", flex: 1, padding: "12px 18px 24px" },
-  loadEarlier: {
-    display: "block",
-    margin: "0 auto 14px",
-    fontSize: 11,
-    padding: "4px 14px",
-    borderRadius: 12,
-    cursor: "pointer",
-    border: `1px solid ${ACCENT}77`,
-    background: "transparent",
-    color: ACCENT,
-  },
-  centerNote: { margin: "48px auto", maxWidth: 480, textAlign: "center", fontSize: 13, lineHeight: 1.6, opacity: 0.85 },
+  header: { padding: "14px 20px 0", borderBottom: BORDER, background: "var(--vscode-editor-background)" },
+  headerTitle: { fontSize: 16, fontWeight: 600, marginBottom: 4 },
+  statChip: { display: "inline-flex", gap: 5, alignItems: "baseline", marginRight: 12 },
+  statNum: { fontWeight: 600 },
+  tabs: { display: "flex", gap: 2, marginTop: 10, alignItems: "center", flexWrap: "wrap" },
+  tab: { fontSize: 12, padding: "6px 12px", cursor: "pointer", border: "none", borderBottom: "2px solid transparent", background: "transparent", color: "var(--vscode-foreground)", opacity: 0.7 },
+  tabOn: { opacity: 1, borderBottom: `2px solid ${ACCENT}`, fontWeight: 600 },
+  search: { marginLeft: "auto", fontSize: 12, padding: "3px 10px", borderRadius: 12, border: "1px solid var(--vscode-input-border, var(--vscode-panel-border))", background: "var(--vscode-input-background)", color: "var(--vscode-input-foreground)", outline: "none", minWidth: 160 },
+  compareBar: { display: "flex", alignItems: "center", gap: 10, padding: "6px 20px", fontSize: 12, background: `${ACCENT}18`, borderBottom: `1px solid ${ACCENT}55` },
+  stream: { overflowY: "auto", flex: 1, padding: "12px 20px 28px" },
+  panel: { overflowY: "auto", flex: 1, padding: "18px 22px 28px" },
+  loadEarlier: { display: "block", margin: "0 auto 14px", fontSize: 11, padding: "4px 14px", borderRadius: 12, cursor: "pointer", border: `1px solid ${ACCENT}77`, background: "transparent", color: ACCENT },
+  centerNote: { margin: "56px auto", maxWidth: 480, textAlign: "center", fontSize: 13, lineHeight: 1.6, opacity: 0.85 },
   daySep: { display: "flex", alignItems: "center", gap: 10, margin: "18px 0 10px", fontSize: 11, opacity: 0.6 },
-  daySepLine: { flex: 1, borderTop: "1px solid var(--vscode-panel-border)" },
+  daySepLine: { flex: 1, borderTop: BORDER },
   sessionMark: { display: "flex", alignItems: "center", gap: 8, fontSize: 11, opacity: 0.65, fontStyle: "italic", flex: 1, padding: "2px 0" },
   row: { display: "flex", gap: 10, margin: "10px 0", alignItems: "flex-start" },
   time: { fontSize: 10, opacity: 0.5, minWidth: 34, paddingTop: 6, textAlign: "right" },
-  bubbleHuman: { background: "var(--vscode-input-background)", border: "1px solid var(--vscode-panel-border)", borderLeft: `3px solid ${ACCENT}`, borderRadius: "4px 10px 10px 10px", padding: "7px 12px", maxWidth: "76%", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" },
-  bubbleAgent: { background: "var(--vscode-editorWidget-background, var(--vscode-editor-background))", border: "1px solid var(--vscode-panel-border)", borderRadius: "10px 4px 10px 10px", padding: "7px 12px", maxWidth: "76%", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" },
-  who: { fontSize: 10, letterSpacing: 0.8, textTransform: "uppercase", opacity: 0.55, marginBottom: 3 },
+  bubbleHuman: { background: "var(--vscode-input-background)", border: BORDER, borderLeft: `3px solid ${ACCENT}`, borderRadius: "4px 10px 10px 10px", padding: "7px 12px", maxWidth: "76%", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" },
+  bubbleAgent: { background: "var(--vscode-editorWidget-background, var(--vscode-editor-background))", border: BORDER, borderRadius: "10px 4px 10px 10px", padding: "7px 12px", maxWidth: "76%", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" },
+  who: { fontSize: 10, letterSpacing: 0.8, textTransform: "uppercase", opacity: 0.55, marginBottom: 3, display: "flex", alignItems: "center", gap: 8 },
+  miniBtn: { fontSize: 10, padding: "1px 8px", borderRadius: 9, cursor: "pointer", border: BORDER, background: "transparent", color: "var(--vscode-foreground)" },
+  miniBtnOn: { border: `1px solid ${ACCENT}`, color: ACCENT, fontWeight: 600 },
   toolGroup: { border: "1px dashed var(--vscode-panel-border)", borderRadius: 8, padding: "5px 10px", fontSize: 12, opacity: 0.9, flex: 1 },
   toolLine: { padding: "2px 0", fontFamily: "var(--vscode-editor-font-family)", fontSize: 11.5, opacity: 0.85 },
-  commit: { display: "flex", alignItems: "center", gap: 8, flex: 1, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--vscode-panel-border)", background: "var(--vscode-merge-incomingContentBackground, transparent)", fontSize: 12.5 },
+  commit: { display: "flex", alignItems: "center", gap: 8, flex: 1, padding: "6px 12px", borderRadius: 8, border: BORDER, background: "var(--vscode-merge-incomingContentBackground, transparent)", fontSize: 12.5 },
   commitDot: { width: 9, height: 9, borderRadius: 5, background: ACCENT, boxShadow: `0 0 6px ${ACCENT}88`, flexShrink: 0 },
   gapRow: { flex: 1, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--vscode-editorWarning-foreground)", fontSize: 12 },
+  card: { border: BORDER, borderRadius: 10, padding: "12px 14px", marginBottom: 10, cursor: "pointer", background: "var(--vscode-editorWidget-background, transparent)" },
+  cardTitle: { fontSize: 13.5, fontWeight: 600, marginBottom: 4 },
+  panelH: { fontSize: 15, fontWeight: 700, margin: "0 0 4px" },
+  panelSub: { fontSize: 12, opacity: 0.7, margin: "0 0 16px" },
 };
 
 function turnText(entry: Extract<StreamEntry, { kind: "turn" }>, max = 4000): string {
@@ -130,15 +191,35 @@ function summarizeRuns(runs: readonly ToolRunLite[]): string {
   return `${runs.length} tool run${runs.length > 1 ? "s" : ""} — ${parts.join(", ")}${failures > 0 ? ` · ${failures} failed` : ""}`;
 }
 
-const KIND_LABELS: ReadonlyArray<[string, string]> = [
-  ["turn", "Conversation"],
+type Tab = "conversation" | "tools" | "git" | "files" | "gaps";
+const TABS: ReadonlyArray<[Tab, string]> = [
+  ["conversation", "Conversation"],
   ["tools", "Tools"],
-  ["commit", "Git"],
-  ["file", "Files"],
-  ["gap", "⚠ Gaps"],
+  ["git", "Git"],
+  ["files", "Files"],
+  ["gaps", "⚠ Gaps"],
+];
+const TAB_KIND: Record<Exclude<Tab, "conversation">, string> = { tools: "tools", git: "commit", files: "file", gaps: "gap" };
+
+type View = "timeline" | "sessions" | "prompts" | "settings";
+const NAV: ReadonlyArray<{ view: View; label: string; glyph: string; tab?: Tab }> = [
+  { view: "timeline", label: "Timeline", glyph: "◷" },
+  { view: "sessions", label: "Sessions", glyph: "▤" },
+  { view: "prompts", label: "Prompts", glyph: "▷" },
+  { view: "timeline", label: "Commits", glyph: "⎇", tab: "git" },
+  { view: "timeline", label: "Files", glyph: "▦", tab: "files" },
+  { view: "settings", label: "Settings", glyph: "⚙" },
 ];
 
-function Entry({ entry }: { entry: StreamEntry }): React.JSX.Element | null {
+function Entry({
+  entry,
+  compareA,
+  onCompare,
+}: {
+  entry: StreamEntry;
+  compareA: string | null;
+  onCompare: (eventId: string) => void;
+}): React.JSX.Element | null {
   if (entry.kind === "day") {
     return (
       <div style={styles.daySep}>
@@ -160,14 +241,26 @@ function Entry({ entry }: { entry: StreamEntry }): React.JSX.Element | null {
       ) : entry.kind === "turn" ? (
         <div style={entry.role === "human" ? styles.bubbleHuman : styles.bubbleAgent}>
           <div style={styles.who}>
-            {entry.role === "human" ? "You" : "Agent"}
+            <span>{entry.role === "human" ? "You" : "Agent"}</span>
+            {entry.role === "human" && (
+              <button
+                style={{ ...styles.miniBtn, ...(compareA === entry.eventId ? styles.miniBtnOn : {}) }}
+                title="Compare this prompt's wording against another (opens the native diff editor)"
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  onCompare(entry.eventId);
+                }}
+              >
+                {compareA === entry.eventId ? "✓ comparing…" : "⇄ compare"}
+              </button>
+            )}
             {entry.role === "human" && entry.restorable && (
               <button
-                style={{ ...styles.chip, marginLeft: 8, cursor: "pointer" }}
+                style={styles.miniBtn}
                 title="Put your code back to how it was at this prompt (safety-checkpointed)"
                 onClick={(ev) => {
                   ev.stopPropagation();
-                  vscode.postMessage({ kind: "restore", v: 1, eventId: entry.eventId });
+                  send({ kind: "restore", eventId: entry.eventId });
                 }}
               >
                 ⏪ restore code
@@ -204,18 +297,166 @@ function Entry({ entry }: { entry: StreamEntry }): React.JSX.Element | null {
   );
 }
 
+function Stat({ n, label, warn }: { n: number; label: string; warn?: boolean }): React.JSX.Element {
+  return (
+    <span style={{ ...styles.statChip, ...(warn === true ? styles.warn : {}) }}>
+      <span style={styles.statNum}>{n}</span>
+      <span style={{ opacity: 0.7 }}>{label}</span>
+    </span>
+  );
+}
+
+function NavRail({
+  view,
+  tab,
+  sessions,
+  activeSession,
+  onNav,
+}: {
+  view: View;
+  tab: Tab;
+  sessions: SessionListItem[];
+  activeSession: string | null;
+  onNav: (view: View, tab?: Tab) => void;
+}): React.JSX.Element {
+  return (
+    <div style={styles.rail}>
+      <div style={styles.brand}>
+        <span style={styles.brandDot} />
+        <span style={styles.brandName}>Gigai Chronicle</span>
+      </div>
+      {NAV.map((item) => {
+        const on = item.tab !== undefined ? view === "timeline" && tab === item.tab : view === item.view && (item.view !== "timeline" || tab === "conversation");
+        return (
+          <button
+            key={item.label}
+            style={{ ...styles.navItem, ...(on ? styles.navItemOn : {}) }}
+            onClick={() => onNav(item.view, item.tab)}
+          >
+            <span style={styles.navGlyph}>{item.glyph}</span>
+            {item.label}
+          </button>
+        );
+      })}
+      <div style={styles.navGroupLabel}>Recent sessions</div>
+      {sessions.length === 0 ? (
+        <div style={{ ...styles.recentMeta, padding: "2px 16px 10px" }}>none yet</div>
+      ) : (
+        sessions.slice(0, 10).map((s) => (
+          <button
+            key={s.session}
+            style={{ ...styles.recentItem, ...(activeSession === s.session ? styles.recentItemOn : {}) }}
+            title={s.label}
+            onClick={() => openSession(s.session)}
+          >
+            <div style={styles.recentTitle}>
+              {s.live ? "● " : ""}
+              {s.label}
+            </div>
+            <div style={styles.recentMeta}>
+              {s.turns} turns{s.tools > 0 ? ` · ${s.tools} tools` : ""}
+              {s.gaps > 0 ? ` · ⚠${s.gaps}` : ""}
+            </div>
+          </button>
+        ))
+      )}
+    </div>
+  );
+}
+
+function PromptsPanel({ prompts }: { prompts: PromptWithHistory[] }): React.JSX.Element {
+  return (
+    <div style={styles.panel}>
+      <h2 style={styles.panelH}>Prompt library</h2>
+      <p style={styles.panelSub}>
+        The prompts you kept — versioned, diffable, and shared by git like any other file. Open one to view or diff its versions.
+      </p>
+      {prompts.length === 0 ? (
+        <div style={styles.centerNote}>
+          Nothing saved yet. In a session, hover a prompt you typed and pick <strong>Save prompt</strong> — no retyping.
+        </div>
+      ) : (
+        prompts.map((p) => (
+          <div key={p.slug} style={styles.card} onClick={() => send({ kind: "openPrompt", slug: p.slug, version: p.version })}>
+            <div style={styles.cardTitle}>{p.title}</div>
+            <div style={styles.meta}>
+              <code>{p.slug}</code> · v{p.version}
+              {p.tags.length > 0 ? ` · ${p.tags.map((t) => `#${t}`).join(" ")}` : ""}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function SessionsPanel({ sessions }: { sessions: SessionListItem[] }): React.JSX.Element {
+  return (
+    <div style={styles.panel}>
+      <h2 style={styles.panelH}>Sessions</h2>
+      <p style={styles.panelSub}>Every captured session, newest first. Open one to replay it — conversation, tools, git and files interleaved.</p>
+      {sessions.length === 0 ? (
+        <div style={styles.centerNote}>No sessions captured yet. They appear here live as you work with capture running.</div>
+      ) : (
+        sessions.map((s) => (
+          <div key={s.session} style={styles.card} onClick={() => openSession(s.session)}>
+            <div style={styles.cardTitle}>
+              {s.live ? <span style={{ color: LIVE }}>● </span> : null}
+              {s.label}
+            </div>
+            <div style={styles.meta}>
+              {[...s.providers, ...s.models].map((b) => (
+                <span key={b} style={{ ...styles.badge, marginRight: 4 }}>
+                  {b}
+                </span>
+              ))}
+              {s.turns} turns · {s.tools} tool runs · fidelity <strong>{s.fidelity}</strong>
+              {s.gaps > 0 ? <span style={styles.warn}> · ⚠ {s.gaps} gap(s)</span> : null}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function SettingsPanel({ sessions, prompts }: { sessions: SessionListItem[]; prompts: PromptWithHistory[] }): React.JSX.Element {
+  return (
+    <div style={styles.panel}>
+      <h2 style={styles.panelH}>Settings &amp; posture</h2>
+      <p style={styles.panelSub}>This dashboard is a read-only view over the plain-text store in your repo. It never calls a model and nothing here leaves your machine.</p>
+      <div style={{ ...styles.card, cursor: "default" }}>
+        <div style={styles.cardTitle}>What Chronicle is holding</div>
+        <div style={styles.meta}>
+          {sessions.length} session(s) · {prompts.length} saved prompt(s) in the library
+        </div>
+      </div>
+      <div style={{ ...styles.card, cursor: "default" }}>
+        <div style={styles.cardTitle}>The promises</div>
+        <div style={{ ...styles.meta, lineHeight: 1.7 }}>
+          Local-first · plain text · zero network by default · never calls a model · never writes your git history · never scores developers.
+          <br />
+          Change capture mode, redaction, and privacy from the CLI: <code>chronicle init</code> · <code>chronicle doctor</code>.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App(): React.JSX.Element {
-  const { activeSession, info, summary, entries, offset, totalEntries } = useStore();
-  const [kinds, setKinds] = React.useState<Set<string>>(() => new Set(["turn", "tools", "commit", "file", "gap"]));
+  const { activeSession, info, summary, entries, offset, totalEntries, sessions, prompts } = useStore();
+  const [view, setView] = React.useState<View>("timeline");
+  const [tab, setTab] = React.useState<Tab>("conversation");
   const [search, setSearch] = React.useState("");
+  const [compareA, setCompareA] = React.useState<string | null>(null);
+  const searchRef = React.useRef<HTMLInputElement | null>(null);
   const endRef = React.useRef<HTMLDivElement | null>(null);
   const lastMode = React.useRef<"replace" | "prepend">("replace");
 
-  // Land on "now" only when a session is (re)selected — not when history
-  // is prepended (that would yank the reader away from what they loaded).
+  React.useEffect(() => loadSessions(), []);
   React.useEffect(() => {
-    if (lastMode.current === "replace") endRef.current?.scrollIntoView({ block: "end" });
-  }, [entries]);
+    if (view === "timeline" && lastMode.current === "replace") endRef.current?.scrollIntoView({ block: "end" });
+  }, [entries, view]);
   React.useEffect(() => {
     const unsub = useStore.subscribe((state, prev) => {
       lastMode.current = state.activeSession !== prev.activeSession ? "replace" : "prepend";
@@ -223,11 +464,29 @@ function App(): React.JSX.Element {
     return unsub;
   }, []);
 
+  const onNav = (next: View, nextTab?: Tab): void => {
+    setView(next);
+    if (next === "timeline") setTab(nextTab ?? "conversation");
+    if (nextTab === undefined && next === "timeline") setTimeout(() => searchRef.current?.focus(), 0);
+  };
+
+  const onCompare = (eventId: string): void => {
+    if (compareA === null) {
+      setCompareA(eventId);
+    } else if (compareA === eventId) {
+      setCompareA(null);
+    } else {
+      send({ kind: "compare", a: compareA, b: eventId });
+      setCompareA(null);
+    }
+  };
+
   const visible = React.useMemo(() => {
     const needle = search.trim().toLowerCase();
     return entries.filter((entry) => {
-      if (entry.kind === "day" || entry.kind === "session") return true;
-      if (!kinds.has(entry.kind)) return false;
+      if (entry.kind === "day") return true;
+      if (entry.kind === "session") return tab === "conversation";
+      if (tab !== "conversation" && entry.kind !== TAB_KIND[tab]) return false;
       if (needle === "") return true;
       const hay =
         entry.kind === "turn"
@@ -241,78 +500,105 @@ function App(): React.JSX.Element {
                 : `${entry.reason} ${entry.detail ?? ""}`;
       return hay.toLowerCase().includes(needle);
     });
-  }, [entries, kinds, search]);
+  }, [entries, tab, search]);
 
   const isEmpty = summary !== null && summary.turns === 0 && summary.tools === 0;
-  const toggle = (kind: string): void =>
-    setKinds((current) => {
-      const next = new Set(current);
-      if (next.has(kind)) next.delete(kind);
-      else next.add(kind);
-      return next;
-    });
 
   return (
     <div style={styles.app}>
-      <div style={{ ...styles.header, ...(info?.live === true ? { borderTop: `2px solid ${LIVE}` } : {}) }}>
-        <div style={styles.headerTitle}>{info?.label ?? "Chronicle Replay"}</div>
-        {summary !== null && (
-          <div style={styles.meta}>
-            {info?.live === true && <span style={{ ...styles.liveBadge, marginRight: 6 }}>● live now</span>}
-            {info !== null &&
-              [...info.providers, ...info.models].map((badge) => (
-                <span key={badge} style={{ ...styles.badge, marginRight: 4 }}>
-                  {badge}
-                </span>
-              ))}
-            {summary.turns} turns · {summary.tools} tool runs · fidelity <strong>{summary.fidelity}</strong>
-            {summary.gaps > 0 ? <span style={styles.warn}> · ⚠ {summary.gaps} capture gap(s)</span> : null}
-            {activeSession !== null ? <span style={{ opacity: 0.45 }}> · {activeSession}</span> : null}
-          </div>
-        )}
-        {entries.length > 0 && !isEmpty && (
-          <div style={styles.toolbar}>
-            {KIND_LABELS.map(([kind, label]) => (
-              <button key={kind} style={{ ...styles.chip, ...(kinds.has(kind) ? styles.chipOn : {}) }} onClick={() => toggle(kind)}>
-                {label}
-              </button>
-            ))}
-            <input style={styles.search} placeholder="search loaded moments…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-        )}
-      </div>
-      <div style={styles.stream}>
-        {activeSession === null ? (
-          <div style={styles.centerNote}>
-            <p style={{ fontSize: 28, margin: "0 0 8px" }}>🕰️</p>
-            Pick a session in the <strong>Chronicle sidebar</strong> to replay it here.
-            <br />
-            You always land on its latest moment.
-          </div>
-        ) : isEmpty ? (
-          <div style={styles.centerNote}>
-            <p style={{ fontSize: 28, margin: "0 0 8px" }}>🌱</p>
-            This session started at <strong>{summary?.startedTs?.slice(11, 16) ?? "?"}</strong> (UTC) but nothing has
-            been captured in it yet — no prompts, no tool runs.
-            <br />
-            <span style={styles.meta}>It fills up live as that session is used. Chronicle shows empty sessions honestly instead of hiding them.</span>
-          </div>
+      <NavRail view={view} tab={tab} sessions={sessions} activeSession={activeSession} onNav={onNav} />
+      <div style={styles.main}>
+        {view === "prompts" ? (
+          <PromptsPanel prompts={prompts} />
+        ) : view === "sessions" ? (
+          <SessionsPanel sessions={sessions} />
+        ) : view === "settings" ? (
+          <SettingsPanel sessions={sessions} prompts={prompts} />
         ) : (
           <>
-            {offset > 0 && (
-              <button style={styles.loadEarlier} onClick={() => loadEarlier(activeSession, offset)}>
-                ↑ load earlier moments ({offset} before this point)
-              </button>
+            <div style={{ ...styles.header, ...(info?.live === true ? { borderTop: `2px solid ${LIVE}` } : {}) }}>
+              <div style={styles.headerTitle}>{info?.label ?? (activeSession === null ? "Chronicle" : "Replay")}</div>
+              {summary !== null && (
+                <div style={styles.meta}>
+                  {info?.live === true && <span style={{ ...styles.liveBadge, marginRight: 6 }}>● live now</span>}
+                  {info !== null &&
+                    [...info.providers, ...info.models].map((badge) => (
+                      <span key={badge} style={{ ...styles.badge, marginRight: 4 }}>
+                        {badge}
+                      </span>
+                    ))}
+                  <span style={{ marginLeft: info !== null ? 6 : 0 }}>
+                    <Stat n={summary.turns} label="turns" />
+                    <Stat n={summary.tools} label="tool runs" />
+                    <Stat n={summary.files} label="files" />
+                    <span style={styles.statChip}>
+                      <span style={styles.statNum}>{summary.fidelity}</span>
+                      <span style={{ opacity: 0.7 }}>fidelity</span>
+                    </span>
+                    {summary.gaps > 0 ? <Stat n={summary.gaps} label="gaps" warn /> : null}
+                  </span>
+                </div>
+              )}
+              <div style={styles.tabs}>
+                {TABS.map(([key, label]) => (
+                  <button key={key} style={{ ...styles.tab, ...(tab === key ? styles.tabOn : {}) }} onClick={() => setTab(key)}>
+                    {label}
+                  </button>
+                ))}
+                <input
+                  ref={searchRef}
+                  style={styles.search}
+                  placeholder="search loaded moments…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+            {compareA !== null && (
+              <div style={styles.compareBar}>
+                <span>⇄ Comparing — pick a second prompt to diff its wording, or</span>
+                <button style={styles.miniBtn} onClick={() => setCompareA(null)}>
+                  cancel
+                </button>
+              </div>
             )}
-            {visible.map((entry, i) => (
-              <Entry key={offset + i} entry={entry} />
-            ))}
-            <span style={{ ...styles.meta, display: "block", textAlign: "center", marginTop: 8 }}>
-              showing {entries.length} of {totalEntries} moments
-            </span>
+            <div style={styles.stream}>
+              {activeSession === null ? (
+                <div style={styles.centerNote}>
+                  <p style={{ fontSize: 28, margin: "0 0 8px" }}>🕰️</p>
+                  Pick a session on the left to replay it here.
+                  <br />
+                  You always land on its latest moment.
+                </div>
+              ) : isEmpty ? (
+                <div style={styles.centerNote}>
+                  <p style={{ fontSize: 28, margin: "0 0 8px" }}>🌱</p>
+                  This session started at <strong>{summary?.startedTs?.slice(11, 16) ?? "?"}</strong> (UTC) but nothing has been
+                  captured in it yet.
+                  <br />
+                  <span style={styles.meta}>It fills up live as that session is used. Chronicle shows empty sessions honestly instead of hiding them.</span>
+                </div>
+              ) : (
+                <>
+                  {tab === "conversation" && offset > 0 && (
+                    <button style={styles.loadEarlier} onClick={() => loadEarlier(activeSession, offset)}>
+                      ↑ load earlier moments ({offset} before this point)
+                    </button>
+                  )}
+                  {visible.length === 0 ? (
+                    <div style={{ ...styles.centerNote, marginTop: 32 }}>Nothing in this view for the loaded window.</div>
+                  ) : (
+                    visible.map((entry, i) => <Entry key={offset + i} entry={entry} compareA={compareA} onCompare={onCompare} />)
+                  )}
+                  <span style={{ ...styles.meta, display: "block", textAlign: "center", marginTop: 8 }}>
+                    showing {entries.length} of {totalEntries} moments
+                  </span>
+                </>
+              )}
+              <div ref={endRef} />
+            </div>
           </>
         )}
-        <div ref={endRef} />
       </div>
     </div>
   );

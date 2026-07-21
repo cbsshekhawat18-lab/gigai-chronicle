@@ -132,9 +132,18 @@ program
   .command("why <file>")
   .description("what was ASKED that made this file look like this (git blame says who; this says why — ADR-0013)")
   .option("--limit <n>", "max attributed prompts", "10")
-  .action(async (file: string, options: { limit?: string }) => {
+  .option("--evolution", "show how the ask changed across the prompts that shaped this file")
+  .action(async (file: string, options: { limit?: string; evolution?: boolean }) => {
     const { runWhyCommand } = await import("./commands/why.js");
     process.exitCode = await runWhyCommand(file, options, program.opts<{ json?: boolean }>());
+  });
+
+program
+  .command("diff [evtA] [evtB]")
+  .description("diff two prompts you typed — no args = the last two (the wording delta git can't show)")
+  .action(async (evtA: string | undefined, evtB: string | undefined) => {
+    const { runDiffCommand } = await import("./commands/diff.js");
+    process.exitCode = await runDiffCommand(evtA, evtB, program.opts<{ json?: boolean }>());
   });
 
 program

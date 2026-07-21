@@ -7,7 +7,7 @@
  * the index. Nothing new is recorded to answer it.
  */
 import path from "node:path";
-import { ChronicleIndex, EventLog, changesByPrompt } from "@gigaichronicle/core";
+import { ChronicleIndex, EventLog, changesByPrompt, unifiedDiff } from "@gigaichronicle/core";
 import type { ChronicleEvent } from "@gigaichronicle/schema";
 import {
   EXIT_NOT_A_PROJECT,
@@ -57,7 +57,7 @@ export function toRepoRelative(repoRoot: string, cwd: string, file: string): str
 
 export async function runWhyCommand(
   file: string,
-  options: { limit?: string },
+  options: { limit?: string; evolution?: boolean },
   global: { json?: boolean },
 ): Promise<number> {
   const chronicleDir = findChronicleDir(process.cwd());
@@ -106,17 +106,58 @@ export async function runWhyCommand(
       };
     });
 
+    const emptyMessage =
+      `no captured prompt is known to have changed ${target}\n` +
+      "  why records nothing of its own — it reads the checkpoints capture takes at each\n" +
+      "  prompt (ADR-0012), so it can only answer for work done since capture was running.";
+
+    // --evolution: the same attribution, read as a story — each prompt with a
+    // plain-text diff against the previous one that shaped this file, so you
+    // see the ask sharpening. Prompts with no text (metadata-only, or a >64KB
+    // blob body) can't form a diff pair; that is surfaced, never hidden.
+    if (options.evolution === true) {
+      const steps = attributed.map((item, i) => {
+        const prev = i === 0 ? null : attributed[i - 1];
+        const diffFromPrev =
+          prev !== undefined && prev !== null && prev.prompt !== null && item.prompt !== null
+            ? unifiedDiff(prev.prompt, item.prompt, prev.eventId, item.eventId)
+            : null;
+        return { eventId: item.eventId, ts: item.ts, prompt: item.prompt, churn: item.churn, diffFromPrev };
+      });
+
+      if (global.json === true) {
+        printJson("why", { file: target, mode: "evolution", count: steps.length, steps });
+        return EXIT_OK;
+      }
+      if (steps.length === 0) {
+        console.log(emptyMessage);
+        return EXIT_OK;
+      }
+      console.log(`how the ask for ${target} evolved — ${steps.length} prompt(s):\n`);
+      steps.forEach((step, i) => {
+        const when = step.ts === null ? "unknown time" : step.ts.replace("T", " ").slice(0, 16);
+        const text =
+          step.prompt === null
+            ? `(prompt body unavailable — chronicle inspect ${step.eventId})`
+            : `"${truncate(step.prompt, 68)}"`;
+        console.log(`  ${i + 1}. ${when}  ${step.churn.padStart(9)}  ${text}`);
+        if (step.diffFromPrev !== null) {
+          console.log("     ── how the ask changed from the previous prompt ──");
+          // Drop unifiedDiff's `--- / +++` header (the event ids are already shown above).
+          for (const line of step.diffFromPrev.split("\n").slice(2)) console.log(`     ${line}`);
+        }
+        console.log("");
+      });
+      return EXIT_OK;
+    }
+
     if (global.json === true) {
       printJson("why", { file: target, count: attributed.length, attributions: attributed });
       return EXIT_OK;
     }
 
     if (attributed.length === 0) {
-      console.log(
-        `no captured prompt is known to have changed ${target}\n` +
-          "  why records nothing of its own — it reads the checkpoints capture takes at each\n" +
-          "  prompt (ADR-0012), so it can only answer for work done since capture was running.",
-      );
+      console.log(emptyMessage);
       return EXIT_OK;
     }
 

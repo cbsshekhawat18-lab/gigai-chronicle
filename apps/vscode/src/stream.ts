@@ -37,6 +37,8 @@ export type StreamEntry =
 export interface StreamSummary {
   turns: number;
   tools: number;
+  /** Distinct files this session touched (workingSet size) — real, not tokens. */
+  files: number;
   fidelity: string;
   gaps: number;
   startedTs: string | null;
@@ -137,6 +139,7 @@ export function summarize(frames: readonly ReplayFrame[]): StreamSummary {
   return {
     turns: last?.conversation.length ?? 0,
     tools: last?.tools.length ?? 0,
+    files: last?.workingSet.length ?? 0,
     fidelity: last?.fidelity ?? "full",
     gaps: last?.gaps.length ?? 0,
     startedTs: last?.startedTs ?? null,

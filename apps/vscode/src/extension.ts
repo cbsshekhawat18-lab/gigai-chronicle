@@ -105,6 +105,30 @@ export function activate(context: vscode.ExtensionContext): void {
       );
       await vscode.window.showTextDocument(doc, { preview: true });
     }),
+    // Captured prompts as virtual documents, addressed by event id — the seam
+    // behind "Compare" in the dashboard. Same TextDocumentContentProvider
+    // pattern as prompt versions (§15.2), so two prompts you TYPED open in the
+    // native diff editor with no Monaco and no data leaving the store.
+    vscode.workspace.registerTextDocumentContentProvider("chronicle-capture", {
+      provideTextDocumentContent: async (uri: vscode.Uri): Promise<string> => {
+        if (workspace === null) return "(not a chronicle project)";
+        const eventId = uri.path.replace(/^\//, "").replace(/\.md$/, "");
+        const text = await workspace.promptText(eventId).catch(() => null);
+        return text === null
+          ? `(no captured prompt text for ${eventId} — unknown event, or metadata-only capture)`
+          : `${text}\n`;
+      },
+    }),
+    vscode.commands.registerCommand("chronicle.comparePrompts", async (a: string, b: string) => {
+      // Older prompt on the left so the diff reads "how the newer one changed".
+      const [left, right] = a < b ? [a, b] : [b, a];
+      await vscode.commands.executeCommand(
+        "vscode.diff",
+        vscode.Uri.parse(`chronicle-capture:/${left}.md`),
+        vscode.Uri.parse(`chronicle-capture:/${right}.md`),
+        `prompt ${left.slice(0, 12)}… → ${right.slice(0, 12)}…`,
+      );
+    }),
     // "Save prompt" (ADR-0014) — the seam between the two prompt worlds.
     // Chronicle already captured every prompt you typed; the library holds
     // the curated ones. Without this the only way to library a prompt you
