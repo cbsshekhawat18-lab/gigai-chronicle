@@ -148,6 +148,45 @@ describe("intent attribution (why is this file like this?)", () => {
   });
 });
 
+describe("dashboard data (v0.1.1)", () => {
+  it("promptText serves a captured prompt by event id — the seam behind ⇄ compare", async () => {
+    const { folder } = await seedProject();
+    const workspace = await ChronicleWorkspace.open(folder);
+
+    const recent = await workspace!.recentPrompts();
+    expect(recent.length).toBeGreaterThan(0);
+    const captured = recent[0]!;
+    expect(await workspace!.promptText(captured.eventId)).toBe("render me");
+    // Unknown events answer null — the diff view says so instead of guessing.
+    expect(await workspace!.promptText("evt_01ZZZZZZZZZZZZZZZZZZZZZZZZ")).toBeNull();
+  });
+
+  it("libraryPrompts returns saved prompts with their version history", async () => {
+    const { folder } = await seedProject();
+    const { savePrompt } = await import("@gigaichronicle/core");
+    const chronicleDir = path.join(folder, ".chronicle");
+    await savePrompt(chronicleDir, { slug: "greet", body: "v1 body", title: "Greeting" });
+    await savePrompt(chronicleDir, { slug: "greet", body: "v2 body" });
+
+    const workspace = await ChronicleWorkspace.open(folder);
+    const prompts = await workspace!.libraryPrompts();
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toMatchObject({ slug: "greet", version: 2 });
+    expect(prompts[0]!.history.length).toBeGreaterThan(0);
+  });
+
+  it("stream summary counts files touched — real workingSet, not a token meter", async () => {
+    const { folder, session } = await seedProject();
+    const workspace = await ChronicleWorkspace.open(folder);
+    const { summarize } = await import("../src/stream.js");
+    const summary = summarize(await workspace!.frames(session));
+    // Real fields only; the seeded session touched no files, and 0 is the
+    // honest answer — not an invented statistic.
+    expect(summary).toMatchObject({ turns: 1, files: 0, fidelity: "full" });
+    expect(summary).not.toHaveProperty("tokens");
+  });
+});
+
 describe("packaging property (ADR-0008 consequence)", () => {
   it("the extension bundle never references the native module at runtime", () => {
     const manifest = JSON.parse(

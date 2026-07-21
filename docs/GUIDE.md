@@ -155,6 +155,22 @@ and a one-key `restore` handoff. In the editor: right-click the file →
 > on the machine that did the work; a fresh clone replays the story but can't
 > attribute lines.
 
+### See how your ask evolved
+
+```bash
+chronicle diff                        # the wording delta between your last two prompts
+chronicle diff <evtA> <evtB>          # …or any two prompts, by event id
+chronicle why src/auth.ts --evolution # the same delta along one file's history
+```
+
+When a prompt doesn't land, you rephrase and try again — and the delta between
+attempt 2 and attempt 3 is where the learning is. `diff` shows the wording
+change between two prompts you *typed* (distinct from `prompt diff`, which
+compares saved library versions); `why --evolution` walks a file's attributed
+prompts and shows how the ask sharpened at each step. In the editor: **⇄
+compare** on any two prompts in the Timeline opens them in the native diff
+editor.
+
 ### Undo a bad AI detour
 
 ```bash
@@ -190,7 +206,8 @@ Code review with the intent attached.
 | Command | Purpose |
 |---|---|
 | `chronicle init` | Initialize the store (prints its complete footprint) |
-| `chronicle why <file>` | What was **asked** that made this file |
+| `chronicle why <file> [--evolution]` | What was **asked** that made this file; `--evolution` shows the ask sharpening |
+| `chronicle diff [<evtA> <evtB>]` | Wording delta between two typed prompts (no args = the last two) |
 | `chronicle restore <evt>` | ⏪ Code time-travel to any prompt |
 | `chronicle replay <session>` | Step through a session |
 | `chronicle timeline` | The journey, filtered (`--since --until --branch --type…`) |
