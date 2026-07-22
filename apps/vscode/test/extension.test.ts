@@ -175,6 +175,22 @@ describe("dashboard data (v0.1.1)", () => {
     expect(prompts[0]!.history.length).toBeGreaterThan(0);
   });
 
+  it("libraryPrompts derives lifecycle status — used when capture saw it, saved otherwise", async () => {
+    // seedProject captures "render me" — a library prompt with that body is
+    // observed-in-use; a research prompt capture never saw stays saved.
+    const { folder } = await seedProject();
+    const { savePrompt } = await import("@gigaichronicle/core");
+    const chronicleDir = path.join(folder, ".chronicle");
+    await savePrompt(chronicleDir, { slug: "live", body: "render me" });
+    await savePrompt(chronicleDir, { slug: "research", body: "never submitted" });
+
+    const workspace = await ChronicleWorkspace.open(folder);
+    const bySlug = new Map((await workspace!.libraryPrompts()).map((p) => [p.slug, p]));
+    expect(bySlug.get("live")).toMatchObject({ status: "used", uses: 1 });
+    expect(bySlug.get("live")!.lastUsedTs).not.toBeNull();
+    expect(bySlug.get("research")).toMatchObject({ status: "saved", uses: 0, lastUsedTs: null });
+  });
+
   it("stream summary counts files touched — real workingSet, not a token meter", async () => {
     const { folder, session } = await seedProject();
     const workspace = await ChronicleWorkspace.open(folder);

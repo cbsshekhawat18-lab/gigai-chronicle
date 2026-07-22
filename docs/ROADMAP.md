@@ -40,6 +40,19 @@ chain already exist, so this is mostly plumbing.
 - [x] VS Code: pick two prompts in the Timeline → **Compare** — opens the two
       you typed in the native diff editor *(landed for v0.1.1)*
 
+**The prompt lifecycle** *(also landed for v0.1.1)* — the library becomes a
+real workflow, not just storage:
+
+- [x] `prompt use <slug>[@v] [--copy]` — get a saved prompt into your hands
+- [x] **● used / ○ saved for later** — derived from real capture (a prompt
+      counts as used only when capture *observed* it submitted; there is no
+      counter to click), with per-version counts in `prompt versions`
+- [x] `prompt save --note "why"` — per-version commit messages
+- [x] `prompt revert <slug> <v>` — append-only rollback; nothing rewritten
+- [x] `prompt compare <a[@v]> <b[@v]>` — diff across different prompts
+- [x] Dashboard + sidebar: status badges, **▷ use** (clipboard), **⇄ compare**
+      between library prompts in the native diff editor
+
 ---
 
 ## v0.2 — The Dashboard *(landed for v0.1.1)*

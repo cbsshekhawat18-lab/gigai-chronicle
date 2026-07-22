@@ -364,27 +364,147 @@ function NavRail({
   );
 }
 
+/**
+ * The prompt library with its lifecycle: ● used (capture observed it
+ * submitted) vs ○ saved for later (research, waiting). "Use" copies the body
+ * to the clipboard; the used-count only moves when capture actually sees the
+ * prompt submitted — an observation, never a click counter.
+ */
 function PromptsPanel({ prompts }: { prompts: PromptWithHistory[] }): React.JSX.Element {
+  const [compareA, setCompareA] = React.useState<{ slug: string; version: number } | null>(null);
+  const used = prompts.filter((p) => p.status === "used");
+  const saved = prompts.filter((p) => p.status === "saved");
+
+  const onCompare = (slug: string, version: number): void => {
+    if (compareA === null) {
+      setCompareA({ slug, version });
+    } else if (compareA.slug === slug && compareA.version === version) {
+      setCompareA(null);
+    } else {
+      send({ kind: "compareLibrary", aSlug: compareA.slug, aVersion: compareA.version, bSlug: slug, bVersion: version });
+      setCompareA(null);
+    }
+  };
+
+  const card = (p: PromptWithHistory): React.JSX.Element => {
+    const comparing = compareA !== null && compareA.slug === p.slug;
+    return (
+      <div key={p.slug} style={{ ...styles.card, cursor: "default" }}>
+        <div style={{ ...styles.cardTitle, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ cursor: "pointer" }} onClick={() => send({ kind: "openPrompt", slug: p.slug, version: p.version })}>
+            {p.title}
+          </span>
+          {p.status === "used" ? (
+            <span style={{ ...styles.badge, borderColor: `${LIVE}`, color: LIVE }}>
+              ● used{p.uses > 0 ? ` ×${p.uses}` : ""}
+            </span>
+          ) : (
+            <span style={{ ...styles.badge, opacity: 0.75, borderColor: "var(--vscode-panel-border)", color: "var(--vscode-foreground)" }}>
+              ○ saved for later
+            </span>
+          )}
+        </div>
+        <div style={styles.meta}>
+          <code>{p.slug}</code> · v{p.version}
+          {p.tags.length > 0 ? ` · ${p.tags.map((t) => `#${t}`).join(" ")}` : ""}
+          {p.lastUsedTs !== null ? ` · last used ${p.lastUsedTs.slice(0, 10)}` : ""}
+          {p.note !== null ? ` · “${p.note}”` : ""}
+        </div>
+        <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+          <button
+            style={styles.miniBtn}
+            title="Copy the prompt to your clipboard — paste it into your AI tool. Counts as used once capture sees it submitted."
+            onClick={() => send({ kind: "usePrompt", slug: p.slug, version: p.version })}
+          >
+            ▷ use
+          </button>
+          <button
+            style={styles.miniBtn}
+            title="View this version in the editor"
+            onClick={() => send({ kind: "openPrompt", slug: p.slug, version: p.version })}
+          >
+            open
+          </button>
+          <button
+            style={{ ...styles.miniBtn, ...(comparing ? styles.miniBtnOn : {}) }}
+            title="Compare this prompt against another (opens the native diff editor)"
+            onClick={() => onCompare(p.slug, p.version)}
+          >
+            {comparing ? "✓ comparing…" : "⇄ compare"}
+          </button>
+        </div>
+        {p.history.length > 1 && (
+          <div style={{ ...styles.meta, marginTop: 8 }}>
+            {p.history.slice(0, 4).map((node) => (
+              <div key={node.version} style={{ padding: "1px 0" }}>
+                <code>v{node.version}</code> {node.preview.slice(0, 70)}
+                <span style={{ opacity: 0.6 }}>
+                  {node.added > 0 ? ` +${node.added}` : ""}
+                  {node.removed > 0 ? ` −${node.removed}` : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div style={styles.panel}>
-      <h2 style={styles.panelH}>Prompt library</h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <h2 style={styles.panelH}>Prompt library</h2>
+        <button
+          style={{ ...styles.miniBtn, borderColor: `${ACCENT}88`, color: ACCENT }}
+          title="Save a prompt you typed into the library — pick from your captured prompts, no retyping"
+          onClick={() => send({ kind: "savePrompt" })}
+        >
+          ＋ Save a prompt
+        </button>
+      </div>
       <p style={styles.panelSub}>
-        The prompts you kept — versioned, diffable, and shared by git like any other file. Open one to view or diff its versions.
+        Versioned, diffable, shared by git. <strong>▷ use</strong> copies a prompt for your AI tool; it counts as{" "}
+        <strong>used</strong> only when capture sees it actually submitted.
       </p>
+      {compareA !== null && (
+        <div style={{ ...styles.compareBar, borderRadius: 8, marginBottom: 12 }}>
+          <span>⇄ Comparing {compareA.slug} — pick a second prompt, or</span>
+          <button style={styles.miniBtn} onClick={() => setCompareA(null)}>
+            cancel
+          </button>
+        </div>
+      )}
       {prompts.length === 0 ? (
         <div style={styles.centerNote}>
-          Nothing saved yet. In a session, hover a prompt you typed and pick <strong>Save prompt</strong> — no retyping.
+          <p style={{ fontSize: 26, margin: "0 0 8px" }}>▷</p>
+          Nothing saved yet.
+          <br />
+          <button
+            style={{ ...styles.loadEarlier, margin: "14px auto 6px", padding: "6px 16px" }}
+            onClick={() => send({ kind: "savePrompt" })}
+          >
+            ＋ Save a prompt
+          </button>
+          <br />
+          <span style={styles.meta}>
+            Write a new one to keep for later, or promote a prompt you typed — no retyping.
+          </span>
         </div>
       ) : (
-        prompts.map((p) => (
-          <div key={p.slug} style={styles.card} onClick={() => send({ kind: "openPrompt", slug: p.slug, version: p.version })}>
-            <div style={styles.cardTitle}>{p.title}</div>
-            <div style={styles.meta}>
-              <code>{p.slug}</code> · v{p.version}
-              {p.tags.length > 0 ? ` · ${p.tags.map((t) => `#${t}`).join(" ")}` : ""}
-            </div>
-          </div>
-        ))
+        <>
+          {used.length > 0 && (
+            <>
+              <div style={styles.navGroupLabel}>In use · {used.length}</div>
+              {used.map(card)}
+            </>
+          )}
+          {saved.length > 0 && (
+            <>
+              <div style={styles.navGroupLabel}>Saved for later · {saved.length}</div>
+              {saved.map(card)}
+            </>
+          )}
+        </>
       )}
     </div>
   );

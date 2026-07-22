@@ -5,14 +5,16 @@
  * pure-projection rules as the panel (§15.3).
  */
 import * as vscode from "vscode";
-import { listPrompts, promptHistory } from "@gigaichronicle/core";
 import type { ChronicleWorkspace } from "./engine.js";
 import type { SessionListItem } from "./protocol.js";
 
 type SidebarMessage =
   | { kind: "ready" }
   | { kind: "open"; item: SessionListItem }
-  | { kind: "promptDiff"; slug: string; version: number };
+  | { kind: "promptDiff"; slug: string; version: number }
+  | { kind: "promptUse"; slug: string; version: number }
+  /** Quick-action toolbar buttons → run the matching command. */
+  | { kind: "command"; command: "chronicle.openTimeline" | "chronicle.savePrompt" | "chronicle.whyFile" | "chronicle.refresh" };
 
 export class SessionsViewProvider implements vscode.WebviewViewProvider {
   #view: vscode.WebviewView | null = null;
@@ -28,14 +30,10 @@ export class SessionsViewProvider implements vscode.WebviewViewProvider {
   async refresh(): Promise<void> {
     if (this.#view === null) return;
     const sessions = this.#workspace === null ? [] : await this.#workspace.sessions();
-    let prompts: unknown[] = [];
-    if (this.#workspace !== null) {
-      const dir = this.#workspace.chronicleDir;
-      const base = await listPrompts(dir).catch(() => []);
-      prompts = await Promise.all(
-        base.map(async (p) => ({ ...p, history: await promptHistory(dir, p.slug).catch(() => []) })),
-      );
-    }
+    // One code path with the dashboard (engine.libraryPrompts) — the sidebar
+    // shows the same derived lifecycle status, never a second opinion.
+    const prompts =
+      this.#workspace === null ? [] : await this.#workspace.libraryPrompts().catch(() => []);
     await this.#view.webview.postMessage({ kind: "snapshot", v: 1, data: { sessions, prompts } });
   }
 
@@ -68,6 +66,17 @@ export class SessionsViewProvider implements vscode.WebviewViewProvider {
         void vscode.commands.executeCommand("chronicle.replaySession", message.item);
       } else if (message.kind === "promptDiff") {
         void vscode.commands.executeCommand("chronicle.promptDiff", message.slug, message.version);
+      } else if (message.kind === "promptUse") {
+        void vscode.commands.executeCommand("chronicle.promptUse", message.slug, message.version);
+      } else if (message.kind === "command") {
+        // Allow-list guards against the webview asking to run arbitrary commands.
+        const allowed = new Set([
+          "chronicle.openTimeline",
+          "chronicle.savePrompt",
+          "chronicle.whyFile",
+          "chronicle.refresh",
+        ]);
+        if (allowed.has(message.command)) void vscode.commands.executeCommand(message.command);
       }
     });
     view.onDidChangeVisibility(() => {

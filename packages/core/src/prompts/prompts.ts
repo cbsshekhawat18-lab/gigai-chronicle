@@ -24,6 +24,8 @@ export interface PromptMeta {
   /** When THIS version was saved (per-version; distinct from `created`). */
   savedAt: string;
   sourceSession: string | null;
+  /** Why this version exists — the "commit message" of the prompt library. */
+  note: string | null;
 }
 
 export interface Prompt extends PromptMeta {
@@ -35,8 +37,11 @@ export interface PromptVersionNode {
   version: number;
   savedAt: string;
   lines: number;
-  /** First non-empty line of the body — the "commit subject". */
+  /** The version's note when present, else the first non-empty body line —
+   *  the "commit subject". */
   preview: string;
+  /** The saved --note for this version (null on unannotated versions). */
+  note: string | null;
   /** Lines added/removed vs the previous version (parent). */
   added: number;
   removed: number;
@@ -69,6 +74,8 @@ function serialize(meta: PromptMeta, body: string): string {
     `created: ${meta.created}`,
     `savedAt: ${meta.savedAt}`,
     ...(meta.sourceSession !== null ? [`sourceSession: ${meta.sourceSession}`] : []),
+    // Frontmatter is line-based; a note is one line by construction (save strips newlines).
+    ...(meta.note !== null && meta.note !== "" ? [`note: ${meta.note}`] : []),
     "---",
     "",
   ];
@@ -95,6 +102,7 @@ export function parsePrompt(content: string): Prompt | null {
     .map((t) => t.trim())
     .filter((t) => t !== "");
   const source = fields.get("sourceSession") ?? null;
+  const note = fields.get("note") ?? null;
   return {
     id: fields.get("id") ?? "",
     slug,
@@ -104,6 +112,7 @@ export function parsePrompt(content: string): Prompt | null {
     created: fields.get("created") ?? "",
     savedAt: fields.get("savedAt") ?? fields.get("created") ?? "",
     sourceSession: source !== null && isId(source, "session") ? source : null,
+    note: note !== null && note !== "" ? note : null,
     // Canonical body: no trailing whitespace — serialize adds exactly one
     // final newline, so round-trips stay byte-stable across hand edits.
     body: content.slice(match[0].length).replace(/^\n/, "").replace(/\s+$/, ""),
@@ -120,6 +129,8 @@ export interface SavePromptOptions {
   title?: string;
   tags?: string[];
   sourceSession?: string;
+  /** Why this version exists — one line, never inherited by later versions. */
+  note?: string;
 }
 
 /** Create a prompt or add a new immutable version. Returns the saved state. */
@@ -152,6 +163,9 @@ export async function savePrompt(
     created: existing?.created ?? now,
     savedAt: now,
     sourceSession: options.sourceSession ?? existing?.sourceSession ?? null,
+    // A note narrates ONE version — deliberately never inherited (a stale
+    // "why" on a later version would be a lie).
+    note: options.note?.replace(/\s+/g, " ").trim() || null,
   };
 
   const content = serialize(meta, body);
@@ -163,6 +177,33 @@ export async function savePrompt(
   await writeFile(immutable, content, "utf8");
   await writeFile(promptFile(chronicleDir, meta.slug), content, "utf8");
   return { ...meta, body };
+}
+
+/**
+ * Version-control rollback: make an old version's body the CURRENT version.
+ * Append-only like everything else — v(N+1) is created carrying vTarget's
+ * body; no version is ever rewritten or deleted, so the detour stays in the
+ * history it came from.
+ */
+export async function revertPrompt(
+  chronicleDir: string,
+  slug: string,
+  version: number,
+  note?: string,
+): Promise<Prompt> {
+  const target = await getPrompt(chronicleDir, slug, version);
+  const current = await getPrompt(chronicleDir, slug);
+  if (target.body === current.body) {
+    throw new ChronicleError(
+      "E_INVALID_EVENT",
+      `"${slug}" is already at v${version}'s content — nothing to revert`,
+    );
+  }
+  return savePrompt(chronicleDir, {
+    slug,
+    body: target.body,
+    note: note ?? `revert to v${version}`,
+  });
 }
 
 export async function getPrompt(chronicleDir: string, slug: string, version?: number): Promise<Prompt> {
@@ -233,12 +274,18 @@ export async function promptHistory(
     const prompt = await getPrompt(chronicleDir, slug, version).catch(() => null);
     if (prompt === null) continue;
     const delta = lineDelta(prevBody, prompt.body);
-    const preview = prompt.body.split("\n").find((l) => l.trim() !== "")?.slice(0, 80) ?? "(empty)";
+    // The note is the version's own "commit subject" when the author wrote
+    // one; the first body line is only the fallback.
+    const preview =
+      prompt.note ??
+      prompt.body.split("\n").find((l) => l.trim() !== "")?.slice(0, 80) ??
+      "(empty)";
     nodes.push({
       version,
       savedAt: prompt.savedAt,
       lines: prompt.body.split("\n").length,
       preview,
+      note: prompt.note,
       added: delta.added,
       removed: delta.removed,
     });

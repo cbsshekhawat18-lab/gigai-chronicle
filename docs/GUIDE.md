@@ -181,16 +181,38 @@ Puts your working tree back to how it was at that prompt. **Always
 safety-checkpointed first** — nothing is ever lost, and the restore is itself
 recorded.
 
-### Keep a prompt that worked
+### Keep a prompt that worked — and run a real prompt library
 
 ```bash
-chronicle prompt save auth-review --from-last     # promote the one you just typed
-chronicle prompt list
-chronicle prompt diff auth-review 1 2             # plain-text diff between versions
+# Two ways in:
+chronicle prompt save auth-review --from-last               # promote the one you just typed
+chronicle prompt save sec-audit --text "…" --note "research draft"   # curate one for later
+
+# Use it when the moment comes:
+chronicle prompt use sec-audit --copy       # body → clipboard, paste into your AI tool
+chronicle prompt use sec-audit@2            # any version, any time
+
+# Version controls, git-style:
+chronicle prompt save sec-audit --text "…" --note "narrowed to injection"  # new version + why
+chronicle prompt versions sec-audit         # v1 "research draft" · v2 used ×3 "narrowed…"
+chronicle prompt diff sec-audit 1 2         # what changed between versions
+chronicle prompt compare sec-audit@2 perf-audit   # across DIFFERENT prompts
+chronicle prompt revert sec-audit 1         # old body becomes the new current version
 ```
 
 Prompts are curated, versioned Markdown in `.chronicle/prompts/`, synced by git —
 commit one and your whole team gets it.
+
+**The lifecycle is derived, never stored.** `chronicle prompt list` marks each
+prompt **● used** or **○ saved for later** — and "used" means capture actually
+*observed* that text submitted to an AI tool (or the prompt was promoted from a
+real session). There is no counter to click. Per-version counts in `versions`
+tell you which version people really use — v3 at ×0 while v2 sits at ×5 is the
+library telling you v3 isn't better.
+
+> Honest limit: a use capture never saw (pasted into a web UI, or edited
+> before submitting) is not counted. Counts are observations, so they only
+> ever undercount — never lie upward.
 
 ### Replay a session
 
@@ -212,7 +234,7 @@ Code review with the intent attached.
 | `chronicle replay <session>` | Step through a session |
 | `chronicle timeline` | The journey, filtered (`--since --until --branch --type…`) |
 | `chronicle sessions` | Sessions with provider/model badges |
-| `chronicle prompt save\|list\|show\|versions\|diff` | Version control for prompts |
+| `chronicle prompt save\|list\|show\|versions\|diff\|use\|compare\|revert` | The prompt library: version control (`--note`, revert), lifecycle (`use`, ● used / ○ saved), cross-prompt compare |
 | `chronicle inspect <id\|sha>` | The `git show` of Chronicle |
 | `chronicle session privatize\|promote <id>` | Move a session off the shared record, or back |
 | `chronicle import <provider>` | Backfill from existing transcripts |

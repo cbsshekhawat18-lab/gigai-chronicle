@@ -119,7 +119,7 @@ chronicle import claude-code
 | `chronicle replay <session> [--at evt]` | Step through a session |
 | `chronicle timeline [--since --until --branch --type…]` | The journey, filtered |
 | `chronicle sessions [--provider --model]` | Sessions with provider/model badges |
-| `chronicle prompt save\|list\|show\|versions\|diff` | Version control for prompts. `save --from-last` promotes the one you just typed |
+| `chronicle prompt save\|list\|show\|versions\|diff\|use\|compare\|revert` | The prompt library: save research for later or promote what you typed (`--from-last`), `use` any version, `--note` why it changed, `revert` without rewriting — with **● used / ○ saved** status derived from real capture |
 | `chronicle inspect <id\|sha>` | The `git show` of Chronicle |
 | `chronicle session privatize\|promote <id>` | Move a session off the shared record, or back |
 | `chronicle import <provider>` | Backfill from existing transcripts |

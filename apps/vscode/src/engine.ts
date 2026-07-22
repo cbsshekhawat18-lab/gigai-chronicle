@@ -14,9 +14,11 @@ import {
   listPrompts,
   openWorkspace,
   promptHistory,
+  promptUsage,
   replaySession,
   sessionEvents,
   type CapturedPrompt,
+  type PromptUsageInfo,
   type ReplayFrame,
 } from "@gigaichronicle/core";
 import type { SessionId, WorkspaceId } from "@gigaichronicle/schema";
@@ -145,14 +147,29 @@ export class ChronicleWorkspace {
     return prompt?.text ?? null;
   }
 
-  /** The curated prompt library, each with its version graph — the Prompts view. */
+  /**
+   * The curated prompt library, each with its version graph and derived
+   * lifecycle status — the Prompts view. "used" is observed (capture saw the
+   * text submitted), never a click counter; an unreadable log degrades to
+   * "saved", not to an error.
+   */
   async libraryPrompts(): Promise<PromptWithHistory[]> {
     const base = await listPrompts(this.chronicleDir);
+    if (base.length === 0) return [];
+    const usage = await this.#withLog((log) => promptUsage(this.chronicleDir, log)).catch(
+      () => new Map<string, PromptUsageInfo>(),
+    );
     return Promise.all(
-      base.map(async (p) => ({
-        ...p,
-        history: await promptHistory(this.chronicleDir, p.slug).catch(() => []),
-      })),
+      base.map(async (p) => {
+        const info = usage.get(p.slug);
+        return {
+          ...p,
+          history: await promptHistory(this.chronicleDir, p.slug).catch(() => []),
+          status: info?.status ?? "saved",
+          uses: info?.total ?? 0,
+          lastUsedTs: info?.lastUsedTs ?? null,
+        };
+      }),
     );
   }
 
