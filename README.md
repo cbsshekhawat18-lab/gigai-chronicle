@@ -122,7 +122,7 @@ chronicle import claude-code
 | `chronicle prompt save\|list\|show\|versions\|diff\|use\|compare\|revert` | The prompt library: save research for later or promote what you typed (`--from-last`), `use` any version, `--note` why it changed, `revert` without rewriting — with **● used / ○ saved** status derived from real capture |
 | `chronicle inspect <id\|sha>` | The `git show` of Chronicle |
 | `chronicle session privatize\|promote <id>` | Move a session off the shared record, or back |
-| `chronicle import <provider>` | Backfill from existing transcripts |
+| `chronicle import <provider>` | Backfill from existing transcripts (`claude-code`, `codex`) |
 | `chronicle hooks install\|uninstall <provider>` | Live capture (merges, never clobbers) |
 | `chronicle doctor [--reindex] [--scan-secrets]` | Integrity, secret audit, zero-egress proof |
 | `chronicle log <message>` | Manual capture — the universal floor |

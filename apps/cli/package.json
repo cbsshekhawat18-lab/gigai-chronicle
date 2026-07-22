@@ -49,6 +49,7 @@
     "@gigaichronicle/schema": "workspace:^",
     "@gigaichronicle/core": "workspace:^",
     "@gigaichronicle/provider-claude-code": "workspace:^",
+    "@gigaichronicle/provider-codex": "workspace:^",
     "commander": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",

@@ -78,6 +78,9 @@ importers:
       '@gigaichronicle/provider-claude-code':
         specifier: workspace:^
         version: link:../../packages/providers/claude-code
+      '@gigaichronicle/provider-codex':
+        specifier: workspace:^
+        version: link:../../packages/providers/codex
       '@gigaichronicle/schema':
         specifier: workspace:^
         version: link:../../packages/schema
@@ -195,6 +198,25 @@ importers:
       '@gigaichronicle/plugin-kit':
         specifier: workspace:^
         version: link:../../plugin-kit
+      '@gigaichronicle/schema':
+        specifier: workspace:^
+        version: link:../../schema
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.1)(vite@7.3.6(@types/node@26.1.1))
+
+  packages/providers/codex:
+    dependencies:
+      '@gigaichronicle/core':
+        specifier: workspace:^
+        version: link:../../core
       '@gigaichronicle/schema':
         specifier: workspace:^
         version: link:../../schema
