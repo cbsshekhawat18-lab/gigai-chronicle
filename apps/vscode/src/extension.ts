@@ -94,23 +94,69 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }
 
-  /** Write a fresh prompt for later: opens a blank editor to draft in, then
-   *  "Save editor as prompt" keeps it — no need to have typed it in an AI tool. */
+  /**
+   * Write a fresh prompt for later. The prompt is CREATED immediately (so it
+   * appears in the library at once — no silent "did it save?" trap), then its
+   * editable file opens so the body can be written/refined, multi-line and all.
+   * Edits to that file are the current prompt; a later save snapshots a version.
+   */
   async function authorNewPrompt(): Promise<void> {
     if (workspace === null) {
       void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
       return;
     }
-    const doc = await vscode.workspace.openTextDocument({
-      language: "markdown",
-      content: NEW_PROMPT_SCAFFOLD,
+    const dir = workspace.chronicleDir;
+    const title = await vscode.window.showInputBox({
+      title: "New prompt — title",
+      prompt: "A human name, e.g. Security audit checklist",
+      ignoreFocusOut: true,
+      validateInput: (v) => (v.trim() === "" ? "Give it a title" : null),
     });
-    const editor = await vscode.window.showTextDocument(doc);
-    const end = new vscode.Position(doc.lineCount, 0);
-    editor.selection = new vscode.Selection(end, end);
-    void vscode.window.showInformationMessage(
-      "Chronicle: write your prompt, then run “Chronicle: Save editor as prompt” to keep it for later.",
-    );
+    if (title === undefined) return;
+
+    const taken = new Set((await listPrompts(dir).catch(() => [])).map((p) => p.slug));
+    let base = suggestSlug(title) || "prompt";
+    if (taken.has(base)) {
+      let n = 2;
+      while (taken.has(`${base}-${n}`)) n += 1;
+      base = `${base}-${n}`;
+    }
+    const slug = await vscode.window.showInputBox({
+      title: "New prompt — id",
+      value: base,
+      prompt: "kebab-case id",
+      ignoreFocusOut: true,
+      validateInput: (v) =>
+        !/^[a-z0-9][a-z0-9-]{0,63}$/.test(v)
+          ? "lowercase letters, digits and dashes only"
+          : taken.has(v)
+            ? `"${v}" already exists — pick another id`
+            : null,
+    });
+    if (slug === undefined) return;
+
+    const STARTER =
+      "Write your prompt here, then save this file (⌘S). It is kept for later — copy it any time from the Chronicle Prompts view with ▷ use.";
+    try {
+      const saved = await savePrompt(dir, { slug, title, body: STARTER, note: "draft — saved for later" });
+      await sidebar.refresh();
+      await TimelinePanel.current?.refreshSnapshot();
+      // Open the real, editable file — write the body here (multi-line welcome).
+      const file = vscode.Uri.file(path.join(dir, "prompts", slug, "prompt.md"));
+      const doc = await vscode.workspace.openTextDocument(file);
+      const editor = await vscode.window.showTextDocument(doc);
+      const idx = doc.getText().indexOf(STARTER);
+      if (idx >= 0) {
+        const range = new vscode.Range(doc.positionAt(idx), doc.positionAt(idx + STARTER.length));
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range);
+      }
+      void vscode.window.showInformationMessage(
+        `Chronicle: saved "${saved.slug}" for later — it's in the Prompts view now. Replace the placeholder, save the file, and the library follows.`,
+      );
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Chronicle: save failed — ${(error as Error).message}`);
+    }
   }
 
   /** Turn the active editor (or its selection) into a library prompt. */
@@ -411,17 +457,23 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // ---- Phase C: watchers (debounced) — the extension owns fs watching (§15) ----
     if (workspace !== null) {
-      const pattern = new vscode.RelativePattern(folder, ".chronicle/sessions/**/*.jsonl");
-      const watcher = vscode.workspace.createFileSystemWatcher(pattern);
       let timer: NodeJS.Timeout | undefined;
       const bump = (): void => {
         if (timer !== undefined) clearTimeout(timer);
-        timer = setTimeout(() => void sidebar.refresh(), 500);
+        timer = setTimeout(() => {
+          void sidebar.refresh();
+          void TimelinePanel.current?.refreshSnapshot();
+        }, 500);
       };
-      watcher.onDidChange(bump);
-      watcher.onDidCreate(bump);
-      watcher.onDidDelete(bump);
-      context.subscriptions.push(watcher);
+      // Sessions (capture) AND the prompt library — so hand-editing a
+      // prompt.md is reflected live in the sidebar and dashboard.
+      for (const glob of [".chronicle/sessions/**/*.jsonl", ".chronicle/prompts/**"]) {
+        const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, glob));
+        watcher.onDidChange(bump);
+        watcher.onDidCreate(bump);
+        watcher.onDidDelete(bump);
+        context.subscriptions.push(watcher);
+      }
     }
   })();
 }
