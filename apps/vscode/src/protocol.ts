@@ -11,8 +11,10 @@ import type { Prompt, PromptVersionNode } from "@gigaichronicle/core";
 export interface PromptWithHistory extends Prompt {
   history: PromptVersionNode[];
   /** Lifecycle: "used" = capture observed it submitted (or it was promoted
-   *  from a session); "saved" = curated for the future, not yet seen in use. */
-  status: "used" | "saved";
+   *  from a session); "saved" = curated for the future, not yet seen in use;
+   *  "unknown" = usage could not be derived (the log was unreadable) — shown
+   *  as unavailable rather than falsely as "saved". */
+  status: "used" | "saved" | "unknown";
   /** Observed uses across versions — derived from the log, never a counter. */
   uses: number;
   lastUsedTs: string | null;

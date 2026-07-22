@@ -20,6 +20,22 @@ import { SessionsViewProvider } from "./sessions-view.js";
 import { TimelinePanel } from "./timeline-panel.js";
 import type { SessionListItem } from "./protocol.js";
 
+/**
+ * The scaffold inserted into the blank "New prompt" editor. Stripped on save
+ * by EXACT prefix match only — a prompt whose real body legitimately begins
+ * with an HTML comment (e.g. `<!-- role: system -->`) must survive untouched.
+ */
+const NEW_PROMPT_SCAFFOLD =
+  "<!-- New Chronicle prompt. Write it below, then run:\n" +
+  '     Command Palette → "Chronicle: Save editor as prompt"\n' +
+  "     (or the ＋ Save prompt button → “Save the file I’m editing”). This comment is dropped on save. -->\n\n";
+
+/** Drop a UTF-8 BOM and the new-prompt scaffold (only if present, verbatim). */
+function stripScaffold(text: string): string {
+  const noBom = text.replace(/^﻿/, "");
+  return noBom.startsWith(NEW_PROMPT_SCAFFOLD) ? noBom.slice(NEW_PROMPT_SCAFFOLD.length) : noBom;
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   // ---- Phase A (sync): register everything, render empty states ---------
   const sidebar = new SessionsViewProvider(context.extensionUri);
@@ -87,10 +103,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
     const doc = await vscode.workspace.openTextDocument({
       language: "markdown",
-      content:
-        "<!-- New Chronicle prompt. Write it below, then run:\n" +
-        '     Command Palette → "Chronicle: Save editor as prompt"\n' +
-        "     (or the ＋ Save prompt button → “Save the file I’m editing”). This comment is dropped on save. -->\n\n",
+      content: NEW_PROMPT_SCAFFOLD,
     });
     const editor = await vscode.window.showTextDocument(doc);
     const end = new vscode.Position(doc.lineCount, 0);
@@ -113,8 +126,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
     const sel = editor.selection;
     const raw = sel.isEmpty ? editor.document.getText() : editor.document.getText(sel);
-    // Drop a leading HTML-comment template (from the New-prompt scaffold).
-    const body = raw.replace(/^﻿/, "").replace(/^\s*<!--[\s\S]*?-->\s*/, "").trim();
+    const body = stripScaffold(raw).trim();
     if (body === "") {
       void vscode.window.showInformationMessage("Chronicle: nothing to save — the editor (or selection) is empty.");
       return;
@@ -274,10 +286,8 @@ export function activate(context: vscode.ExtensionContext): void {
           action: { kind: "new" },
         },
       ];
-      const editorText = vscode.window.activeTextEditor?.document
-        .getText()
-        .replace(/^\s*<!--[\s\S]*?-->\s*/, "")
-        .trim();
+      const rawEditor = vscode.window.activeTextEditor?.document.getText();
+      const editorText = rawEditor === undefined ? undefined : stripScaffold(rawEditor).trim();
       if (editorText !== undefined && editorText !== "") {
         items.push({
           label: "$(save) Save the file I’m editing",

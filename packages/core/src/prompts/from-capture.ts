@@ -83,6 +83,12 @@ export async function capturedPrompts(
     if (text === null) continue;
     found.push(toCaptured(scanned, text));
   }
+  // Scan order is per-stream-file (each session's file, path-sorted), NOT
+  // global time — so an interleaved or resumed session buries its newest
+  // prompt mid-array. Sort by ts so callers that take the tail ("the last
+  // prompt you typed", `chronicle diff` with no args, --from-last) get the
+  // genuinely most-recent one.
+  found.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
   return found;
 }
 

@@ -117,12 +117,16 @@ export async function runWhyCommand(
     // blob body) can't form a diff pair; that is surfaced, never hidden.
     if (options.evolution === true) {
       const steps = attributed.map((item, i) => {
-        const prev = i === 0 ? null : attributed[i - 1];
+        const prev = i === 0 ? null : (attributed[i - 1] ?? null);
+        // Two consecutive prompts can be word-for-word identical ("continue",
+        // "fix it"): that is not a change, so no diff is claimed.
+        const identical =
+          prev !== null && prev.prompt !== null && item.prompt !== null && prev.prompt === item.prompt;
         const diffFromPrev =
-          prev !== undefined && prev !== null && prev.prompt !== null && item.prompt !== null
+          prev !== null && prev.prompt !== null && item.prompt !== null && prev.prompt !== item.prompt
             ? unifiedDiff(prev.prompt, item.prompt, prev.eventId, item.eventId)
             : null;
-        return { eventId: item.eventId, ts: item.ts, prompt: item.prompt, churn: item.churn, diffFromPrev };
+        return { eventId: item.eventId, ts: item.ts, prompt: item.prompt, churn: item.churn, diffFromPrev, identical };
       });
 
       if (global.json === true) {
@@ -141,7 +145,9 @@ export async function runWhyCommand(
             ? `(prompt body unavailable — chronicle inspect ${step.eventId})`
             : `"${truncate(step.prompt, 68)}"`;
         console.log(`  ${i + 1}. ${when}  ${step.churn.padStart(9)}  ${text}`);
-        if (step.diffFromPrev !== null) {
+        if (step.identical) {
+          console.log("     ── same wording as the previous prompt ──");
+        } else if (step.diffFromPrev !== null) {
           console.log("     ── how the ask changed from the previous prompt ──");
           // Drop unifiedDiff's `--- / +++` header (the event ids are already shown above).
           for (const line of step.diffFromPrev.split("\n").slice(2)) console.log(`     ${line}`);

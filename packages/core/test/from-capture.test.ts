@@ -56,6 +56,21 @@ describe("promoting a captured prompt (the seam)", () => {
     expect(found[0]?.session).toBe(SES_A); // provenance rides along, free
   });
 
+  it("returns prompts in TIME order across interleaved sessions, not file/scan order", async () => {
+    // Session A started first (its file sorts first), but received a LATER
+    // prompt. Scan yields A's whole file then B's; capturedPrompts must re-sort
+    // by ts so the tail is the genuinely most-recent prompt (fixes `diff` /
+    // `--from-last` picking the wrong "last").
+    const oldA = promptEvent(SES_A, "old A prompt"); // ts t1
+    const midB = promptEvent(SES_B, "B prompt"); // ts t2
+    const newA = promptEvent(SES_A, "new A prompt"); // ts t3
+    const dir = await storeWith([oldA, midB, newA]);
+    const found = await withLog(dir, (log) => capturedPrompts(dir, log));
+    expect(found.map((p) => p.text)).toEqual(["old A prompt", "B prompt", "new A prompt"]);
+    // The tail is the true latest — what `chronicle diff` (no args) relies on.
+    expect(found[found.length - 1]?.text).toBe("new A prompt");
+  });
+
   it("--from-last promotes the prompt you just typed", async () => {
     const dir = await storeWith([promptEvent(SES_A, "old one"), promptEvent(SES_A, "the one that worked")]);
     const last = await withLog(dir, (log) => lastCapturedPrompt(dir, log));

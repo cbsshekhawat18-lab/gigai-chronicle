@@ -239,6 +239,8 @@ function PromptCard({ prompt }: { prompt: PromptWithHistory }): React.JSX.Elemen
             submitted), so the badge is an observation, not a click counter. */}
         {prompt.status === "used" ? (
           <span style={styles.liveBadge}>● used{prompt.uses > 0 ? ` ×${prompt.uses}` : ""}</span>
+        ) : prompt.status === "unknown" ? (
+          <span style={{ ...styles.quiet, ...styles.warn }}>usage unavailable</span>
         ) : (
           <span style={styles.quiet}>○ saved for later</span>
         )}

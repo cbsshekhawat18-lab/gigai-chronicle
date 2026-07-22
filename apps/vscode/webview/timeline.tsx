@@ -374,6 +374,7 @@ function PromptsPanel({ prompts }: { prompts: PromptWithHistory[] }): React.JSX.
   const [compareA, setCompareA] = React.useState<{ slug: string; version: number } | null>(null);
   const used = prompts.filter((p) => p.status === "used");
   const saved = prompts.filter((p) => p.status === "saved");
+  const unavailable = prompts.filter((p) => p.status === "unknown");
 
   const onCompare = (slug: string, version: number): void => {
     if (compareA === null) {
@@ -397,6 +398,10 @@ function PromptsPanel({ prompts }: { prompts: PromptWithHistory[] }): React.JSX.
           {p.status === "used" ? (
             <span style={{ ...styles.badge, borderColor: `${LIVE}`, color: LIVE }}>
               ● used{p.uses > 0 ? ` ×${p.uses}` : ""}
+            </span>
+          ) : p.status === "unknown" ? (
+            <span style={{ ...styles.badge, ...styles.warn, borderColor: "var(--vscode-editorWarning-foreground)" }}>
+              usage unavailable
             </span>
           ) : (
             <span style={{ ...styles.badge, opacity: 0.75, borderColor: "var(--vscode-panel-border)", color: "var(--vscode-foreground)" }}>
@@ -502,6 +507,12 @@ function PromptsPanel({ prompts }: { prompts: PromptWithHistory[] }): React.JSX.
             <>
               <div style={styles.navGroupLabel}>Saved for later · {saved.length}</div>
               {saved.map(card)}
+            </>
+          )}
+          {unavailable.length > 0 && (
+            <>
+              <div style={{ ...styles.navGroupLabel, ...styles.warn }}>Usage unavailable · {unavailable.length}</div>
+              {unavailable.map(card)}
             </>
           )}
         </>

@@ -69,8 +69,13 @@ export async function promptUsage(
   const result = new Map<string, PromptUsageInfo>();
   if (library.length === 0) return result;
 
-  // body → {slug, version} of the newest version carrying that body.
-  const bodies = new Map<string, { slug: string; version: number }>();
+  // canonical body → (slug → its newest version carrying that body). Two
+  // DIFFERENT prompts can legitimately hold identical text (a duplicate, a
+  // teammate's copy), so a body maps to EVERY matching slug — not just one —
+  // or a real use would silently credit only the alphabetically-last slug.
+  // Within a slug, twin bodies (a revert recreating an old version) resolve to
+  // the newest version, since versions iterate ascending and the last write wins.
+  const bodies = new Map<string, Map<string, number>>();
   const versionsBySlug = new Map<string, number[]>();
   for (const prompt of library) {
     const versions = await promptVersions(chronicleDir, prompt.slug);
@@ -78,22 +83,30 @@ export async function promptUsage(
     for (const version of versions) {
       const saved = await getPrompt(chronicleDir, prompt.slug, version).catch(() => null);
       if (saved === null) continue;
-      bodies.set(canonical(saved.body), { slug: prompt.slug, version });
+      const key = canonical(saved.body);
+      let perSlug = bodies.get(key);
+      if (perSlug === undefined) {
+        perSlug = new Map<string, number>();
+        bodies.set(key, perSlug);
+      }
+      perSlug.set(prompt.slug, version);
     }
   }
 
   const usesBySlug = new Map<string, PromptUse[]>();
   for (const captured of await capturedPrompts(chronicleDir, log)) {
-    const hit = bodies.get(canonical(captured.text));
-    if (hit === undefined) continue;
-    const uses = usesBySlug.get(hit.slug) ?? [];
-    uses.push({
-      eventId: captured.eventId,
-      session: captured.session,
-      ts: captured.ts,
-      version: hit.version,
-    });
-    usesBySlug.set(hit.slug, uses);
+    const matches = bodies.get(canonical(captured.text));
+    if (matches === undefined) continue;
+    for (const [slug, version] of matches) {
+      const uses = usesBySlug.get(slug) ?? [];
+      uses.push({
+        eventId: captured.eventId,
+        session: captured.session,
+        ts: captured.ts,
+        version,
+      });
+      usesBySlug.set(slug, uses);
+    }
   }
 
   for (const prompt of library) {

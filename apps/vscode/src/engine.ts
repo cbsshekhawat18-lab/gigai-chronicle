@@ -156,19 +156,24 @@ export class ChronicleWorkspace {
   async libraryPrompts(): Promise<PromptWithHistory[]> {
     const base = await listPrompts(this.chronicleDir);
     if (base.length === 0) return [];
-    const usage = await this.#withLog((log) => promptUsage(this.chronicleDir, log)).catch(
-      () => new Map<string, PromptUsageInfo>(),
-    );
+    // A failed scan must not masquerade as "saved" — mark status "unknown".
+    let usage = new Map<string, PromptUsageInfo>();
+    let usageOk = true;
+    try {
+      usage = await this.#withLog((log) => promptUsage(this.chronicleDir, log));
+    } catch {
+      usageOk = false;
+    }
     return Promise.all(
       base.map(async (p) => {
         const info = usage.get(p.slug);
         return {
           ...p,
           history: await promptHistory(this.chronicleDir, p.slug).catch(() => []),
-          status: info?.status ?? "saved",
+          status: usageOk ? (info?.status ?? "saved") : "unknown",
           uses: info?.total ?? 0,
           lastUsedTs: info?.lastUsedTs ?? null,
-        };
+        } satisfies PromptWithHistory;
       }),
     );
   }

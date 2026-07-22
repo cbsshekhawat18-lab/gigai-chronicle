@@ -124,6 +124,18 @@ describe("derived usage — used vs saved for later", () => {
     ]);
   });
 
+  it("credits EVERY prompt whose body matches — two slugs can share text, both are used", async () => {
+    const dir = tempDir();
+    await savePrompt(dir, { slug: "alpha", body: "Refactor this function for clarity." });
+    await savePrompt(dir, { slug: "zebra", body: "Refactor this function for clarity." }); // identical body
+    await seedCaptured(dir, ["Refactor this function for clarity."]);
+
+    const usage = await withLog(dir, (log) => promptUsage(dir, log));
+    // Neither may be dropped to "saved" just because it lost a slug-sort race.
+    expect(usage.get("alpha")).toMatchObject({ status: "used", total: 1 });
+    expect(usage.get("zebra")).toMatchObject({ status: "used", total: 1 });
+  });
+
   it("twin bodies (a revert) attribute to the NEWEST matching version", async () => {
     const dir = tempDir();
     await savePrompt(dir, { slug: "audit", body: "the good text" });

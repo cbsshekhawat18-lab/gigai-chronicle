@@ -205,20 +205,26 @@ export async function runPromptCommand(
       }
       case "list": {
         const prompts = await listPrompts(chronicleDir);
-        // Lifecycle status is derived by joining the library against the log
-        // — worth one scan; an unreadable log must not hide the library.
-        const usage = await withLog(chronicleDir, (log) => promptUsage(chronicleDir, log)).catch(
-          () => new Map<string, PromptUsageInfo>(),
-        );
+        // Lifecycle status is derived by joining the library against the log.
+        // If that scan fails we must NOT assert "saved" — that would state a
+        // specific, wrong lifecycle fact. Report it as unavailable instead.
+        let usage = new Map<string, PromptUsageInfo>();
+        let usageOk = true;
+        try {
+          usage = await withLog(chronicleDir, (log) => promptUsage(chronicleDir, log));
+        } catch {
+          usageOk = false;
+        }
         if (global.json === true) {
           printJson("prompt", {
             action,
             count: prompts.length,
+            usageAvailable: usageOk,
             prompts: prompts.map((p) => {
               const info = usage.get(p.slug);
               return {
                 ...p,
-                status: info?.status ?? "saved",
+                status: usageOk ? (info?.status ?? "saved") : "unknown",
                 uses: info?.total ?? 0,
                 lastUsedTs: info?.lastUsedTs ?? null,
               };
@@ -228,8 +234,9 @@ export async function runPromptCommand(
           console.log('no prompts yet — chronicle prompt save <slug> --text "…"');
         else
           for (const p of prompts) {
+            const label = usageOk ? statusLabel(usage.get(p.slug)) : "· usage unavailable (log unreadable)";
             console.log(
-              `${p.slug}  v${p.version}  ${statusLabel(usage.get(p.slug))}${p.tags.length > 0 ? `  [${p.tags.join(", ")}]` : ""}\n  ${p.title}`,
+              `${p.slug}  v${p.version}  ${label}${p.tags.length > 0 ? `  [${p.tags.join(", ")}]` : ""}\n  ${p.title}`,
             );
           }
         return EXIT_OK;
