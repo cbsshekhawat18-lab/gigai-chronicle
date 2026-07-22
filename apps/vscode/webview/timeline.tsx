@@ -365,6 +365,18 @@ function NavRail({
 }
 
 /**
+ * A prompt's display name — full automation: an explicit title wins, else the
+ * first line of the content (like a commit subject), else the id. So you never
+ * have to name a prompt; it names itself from what you write.
+ */
+function promptName(p: { body: string; title: string; slug: string }): string {
+  if (p.title !== "" && p.title !== p.slug) return p.title;
+  const line = p.body.split("\n").map((l) => l.trim()).find((l) => l !== "");
+  if (line !== undefined && line !== "") return line.length > 72 ? `${line.slice(0, 71)}…` : line;
+  return p.slug;
+}
+
+/**
  * The prompt library with its lifecycle: ● used (capture observed it
  * submitted) vs ○ saved for later (research, waiting). "Use" copies the body
  * to the clipboard; the used-count only moves when capture actually sees the
@@ -393,7 +405,7 @@ function PromptsPanel({ prompts }: { prompts: PromptWithHistory[] }): React.JSX.
       <div key={p.slug} style={{ ...styles.card, cursor: "default" }}>
         <div style={{ ...styles.cardTitle, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ cursor: "pointer" }} onClick={() => send({ kind: "openPrompt", slug: p.slug, version: p.version })}>
-            {p.title}
+            {promptName(p)}
           </span>
           {p.status === "used" ? (
             <span style={{ ...styles.badge, borderColor: `${LIVE}`, color: LIVE }}>

@@ -49,37 +49,24 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // ---- prompt authoring (save NEW prompts, not only promote typed ones) ----
 
-  /** Ask for a slug + title, then save `body` as v1 (or a new version of an
-   *  existing slug). The one place all "save a prompt" paths converge. */
+  /** Save `body` as a prompt — fully automatic. The id is derived from the
+   *  first line of the content (the name is too, at read time), so nothing is
+   *  asked. The one place all content-bearing "save a prompt" paths converge. */
   async function saveNewOrVersion(body: string, session: string | null): Promise<void> {
     if (workspace === null) return;
     const dir = workspace.chronicleDir;
     const firstLine = body.split("\n").find((l) => l.trim() !== "") ?? "";
     const taken = new Set((await listPrompts(dir).catch(() => [])).map((p) => p.slug));
-    const slug = await vscode.window.showInputBox({
-      title: "Save prompt — id",
-      value: suggestSlug(firstLine),
-      prompt: "kebab-case id (an existing id saves a new version)",
-      ignoreFocusOut: true,
-      validateInput: (v) =>
-        /^[a-z0-9][a-z0-9-]{0,63}$/.test(v) ? null : "lowercase letters, digits and dashes only",
-    });
-    if (slug === undefined) return;
-    let title: string | undefined;
-    if (!taken.has(slug)) {
-      title = await vscode.window.showInputBox({
-        title: "Save prompt — title",
-        value: firstLine.replace(/\s+/g, " ").trim().slice(0, 60),
-        prompt: "A human name for this prompt",
-        ignoreFocusOut: true,
-      });
-      if (title === undefined) return;
+    let slug = suggestSlug(firstLine) || "prompt";
+    if (taken.has(slug)) {
+      let n = 2;
+      while (taken.has(`${slug}-${n}`)) n += 1;
+      slug = `${slug}-${n}`;
     }
     try {
       const saved = await savePrompt(dir, {
         slug,
         body,
-        ...(title !== undefined ? { title } : {}),
         ...(session !== null ? { sourceSession: session } : {}),
       });
       await sidebar.refresh();
@@ -106,43 +93,22 @@ export function activate(context: vscode.ExtensionContext): void {
       return;
     }
     const dir = workspace.chronicleDir;
-    const title = await vscode.window.showInputBox({
-      title: "New prompt — title",
-      prompt: "A human name, e.g. Security audit checklist",
-      ignoreFocusOut: true,
-      validateInput: (v) => (v.trim() === "" ? "Give it a title" : null),
-    });
-    if (title === undefined) return;
-
+    // ZERO questions — full automation. Create an "untitled" prompt at once and
+    // open its file; the NAME is derived from the first line you write (the
+    // library re-reads the file live), so you never have to name anything.
     const taken = new Set((await listPrompts(dir).catch(() => [])).map((p) => p.slug));
-    let base = suggestSlug(title) || "prompt";
-    if (taken.has(base)) {
+    let slug = "untitled";
+    if (taken.has(slug)) {
       let n = 2;
-      while (taken.has(`${base}-${n}`)) n += 1;
-      base = `${base}-${n}`;
+      while (taken.has(`untitled-${n}`)) n += 1;
+      slug = `untitled-${n}`;
     }
-    const slug = await vscode.window.showInputBox({
-      title: "New prompt — id",
-      value: base,
-      prompt: "kebab-case id",
-      ignoreFocusOut: true,
-      validateInput: (v) =>
-        !/^[a-z0-9][a-z0-9-]{0,63}$/.test(v)
-          ? "lowercase letters, digits and dashes only"
-          : taken.has(v)
-            ? `"${v}" already exists — pick another id`
-            : null,
-    });
-    if (slug === undefined) return;
-
-    const STARTER =
-      "Write your prompt here, then save this file (⌘S). It is kept for later — copy it any time from the Chronicle Prompts view with ▷ use.";
+    const STARTER = "Untitled — replace this with your prompt, then save (⌘S).";
     try {
-      const saved = await savePrompt(dir, { slug, title, body: STARTER, note: "draft — saved for later" });
+      const saved = await savePrompt(dir, { slug, body: STARTER, note: "draft — saved for later" });
       await sidebar.refresh();
       await TimelinePanel.current?.refreshSnapshot();
-      // Open the real, editable file — write the body here (multi-line welcome).
-      const file = vscode.Uri.file(path.join(dir, "prompts", slug, "prompt.md"));
+      const file = vscode.Uri.file(path.join(dir, "prompts", saved.slug, "prompt.md"));
       const doc = await vscode.workspace.openTextDocument(file);
       const editor = await vscode.window.showTextDocument(doc);
       const idx = doc.getText().indexOf(STARTER);
@@ -152,7 +118,7 @@ export function activate(context: vscode.ExtensionContext): void {
         editor.revealRange(range);
       }
       void vscode.window.showInformationMessage(
-        `Chronicle: saved "${saved.slug}" for later — it's in the Prompts view now. Replace the placeholder, save the file, and the library follows.`,
+        "Chronicle: new prompt saved — just write it below. The first line becomes its name automatically.",
       );
     } catch (error) {
       void vscode.window.showErrorMessage(`Chronicle: save failed — ${(error as Error).message}`);
