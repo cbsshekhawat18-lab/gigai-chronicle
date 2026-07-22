@@ -62,6 +62,16 @@ export class TimelinePanel {
     return TimelinePanel.current;
   }
 
+  /** Re-push the sessions + library snapshot (e.g. after a prompt is saved). */
+  async refreshSnapshot(): Promise<void> {
+    if (this.#workspace === null) return;
+    const [sessions, prompts] = await Promise.all([
+      this.#workspace.sessions(),
+      this.#workspace.libraryPrompts(),
+    ]);
+    await this.#post({ kind: "snapshot", v: 1, data: { sessions, prompts } });
+  }
+
   /** Show a session: build (and cache) its stream, send the LATEST window. */
   async showSession(session: SessionId): Promise<void> {
     if (this.#workspace === null) return;
@@ -100,6 +110,32 @@ export class TimelinePanel {
       await vscode.commands.executeCommand("chronicle.restoreCheckpoint", message.eventId);
       return;
     }
+    if (message.kind === "compare") {
+      await vscode.commands.executeCommand("chronicle.comparePrompts", message.a, message.b);
+      return;
+    }
+    if (message.kind === "openPrompt") {
+      await vscode.commands.executeCommand("chronicle.promptOpen", message.slug, message.version);
+      return;
+    }
+    if (message.kind === "usePrompt") {
+      await vscode.commands.executeCommand("chronicle.promptUse", message.slug, message.version);
+      return;
+    }
+    if (message.kind === "savePrompt") {
+      await vscode.commands.executeCommand("chronicle.savePrompt");
+      return;
+    }
+    if (message.kind === "compareLibrary") {
+      await vscode.commands.executeCommand(
+        "chronicle.promptCompare",
+        message.aSlug,
+        message.aVersion,
+        message.bSlug,
+        message.bVersion,
+      );
+      return;
+    }
     if (message.kind !== "query") return;
     try {
       if (this.#workspace === null) {
@@ -107,7 +143,11 @@ export class TimelinePanel {
         return;
       }
       if (message.name === "sessions") {
-        await this.#post({ kind: "snapshot", v: 1, data: { sessions: await this.#workspace.sessions() } });
+        const [sessions, prompts] = await Promise.all([
+          this.#workspace.sessions(),
+          this.#workspace.libraryPrompts(),
+        ]);
+        await this.#post({ kind: "snapshot", v: 1, data: { sessions, prompts } });
       } else if (message.name === "frames") {
         await this.showSession(message.args.session as SessionId);
       } else {

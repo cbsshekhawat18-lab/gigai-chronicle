@@ -1,6 +1,6 @@
 {
   "name": "gigaichronicle-vscode",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Your AI development history — recorded in-repo, linked to git, replayable.",
   "license": "MIT",
   "private": true,
@@ -83,7 +83,9 @@
     "commands": [
       {
         "command": "chronicle.openTimeline",
-        "title": "Chronicle: Open Timeline"
+        "title": "Chronicle: Open Dashboard",
+        "category": "Chronicle",
+        "icon": "$(dashboard)"
       },
       {
         "command": "chronicle.replaySession",
@@ -91,7 +93,9 @@
       },
       {
         "command": "chronicle.refresh",
-        "title": "Chronicle: Refresh"
+        "title": "Chronicle: Refresh",
+        "category": "Chronicle",
+        "icon": "$(refresh)"
       },
       {
         "command": "chronicle.whyFile",
@@ -104,14 +108,41 @@
         "title": "Chronicle: Save a prompt to the library",
         "category": "Chronicle",
         "icon": "$(save)"
+      },
+      {
+        "command": "chronicle.newPrompt",
+        "title": "Chronicle: New prompt (write one for later)",
+        "category": "Chronicle",
+        "icon": "$(add)"
+      },
+      {
+        "command": "chronicle.savePromptFromEditor",
+        "title": "Chronicle: Save editor as prompt",
+        "category": "Chronicle",
+        "icon": "$(save)"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "chronicle.savePrompt",
+          "command": "chronicle.openTimeline",
           "when": "view == chronicle.sessions",
           "group": "navigation@1"
+        },
+        {
+          "command": "chronicle.savePrompt",
+          "when": "view == chronicle.sessions",
+          "group": "navigation@2"
+        },
+        {
+          "command": "chronicle.whyFile",
+          "when": "view == chronicle.sessions",
+          "group": "navigation@3"
+        },
+        {
+          "command": "chronicle.refresh",
+          "when": "view == chronicle.sessions",
+          "group": "navigation@4"
         }
       ],
       "editor/context": [
@@ -119,6 +150,24 @@
           "command": "chronicle.whyFile",
           "when": "editorTextFocus && resourceScheme == file",
           "group": "chronicle@1"
+        },
+        {
+          "command": "chronicle.savePromptFromEditor",
+          "when": "editorTextFocus",
+          "group": "chronicle@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "chronicle.whyFile",
+          "when": "editorIsOpen"
+        },
+        {
+          "command": "chronicle.newPrompt"
+        },
+        {
+          "command": "chronicle.savePromptFromEditor",
+          "when": "editorIsOpen"
         }
       ],
       "editor/title/context": [
@@ -133,12 +182,6 @@
           "command": "chronicle.whyFile",
           "when": "resourceScheme == file && !explorerResourceIsFolder",
           "group": "chronicle@1"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "chronicle.whyFile",
-          "when": "editorIsOpen"
         }
       ]
     }

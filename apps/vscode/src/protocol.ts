@@ -10,6 +10,14 @@ import type { Prompt, PromptVersionNode } from "@gigaichronicle/core";
 
 export interface PromptWithHistory extends Prompt {
   history: PromptVersionNode[];
+  /** Lifecycle: "used" = capture observed it submitted (or it was promoted
+   *  from a session); "saved" = curated for the future, not yet seen in use;
+   *  "unknown" = usage could not be derived (the log was unreadable) — shown
+   *  as unavailable rather than falsely as "saved". */
+  status: "used" | "saved" | "unknown";
+  /** Observed uses across versions — derived from the log, never a counter. */
+  uses: number;
+  lastUsedTs: string | null;
 }
 
 export interface SessionListItem {
@@ -54,4 +62,14 @@ export type WebviewMessage =
   | { kind: "query"; v: 1; reqId: number; name: "sessions" }
   | { kind: "query"; v: 1; reqId: number; name: "frames"; args: { session: string } }
   | { kind: "query"; v: 1; reqId: number; name: "earlier"; args: { session: string; before: number } }
-  | { kind: "restore"; v: 1; eventId: string };
+  | { kind: "restore"; v: 1; eventId: string }
+  /** Open the two chosen prompts in the native diff editor (ADR-0013 evolution). */
+  | { kind: "compare"; v: 1; a: string; b: string }
+  /** Open a library prompt version in the native editor. */
+  | { kind: "openPrompt"; v: 1; slug: string; version: number }
+  /** Put a library prompt's body on the clipboard — "use" it in your AI tool. */
+  | { kind: "usePrompt"; v: 1; slug: string; version: number }
+  /** Diff two library prompts (cross-slug) in the native diff editor. */
+  | { kind: "compareLibrary"; v: 1; aSlug: string; aVersion: number; bSlug: string; bVersion: number }
+  /** Save a captured prompt into the library — the QuickPick flow, from the dashboard. */
+  | { kind: "savePrompt"; v: 1 };

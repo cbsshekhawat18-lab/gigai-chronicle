@@ -8,16 +8,21 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import {
   EventLog,
+  capturedPromptByEvent,
   capturedPrompts,
   changesByPrompt,
+  listPrompts,
   openWorkspace,
+  promptHistory,
+  promptUsage,
   replaySession,
   sessionEvents,
   type CapturedPrompt,
+  type PromptUsageInfo,
   type ReplayFrame,
 } from "@gigaichronicle/core";
 import type { SessionId, WorkspaceId } from "@gigaichronicle/schema";
-import type { SessionListItem } from "./protocol.js";
+import type { PromptWithHistory, SessionListItem } from "./protocol.js";
 
 /** One attributed prompt for the "why is this file like this?" view. */
 export interface WhyEntry {
@@ -132,6 +137,45 @@ export class ChronicleWorkspace {
       const all = await capturedPrompts(this.chronicleDir, log);
       return all.reverse().slice(0, limit);
     });
+  }
+
+  /** One captured prompt's text by event id — behind the dashboard's Compare. */
+  async promptText(eventId: string): Promise<string | null> {
+    const prompt = await this.#withLog((log) =>
+      capturedPromptByEvent(this.chronicleDir, log, eventId),
+    );
+    return prompt?.text ?? null;
+  }
+
+  /**
+   * The curated prompt library, each with its version graph and derived
+   * lifecycle status — the Prompts view. "used" is observed (capture saw the
+   * text submitted), never a click counter; an unreadable log degrades to
+   * "saved", not to an error.
+   */
+  async libraryPrompts(): Promise<PromptWithHistory[]> {
+    const base = await listPrompts(this.chronicleDir);
+    if (base.length === 0) return [];
+    // A failed scan must not masquerade as "saved" — mark status "unknown".
+    let usage = new Map<string, PromptUsageInfo>();
+    let usageOk = true;
+    try {
+      usage = await this.#withLog((log) => promptUsage(this.chronicleDir, log));
+    } catch {
+      usageOk = false;
+    }
+    return Promise.all(
+      base.map(async (p) => {
+        const info = usage.get(p.slug);
+        return {
+          ...p,
+          history: await promptHistory(this.chronicleDir, p.slug).catch(() => []),
+          status: usageOk ? (info?.status ?? "saved") : "unknown",
+          uses: info?.total ?? 0,
+          lastUsedTs: info?.lastUsedTs ?? null,
+        } satisfies PromptWithHistory;
+      }),
+    );
   }
 
   /**

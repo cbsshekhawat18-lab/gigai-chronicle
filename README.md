@@ -113,12 +113,13 @@ chronicle import claude-code
 | Command | Purpose |
 |---|---|
 | `chronicle init [--yes] [--metadata-only] [--private-sessions]` | Initialize. Prints its complete footprint — 4 paths, named |
-| `chronicle why <file> [--limit n]` | What was **asked** that made this file (ADR-0013) |
+| `chronicle why <file> [--limit n] [--evolution]` | What was **asked** that made this file (ADR-0013); `--evolution` shows how the ask sharpened |
+| `chronicle diff [<evtA> <evtB>]` | The **wording delta** between two prompts you typed — no args = the last two |
 | `chronicle restore <evt> [--force]` | ⏪ Code time-travel to any prompt (ADR-0012) |
 | `chronicle replay <session> [--at evt]` | Step through a session |
 | `chronicle timeline [--since --until --branch --type…]` | The journey, filtered |
 | `chronicle sessions [--provider --model]` | Sessions with provider/model badges |
-| `chronicle prompt save\|list\|show\|versions\|diff` | Version control for prompts. `save --from-last` promotes the one you just typed |
+| `chronicle prompt save\|list\|show\|versions\|diff\|use\|compare\|revert` | The prompt library: save research for later or promote what you typed (`--from-last`), `use` any version, `--note` why it changed, `revert` without rewriting — with **● used / ○ saved** status derived from real capture |
 | `chronicle inspect <id\|sha>` | The `git show` of Chronicle |
 | `chronicle session privatize\|promote <id>` | Move a session off the shared record, or back |
 | `chronicle import <provider>` | Backfill from existing transcripts |
@@ -203,6 +204,7 @@ attribute lines. Replay is the team surface; `why` is your personal one.
 | [CAPTURE-SURFACES.md](docs/CAPTURE-SURFACES.md) | Every lawful capture mechanism, per tool, audited |
 | [DELIVERY-SURFACES.md](docs/DELIVERY-SURFACES.md) | What we may write into another tool's territory |
 | [PROVIDERS.md](docs/PROVIDERS.md) | Provider capability matrix — honest about fidelity |
+| [ROADMAP.md](docs/ROADMAP.md) | What's shipped, what's next (prompt evolution, the Dashboard) |
 | [SPEC-ROADMAP.md](docs/SPEC-ROADMAP.md) | The Chronicle Spec as an open standard |
 | [VISION.md](docs/VISION.md) | The OpenTelemetry-for-AI-development endgame |
 | [adr/](docs/adr/README.md) | Architecture Decision Records — every decision, and what it cost |

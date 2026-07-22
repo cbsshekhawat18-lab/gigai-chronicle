@@ -132,9 +132,18 @@ program
   .command("why <file>")
   .description("what was ASKED that made this file look like this (git blame says who; this says why — ADR-0013)")
   .option("--limit <n>", "max attributed prompts", "10")
-  .action(async (file: string, options: { limit?: string }) => {
+  .option("--evolution", "show how the ask changed across the prompts that shaped this file")
+  .action(async (file: string, options: { limit?: string; evolution?: boolean }) => {
     const { runWhyCommand } = await import("./commands/why.js");
     process.exitCode = await runWhyCommand(file, options, program.opts<{ json?: boolean }>());
+  });
+
+program
+  .command("diff [evtA] [evtB]")
+  .description("diff two prompts you typed — no args = the last two (the wording delta git can't show)")
+  .action(async (evtA: string | undefined, evtB: string | undefined) => {
+    const { runDiffCommand } = await import("./commands/diff.js");
+    process.exitCode = await runDiffCommand(evtA, evtB, program.opts<{ json?: boolean }>());
   });
 
 program
@@ -148,7 +157,7 @@ program
 
 program
   .command("prompt <action> [slug] [args...]")
-  .description("prompt version control: save|list|show|versions|diff (§5.4)")
+  .description("prompt version control: save|list|show|versions|diff|use|compare|revert (§5.4)")
   .option("--title <title>", "prompt title")
   .option("--tags <tags>", "comma-separated tags")
   .option("--text <text>", "prompt body inline")
@@ -157,6 +166,8 @@ program
   .option("--from-event <evt>", "promote a captured prompt by event id")
   .option("--from-session <ses>", "promote the last prompt of a session")
   .option("--session <id>", "provenance: the session this prompt came from")
+  .option("--note <text>", "why this version exists — the library's commit message")
+  .option("--copy", "use: also place the prompt on the system clipboard")
   .action(async (action: string, slug: string | undefined, args: string[], flags: Record<string, string | undefined>) => {
     const { runPromptCommand } = await import("./commands/prompt.js");
     process.exitCode = await runPromptCommand(action, slug, args, flags, program.opts<{ json?: boolean }>());

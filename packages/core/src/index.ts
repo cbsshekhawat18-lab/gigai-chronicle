@@ -122,6 +122,7 @@ export {
 // Prompt library — version control for prompts (§5.4, ADR-0011)
 export {
   savePrompt,
+  revertPrompt,
   getPrompt,
   listPrompts,
   promptVersions,
@@ -133,6 +134,8 @@ export {
   type SavePromptOptions,
 } from "./prompts/prompts.js";
 export { unifiedDiff } from "./prompts/diff.js";
+// Derived usage — capture observing a library prompt actually being used
+export { promptUsage, type PromptUsageInfo, type PromptUse } from "./prompts/usage.js";
 // The seam: promote a prompt you already typed into the library (ADR-0014)
 export {
   capturedPrompts,
