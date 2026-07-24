@@ -97,6 +97,14 @@ function copyToClipboard(text: string): Promise<boolean> {
   );
 }
 
+/** Display name: explicit title wins, else first content line, else id. */
+function promptDisplayName(p: { body: string; title: string; slug: string }): string {
+  if (p.title !== "") return p.title; // an explicit title always wins
+  const line = p.body.split("\n").map((l) => l.trim()).find((l) => l !== "");
+  if (line !== undefined && line !== "") return line.length > 72 ? `${line.slice(0, 71)}…` : line;
+  return p.slug;
+}
+
 /** "● used ×3 (last 2026-07-20)" | "○ saved for later" for human output. */
 function statusLabel(info: PromptUsageInfo | undefined): string {
   if (info === undefined || info.status === "saved") return "○ saved for later";
@@ -236,7 +244,7 @@ export async function runPromptCommand(
           for (const p of prompts) {
             const label = usageOk ? statusLabel(usage.get(p.slug)) : "· usage unavailable (log unreadable)";
             console.log(
-              `${p.slug}  v${p.version}  ${label}${p.tags.length > 0 ? `  [${p.tags.join(", ")}]` : ""}\n  ${p.title}`,
+              `${p.slug}  v${p.version}  ${label}${p.tags.length > 0 ? `  [${p.tags.join(", ")}]` : ""}\n  ${promptDisplayName(p)}`,
             );
           }
         return EXIT_OK;
@@ -246,7 +254,7 @@ export async function runPromptCommand(
         const version = rest[0] !== undefined ? Number(rest[0]) : undefined;
         const prompt = await getPrompt(chronicleDir, slug, version);
         if (global.json === true) printJson("prompt", { action, prompt });
-        else console.log(`# ${prompt.title} (v${prompt.version})\n\n${prompt.body}`);
+        else console.log(`# ${promptDisplayName(prompt)} (v${prompt.version})\n\n${prompt.body}`);
         return EXIT_OK;
       }
       case "versions": {

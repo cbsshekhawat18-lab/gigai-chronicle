@@ -49,37 +49,24 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // ---- prompt authoring (save NEW prompts, not only promote typed ones) ----
 
-  /** Ask for a slug + title, then save `body` as v1 (or a new version of an
-   *  existing slug). The one place all "save a prompt" paths converge. */
+  /** Save `body` as a prompt — fully automatic. The id is derived from the
+   *  first line of the content (the name is too, at read time), so nothing is
+   *  asked. The one place all content-bearing "save a prompt" paths converge. */
   async function saveNewOrVersion(body: string, session: string | null): Promise<void> {
     if (workspace === null) return;
     const dir = workspace.chronicleDir;
     const firstLine = body.split("\n").find((l) => l.trim() !== "") ?? "";
     const taken = new Set((await listPrompts(dir).catch(() => [])).map((p) => p.slug));
-    const slug = await vscode.window.showInputBox({
-      title: "Save prompt — id",
-      value: suggestSlug(firstLine),
-      prompt: "kebab-case id (an existing id saves a new version)",
-      ignoreFocusOut: true,
-      validateInput: (v) =>
-        /^[a-z0-9][a-z0-9-]{0,63}$/.test(v) ? null : "lowercase letters, digits and dashes only",
-    });
-    if (slug === undefined) return;
-    let title: string | undefined;
-    if (!taken.has(slug)) {
-      title = await vscode.window.showInputBox({
-        title: "Save prompt — title",
-        value: firstLine.replace(/\s+/g, " ").trim().slice(0, 60),
-        prompt: "A human name for this prompt",
-        ignoreFocusOut: true,
-      });
-      if (title === undefined) return;
+    let slug = suggestSlug(firstLine) || "prompt";
+    if (taken.has(slug)) {
+      let n = 2;
+      while (taken.has(`${slug}-${n}`)) n += 1;
+      slug = `${slug}-${n}`;
     }
     try {
       const saved = await savePrompt(dir, {
         slug,
         body,
-        ...(title !== undefined ? { title } : {}),
         ...(session !== null ? { sourceSession: session } : {}),
       });
       await sidebar.refresh();
@@ -94,23 +81,48 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }
 
-  /** Write a fresh prompt for later: opens a blank editor to draft in, then
-   *  "Save editor as prompt" keeps it — no need to have typed it in an AI tool. */
+  /**
+   * Write a fresh prompt for later. The prompt is CREATED immediately (so it
+   * appears in the library at once — no silent "did it save?" trap), then its
+   * editable file opens so the body can be written/refined, multi-line and all.
+   * Edits to that file are the current prompt; a later save snapshots a version.
+   */
   async function authorNewPrompt(): Promise<void> {
     if (workspace === null) {
       void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
       return;
     }
-    const doc = await vscode.workspace.openTextDocument({
-      language: "markdown",
-      content: NEW_PROMPT_SCAFFOLD,
-    });
-    const editor = await vscode.window.showTextDocument(doc);
-    const end = new vscode.Position(doc.lineCount, 0);
-    editor.selection = new vscode.Selection(end, end);
-    void vscode.window.showInformationMessage(
-      "Chronicle: write your prompt, then run “Chronicle: Save editor as prompt” to keep it for later.",
-    );
+    const dir = workspace.chronicleDir;
+    // ZERO questions — full automation. Create an "untitled" prompt at once and
+    // open its file; the NAME is derived from the first line you write (the
+    // library re-reads the file live), so you never have to name anything.
+    const taken = new Set((await listPrompts(dir).catch(() => [])).map((p) => p.slug));
+    let slug = "untitled";
+    if (taken.has(slug)) {
+      let n = 2;
+      while (taken.has(`untitled-${n}`)) n += 1;
+      slug = `untitled-${n}`;
+    }
+    const STARTER = "Untitled — replace this with your prompt, then save (⌘S).";
+    try {
+      const saved = await savePrompt(dir, { slug, body: STARTER, note: "draft — saved for later" });
+      await sidebar.refresh();
+      await TimelinePanel.current?.refreshSnapshot();
+      const file = vscode.Uri.file(path.join(dir, "prompts", saved.slug, "prompt.md"));
+      const doc = await vscode.workspace.openTextDocument(file);
+      const editor = await vscode.window.showTextDocument(doc);
+      const idx = doc.getText().indexOf(STARTER);
+      if (idx >= 0) {
+        const range = new vscode.Range(doc.positionAt(idx), doc.positionAt(idx + STARTER.length));
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range);
+      }
+      void vscode.window.showInformationMessage(
+        "Chronicle: new prompt saved — just write it below. The first line becomes its name automatically.",
+      );
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Chronicle: save failed — ${(error as Error).message}`);
+    }
   }
 
   /** Turn the active editor (or its selection) into a library prompt. */
@@ -134,9 +146,47 @@ export function activate(context: vscode.ExtensionContext): void {
     await saveNewOrVersion(body, null);
   }
 
+  /** Backfill this repo's Codex sessions (import-only; Codex is untouched). */
+  async function importCodex(): Promise<void> {
+    if (workspace === null) {
+      void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+      return;
+    }
+    if (!vscode.workspace.isTrusted) {
+      void vscode.window.showWarningMessage("Chronicle: importing writes to the store — trust this workspace first.");
+      return;
+    }
+    // Only the current repo path — the SAFE under-approximation. Codex records
+    // each rollout's cwd, so a session run before a repo move keeps its old
+    // cwd and is skipped here (the CLI's WorkspaceMoved scan would catch it).
+    // Under-importing is correct; it can never leak another project's session.
+    const repoRoot = path.dirname(workspace.chronicleDir);
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: "Chronicle: importing Codex sessions…" },
+      async () => {
+        try {
+          const { runBackfill } = await import("@gigaichronicle/provider-codex");
+          const report = await runBackfill(workspace!.chronicleDir, { knownWorkspacePaths: [repoRoot] });
+          await sidebar.refresh();
+          await TimelinePanel.current?.refreshSnapshot();
+          void vscode.window.showInformationMessage(
+            report.eventsImported > 0
+              ? `Chronicle: imported ${report.eventsImported} event(s) from ${report.filesImported} Codex session(s). Open the Timeline to replay them.`
+              : `Chronicle: no new Codex sessions for this repo${
+                  report.filesForeign > 0 ? ` (${report.filesForeign} from other projects skipped)` : ""
+                }.`,
+          );
+        } catch (error) {
+          void vscode.window.showErrorMessage(`Chronicle: Codex import failed — ${(error as Error).message}`);
+        }
+      },
+    );
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand("chronicle.newPrompt", () => authorNewPrompt()),
     vscode.commands.registerCommand("chronicle.savePromptFromEditor", () => savePromptFromEditor()),
+    vscode.commands.registerCommand("chronicle.importCodex", () => importCodex()),
     vscode.commands.registerCommand("chronicle.openTimeline", () => {
       TimelinePanel.show(context.extensionUri, workspace);
     }),
@@ -411,17 +461,23 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // ---- Phase C: watchers (debounced) — the extension owns fs watching (§15) ----
     if (workspace !== null) {
-      const pattern = new vscode.RelativePattern(folder, ".chronicle/sessions/**/*.jsonl");
-      const watcher = vscode.workspace.createFileSystemWatcher(pattern);
       let timer: NodeJS.Timeout | undefined;
       const bump = (): void => {
         if (timer !== undefined) clearTimeout(timer);
-        timer = setTimeout(() => void sidebar.refresh(), 500);
+        timer = setTimeout(() => {
+          void sidebar.refresh();
+          void TimelinePanel.current?.refreshSnapshot();
+        }, 500);
       };
-      watcher.onDidChange(bump);
-      watcher.onDidCreate(bump);
-      watcher.onDidDelete(bump);
-      context.subscriptions.push(watcher);
+      // Sessions (capture) AND the prompt library — so hand-editing a
+      // prompt.md is reflected live in the sidebar and dashboard.
+      for (const glob of [".chronicle/sessions/**/*.jsonl", ".chronicle/prompts/**"]) {
+        const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, glob));
+        watcher.onDidChange(bump);
+        watcher.onDidCreate(bump);
+        watcher.onDidDelete(bump);
+        context.subscriptions.push(watcher);
+      }
     }
   })();
 }

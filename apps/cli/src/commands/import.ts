@@ -44,17 +44,40 @@ export async function runImportCommand(
     console.error("not a chronicle project (no .chronicle directory found)");
     return EXIT_NOT_A_PROJECT;
   }
-  if (providerId !== "claude-code") {
-    console.error(`import: provider "${providerId}" arrives in a later milestone (see PROVIDERS.md)`);
+  if (providerId !== "claude-code" && providerId !== "codex") {
+    console.error(
+      `import: provider "${providerId}" is not supported (try: claude-code, codex — see PROVIDERS.md)`,
+    );
     return EXIT_FAILURE;
   }
 
   const workspace = await openWorkspace(chronicleDir);
-  const { runBackfill } = await import("@gigaichronicle/provider-claude-code");
-  const report = await runBackfill(chronicleDir, {
-    knownWorkspacePaths: await knownWorkspacePaths(chronicleDir, workspace.workspaceId),
-    ...(options.from !== undefined ? { transcriptsRoot: path.resolve(options.from) } : {}),
-  });
+  const known = await knownWorkspacePaths(chronicleDir, workspace.workspaceId);
+  const fromRoot = options.from !== undefined ? path.resolve(options.from) : undefined;
+
+  // Both providers are tier-2 backfills over the same emit surface; they
+  // differ only in where history lives and what the `--from` override names.
+  let report: {
+    filesSeen: number;
+    filesImported: number;
+    filesSkippedDrift: number;
+    eventsImported: number;
+    gaps: number;
+    filesForeign?: number;
+  };
+  if (providerId === "codex") {
+    const { runBackfill } = await import("@gigaichronicle/provider-codex");
+    report = await runBackfill(chronicleDir, {
+      knownWorkspacePaths: known,
+      ...(fromRoot !== undefined ? { rolloutsRoot: fromRoot } : {}),
+    });
+  } else {
+    const { runBackfill } = await import("@gigaichronicle/provider-claude-code");
+    report = await runBackfill(chronicleDir, {
+      knownWorkspacePaths: known,
+      ...(fromRoot !== undefined ? { transcriptsRoot: fromRoot } : {}),
+    });
+  }
 
   // Digests are replay projections (§10.1) — refresh them after new history.
   let digests = { written: [] as string[], unchanged: 0 };
@@ -71,15 +94,25 @@ export async function runImportCommand(
   }
 
   if (global.json === true) {
-    printJson("import", { provider: providerId, report, digests: digests.written.length });
+    // Stable envelope shape across providers: filesForeign defaults to 0 so a
+    // consumer's `.report.filesForeign` never varies by which provider ran.
+    printJson("import", {
+      provider: providerId,
+      report: { filesForeign: 0, ...report },
+      digests: digests.written.length,
+    });
   } else {
+    const foreign =
+      report.filesForeign !== undefined && report.filesForeign > 0
+        ? ` · ${report.filesForeign} from other projects`
+        : "";
     console.log(
       [
-        `transcripts  ${report.filesSeen} seen · ${report.filesImported} imported · ${report.filesSkippedDrift} skipped (format drift)`,
-        `events       ${report.eventsImported} imported${report.gaps > 0 ? ` · ${report.gaps} gap(s) recorded` : ""}`,
+        `sessions  ${report.filesSeen} seen · ${report.filesImported} imported · ${report.filesSkippedDrift} skipped (drift)${foreign}`,
+        `events    ${report.eventsImported} imported${report.gaps > 0 ? ` · ${report.gaps} gap(s) recorded` : ""}`,
         report.eventsImported > 0
-          ? `next         chronicle timeline   — your journey is already here`
-          : `next         nothing new to import`,
+          ? `next      chronicle timeline   — your journey is already here`
+          : `next      nothing new to import`,
       ].join("\n"),
     );
   }

@@ -95,6 +95,18 @@ the UI doesn't invent it):
 
 ---
 
+## v0.2 — in progress
+
+- [x] **Codex CLI provider** — `chronicle import codex` reads your existing
+      Codex rollouts (`~/.codex/sessions/`), scoped to the current repo by each
+      session's recorded `cwd`, and maps prompts, responses, and tool calls
+      into the same store. Tier-2 import today (conversation + tools);
+      validated on real rollouts with zero drift. Live hooks + file events are
+      the next step up its PROVIDERS.md row.
+- [ ] **Knowledge extraction** — rule-based decisions/TODOs surfaced from the
+      transcripts already captured (the deferred "Knowledge" tab, finally
+      backed by real data).
+
 ## Later
 
 - **Attempt clustering** — detect near-identical consecutive prompts and group

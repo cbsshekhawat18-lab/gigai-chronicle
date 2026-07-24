@@ -228,13 +228,21 @@ function Card({ item }: { item: SessionListItem }): React.JSX.Element {
   );
 }
 
+/** Display name: explicit title wins, else the first content line, else id. */
+function promptName(p: { body: string; title: string; slug: string }): string {
+  if (p.title !== "") return p.title; // an explicit title always wins
+  const line = p.body.split("\n").map((l) => l.trim()).find((l) => l !== "");
+  if (line !== undefined && line !== "") return line.length > 72 ? `${line.slice(0, 71)}…` : line;
+  return p.slug;
+}
+
 /** A prompt rendered as a git-graph: a commit rail with one node per version. */
 function PromptCard({ prompt }: { prompt: PromptWithHistory }): React.JSX.Element {
   const history = prompt.history.length > 0 ? prompt.history : [];
   return (
     <div style={{ ...styles.card, cursor: "default" }}>
       <div style={{ ...styles.cardTitle, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <span>{prompt.title}</span>
+        <span>{promptName(prompt)}</span>
         {/* Lifecycle status — derived from the log (used = capture saw it
             submitted), so the badge is an observation, not a click counter. */}
         {prompt.status === "used" ? (

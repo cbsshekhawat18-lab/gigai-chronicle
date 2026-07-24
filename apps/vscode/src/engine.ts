@@ -118,7 +118,11 @@ export class ChronicleWorkspace {
           models: [...models].sort(),
         });
       }
-      return items.sort((a, b) => (b.startedTs ?? "").localeCompare(a.startedTs ?? ""));
+      // The session you're working in NOW comes first; otherwise newest-first.
+      return items.sort((a, b) => {
+        if (a.live !== b.live) return a.live ? -1 : 1;
+        return (b.startedTs ?? "").localeCompare(a.startedTs ?? "");
+      });
     });
   }
 
