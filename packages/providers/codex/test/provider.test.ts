@@ -97,6 +97,15 @@ describe("rollout parsing", () => {
     expect(meta).toMatchObject({ toolSessionUuid: "thread-abc", cwd: "/my/project", model: "gpt-5-codex" });
   });
 
+  it("seeds model attribution from knownModel when session_meta was sliced off", () => {
+    // An incremental batch has no session_meta line; the backfill passes the
+    // model read from the full file so resumed turns keep their attribution.
+    const lines = ['{"type":"event_msg","payload":{"type":"agent_message","message":"resumed answer"}}'];
+    const { candidates } = parseRollout(lines, SESSION, "gpt-5-codex");
+    const resp = candidates.find((c) => c.type === "AIResponseReceived");
+    expect(resp?.actor).toMatchObject({ model: "gpt-5-codex" });
+  });
+
   it("a drifted rollout emits nothing and flags drift", () => {
     const lines = [
       '{"type":"session_meta","payload":{"cwd":"/r","id":"x"}}',
@@ -144,6 +153,36 @@ describe("backfill (workspace-scoped, idempotent)", () => {
     const again = await runBackfill(chronicleDir, { knownWorkspacePaths: [workspacePath], rolloutsRoot });
     expect(again.eventsImported).toBe(0);
     expect(again.filesImported).toBe(0);
+  });
+
+  it("resumes a GROWN newline-terminated rollout: imports the new turn, no duplicate bounds", async () => {
+    const chronicleDir = makeStore();
+    const workspacePath = path.dirname(chronicleDir);
+    const rolloutsRoot = tempDir("codex-rollouts ");
+    const file = path.join(rolloutsRoot, "rollout-grow.jsonl");
+    // Real JSONL: every record is newline-TERMINATED, so the file ends in "\n".
+    const rec = (o: unknown): string => JSON.stringify(o) + "\n";
+    const meta = rec({ timestamp: "2026-07-20T10:00:00.000Z", type: "session_meta", payload: { id: "t1", cwd: workspacePath, model: "gpt-5-codex" } });
+    const p1 = rec({ timestamp: "2026-07-20T10:00:05.000Z", type: "event_msg", payload: { type: "user_message", message: "first prompt" } });
+    const a1 = rec({ timestamp: "2026-07-20T10:00:10.000Z", type: "event_msg", payload: { type: "agent_message", message: "first answer" } });
+
+    writeFileSync(file, meta + p1 + a1);
+    const r1 = await runBackfill(chronicleDir, { knownWorkspacePaths: [workspacePath], rolloutsRoot });
+    expect(r1.eventsImported).toBe(4); // Started · Prompt · Response · Ended
+
+    // Codex resumes and appends a turn (file still ends in "\n").
+    const p2 = rec({ timestamp: "2026-07-20T10:05:00.000Z", type: "event_msg", payload: { type: "user_message", message: "SECOND prompt after resume" } });
+    const a2 = rec({ timestamp: "2026-07-20T10:05:05.000Z", type: "event_msg", payload: { type: "agent_message", message: "second answer" } });
+    writeFileSync(file, meta + p1 + a1 + p2 + a2);
+
+    const r2 = await runBackfill(chronicleDir, { knownWorkspacePaths: [workspacePath], rolloutsRoot });
+    expect(r2.eventsImported).toBe(2); // the appended Prompt + Response (Fix A: not dropped)
+
+    const types = await storedTypes(chronicleDir);
+    expect(types.filter((t) => t === "PromptSubmitted")).toHaveLength(2);
+    // Fix B: exactly one of each bound across both imports.
+    expect(types.filter((t) => t === "SessionStarted")).toHaveLength(1);
+    expect(types.filter((t) => t === "SessionEnded")).toHaveLength(1);
   });
 });
 

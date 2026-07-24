@@ -157,7 +157,10 @@ export async function savePrompt(
   const meta: PromptMeta = {
     id: existing?.id ?? newId("prompt"),
     slug: options.slug,
-    title: options.title ?? existing?.title ?? options.slug,
+    // Empty when unnamed — the display derives the name from the first body
+    // line. Storing the slug here would be indistinguishable from a user who
+    // explicitly titled a prompt the same as its id (that title must survive).
+    title: options.title ?? existing?.title ?? "",
     tags: options.tags ?? existing?.tags ?? [],
     version: (existing?.version ?? 0) + 1,
     created: existing?.created ?? now,

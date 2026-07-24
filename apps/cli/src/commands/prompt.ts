@@ -99,7 +99,7 @@ function copyToClipboard(text: string): Promise<boolean> {
 
 /** Display name: explicit title wins, else first content line, else id. */
 function promptDisplayName(p: { body: string; title: string; slug: string }): string {
-  if (p.title !== "" && p.title !== p.slug) return p.title;
+  if (p.title !== "") return p.title; // an explicit title always wins
   const line = p.body.split("\n").map((l) => l.trim()).find((l) => l !== "");
   if (line !== undefined && line !== "") return line.length > 72 ? `${line.slice(0, 71)}…` : line;
   return p.slug;
@@ -254,7 +254,7 @@ export async function runPromptCommand(
         const version = rest[0] !== undefined ? Number(rest[0]) : undefined;
         const prompt = await getPrompt(chronicleDir, slug, version);
         if (global.json === true) printJson("prompt", { action, prompt });
-        else console.log(`# ${prompt.title} (v${prompt.version})\n\n${prompt.body}`);
+        else console.log(`# ${promptDisplayName(prompt)} (v${prompt.version})\n\n${prompt.body}`);
         return EXIT_OK;
       }
       case "versions": {

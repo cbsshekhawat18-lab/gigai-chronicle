@@ -156,6 +156,10 @@ export function activate(context: vscode.ExtensionContext): void {
       void vscode.window.showWarningMessage("Chronicle: importing writes to the store — trust this workspace first.");
       return;
     }
+    // Only the current repo path — the SAFE under-approximation. Codex records
+    // each rollout's cwd, so a session run before a repo move keeps its old
+    // cwd and is skipped here (the CLI's WorkspaceMoved scan would catch it).
+    // Under-importing is correct; it can never leak another project's session.
     const repoRoot = path.dirname(workspace.chronicleDir);
     await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification, title: "Chronicle: importing Codex sessions…" },

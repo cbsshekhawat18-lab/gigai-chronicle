@@ -114,9 +114,17 @@ export function readRolloutMeta(lines: readonly string[]): RolloutMeta {
   return meta;
 }
 
-/** Parse rollout lines into candidates for one (already-resolved) session. */
-export function parseRollout(lines: readonly string[], session: SessionId): ParsedRollout {
-  const meta: RolloutMeta = { toolSessionUuid: null, cwd: null, model: null, startedTs: null };
+/**
+ * Parse rollout lines into candidates for one (already-resolved) session.
+ * `knownModel` seeds model attribution for incremental batches, where the
+ * `session_meta` line (which carries the model) has been sliced off the front.
+ */
+export function parseRollout(
+  lines: readonly string[],
+  session: SessionId,
+  knownModel: string | null = null,
+): ParsedRollout {
+  const meta: RolloutMeta = { toolSessionUuid: null, cwd: null, model: knownModel, startedTs: null };
   const candidates: RawCandidate[] = [];
   let linesTotal = 0;
   let linesUnknown = 0;

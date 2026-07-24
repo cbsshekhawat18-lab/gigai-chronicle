@@ -230,7 +230,7 @@ function Card({ item }: { item: SessionListItem }): React.JSX.Element {
 
 /** Display name: explicit title wins, else the first content line, else id. */
 function promptName(p: { body: string; title: string; slug: string }): string {
-  if (p.title !== "" && p.title !== p.slug) return p.title;
+  if (p.title !== "") return p.title; // an explicit title always wins
   const line = p.body.split("\n").map((l) => l.trim()).find((l) => l !== "");
   if (line !== undefined && line !== "") return line.length > 72 ? `${line.slice(0, 71)}…` : line;
   return p.slug;

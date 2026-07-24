@@ -94,7 +94,13 @@ export async function runImportCommand(
   }
 
   if (global.json === true) {
-    printJson("import", { provider: providerId, report, digests: digests.written.length });
+    // Stable envelope shape across providers: filesForeign defaults to 0 so a
+    // consumer's `.report.filesForeign` never varies by which provider ran.
+    printJson("import", {
+      provider: providerId,
+      report: { filesForeign: 0, ...report },
+      digests: digests.written.length,
+    });
   } else {
     const foreign =
       report.filesForeign !== undefined && report.filesForeign > 0

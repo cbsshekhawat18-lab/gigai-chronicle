@@ -91,7 +91,12 @@ export async function runBackfill(
   try {
     for (const file of files) {
       report.filesSeen += 1;
-      const lines = readFileSync(file, "utf8").split("\n");
+      // JSONL records are newline-TERMINATED, so a completed file ends in "\n"
+      // and split() yields a phantom trailing "". Drop it, or the line cursor
+      // over-counts by one and the next append lands inside the consumed range
+      // (silently lost). After this, lines.length == the real record count.
+      const raw = readFileSync(file, "utf8").split("\n");
+      const lines = raw.length > 0 && raw[raw.length - 1] === "" ? raw.slice(0, -1) : raw;
 
       // Scope to this repo BEFORE any import — Codex rollouts are global.
       const meta = readRolloutMeta(lines);
@@ -113,11 +118,18 @@ export async function runBackfill(
       const session = sessionMap.resolve(uuid, Number.isNaN(atMs) ? undefined : atMs);
 
       const fresh = lines.slice(already);
-      const parsed = parseRollout(fresh, session);
+      // The session_meta line lives at index 0 and is sliced off on an
+      // incremental batch, so hand parseRollout the model read from the FULL
+      // file — otherwise resumed turns lose their model attribution.
+      const parsed = parseRollout(fresh, session, meta.model);
       if (already > 0) {
-        // Incremental batch: session already open — a second SessionStarted
-        // would wipe its title on replay.
-        parsed.candidates = parsed.candidates.filter((c) => c.type !== "SessionStarted");
+        // Incremental batch: this session already has its bounds. Re-emitting
+        // EITHER a second SessionStarted (wipes the title) or a second
+        // SessionEnded (a duplicate terminal event, mid-conversation) corrupts
+        // replay — drop both; the first import owns the bounds.
+        parsed.candidates = parsed.candidates.filter(
+          (c) => c.type !== "SessionStarted" && c.type !== "SessionEnded",
+        );
       }
       if (parsed.drifted) {
         report.filesSkippedDrift += 1;
