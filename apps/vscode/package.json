@@ -22,6 +22,7 @@
   "dependencies": {
     "@gigaichronicle/schema": "workspace:^",
     "@gigaichronicle/core": "workspace:^",
+    "@gigaichronicle/provider-codex": "workspace:^",
     "@gigaichronicle/ui": "workspace:^",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -120,6 +121,12 @@
         "title": "Chronicle: Save editor as prompt",
         "category": "Chronicle",
         "icon": "$(save)"
+      },
+      {
+        "command": "chronicle.importCodex",
+        "title": "Chronicle: Import Codex sessions",
+        "category": "Chronicle",
+        "icon": "$(cloud-download)"
       }
     ],
     "menus": {
@@ -140,9 +147,14 @@
           "group": "navigation@3"
         },
         {
-          "command": "chronicle.refresh",
+          "command": "chronicle.importCodex",
           "when": "view == chronicle.sessions",
           "group": "navigation@4"
+        },
+        {
+          "command": "chronicle.refresh",
+          "when": "view == chronicle.sessions",
+          "group": "navigation@5"
         }
       ],
       "editor/context": [
@@ -168,6 +180,9 @@
         {
           "command": "chronicle.savePromptFromEditor",
           "when": "editorIsOpen"
+        },
+        {
+          "command": "chronicle.importCodex"
         }
       ],
       "editor/title/context": [

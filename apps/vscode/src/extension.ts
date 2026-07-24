@@ -146,9 +146,43 @@ export function activate(context: vscode.ExtensionContext): void {
     await saveNewOrVersion(body, null);
   }
 
+  /** Backfill this repo's Codex sessions (import-only; Codex is untouched). */
+  async function importCodex(): Promise<void> {
+    if (workspace === null) {
+      void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+      return;
+    }
+    if (!vscode.workspace.isTrusted) {
+      void vscode.window.showWarningMessage("Chronicle: importing writes to the store — trust this workspace first.");
+      return;
+    }
+    const repoRoot = path.dirname(workspace.chronicleDir);
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: "Chronicle: importing Codex sessions…" },
+      async () => {
+        try {
+          const { runBackfill } = await import("@gigaichronicle/provider-codex");
+          const report = await runBackfill(workspace!.chronicleDir, { knownWorkspacePaths: [repoRoot] });
+          await sidebar.refresh();
+          await TimelinePanel.current?.refreshSnapshot();
+          void vscode.window.showInformationMessage(
+            report.eventsImported > 0
+              ? `Chronicle: imported ${report.eventsImported} event(s) from ${report.filesImported} Codex session(s). Open the Timeline to replay them.`
+              : `Chronicle: no new Codex sessions for this repo${
+                  report.filesForeign > 0 ? ` (${report.filesForeign} from other projects skipped)` : ""
+                }.`,
+          );
+        } catch (error) {
+          void vscode.window.showErrorMessage(`Chronicle: Codex import failed — ${(error as Error).message}`);
+        }
+      },
+    );
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand("chronicle.newPrompt", () => authorNewPrompt()),
     vscode.commands.registerCommand("chronicle.savePromptFromEditor", () => savePromptFromEditor()),
+    vscode.commands.registerCommand("chronicle.importCodex", () => importCodex()),
     vscode.commands.registerCommand("chronicle.openTimeline", () => {
       TimelinePanel.show(context.extensionUri, workspace);
     }),
