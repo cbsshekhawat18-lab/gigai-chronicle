@@ -86,8 +86,13 @@ export class TimelinePanel {
     // endedTs: a session that merged many start/end markers leaves the last
     // frame carrying an unpaired (and possibly inverted) start/end.
     const since = frames[0]?.ts ?? null;
-    const until = frames[frames.length - 1]?.ts ?? null;
-    const git = await sessionGitActivity(repoRoot, since, until).catch(() => ({
+    const lastTs = frames[frames.length - 1]?.ts ?? null;
+    // A live session's newest commit can post-date its last captured event, so
+    // let git run "up to now" (until = null) and the just-made commit still
+    // shows. An ended session stays bounded by its last event, so unrelated
+    // later commits don't leak in.
+    const live = lastTs !== null && Date.now() - Date.parse(lastTs) < 6 * 3600 * 1000;
+    const git = await sessionGitActivity(repoRoot, since, live ? null : lastTs).catch(() => ({
       commits: [],
       files: [],
     }));

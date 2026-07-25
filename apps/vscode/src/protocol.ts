@@ -23,6 +23,9 @@ export interface PromptWithHistory extends Prompt {
 /** Store configuration + posture for the Settings page (read from config.json,
  *  ADR-0009). Read-only projection — the dashboard never writes config. */
 export interface SettingsInfo {
+  /** False when config.json was missing or unparseable — the values below are
+   *  then safe defaults, NOT the real config, and the page says so. */
+  configReadable: boolean;
   projectName: string | null;
   /** Absolute path to the `.chronicle/` store on this machine. */
   storePath: string;

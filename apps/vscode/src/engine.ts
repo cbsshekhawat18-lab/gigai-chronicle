@@ -79,11 +79,13 @@ export class ChronicleWorkspace {
   async settings(): Promise<SettingsInfo> {
     const raw = await readFile(path.join(this.chronicleDir, "config.json"), "utf8").catch(() => null);
     let cfg: Record<string, unknown> = {};
+    let configReadable = raw !== null;
     if (raw !== null) {
       try {
         cfg = JSON.parse(raw) as Record<string, unknown>;
       } catch {
         cfg = {};
+        configReadable = false; // present but corrupt — don't show defaults as truth
       }
     }
     const project = (cfg["project"] ?? {}) as { name?: unknown };
@@ -94,6 +96,7 @@ export class ChronicleWorkspace {
     const digest = (storage["digest"] ?? {}) as { session?: unknown };
     const providersRaw = (capture["providers"] ?? {}) as Record<string, unknown>;
     return {
+      configReadable,
       projectName: typeof project.name === "string" ? project.name : null,
       storePath: this.chronicleDir,
       providers: Object.entries(providersRaw).map(([id, mode]) => ({ id, mode: String(mode) })),

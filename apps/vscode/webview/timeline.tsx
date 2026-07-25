@@ -602,6 +602,15 @@ function SettingsPanel({
         A read-only view of this repo&apos;s Chronicle store. It never calls a model and nothing here
         leaves your machine — change capture from the CLI; the dashboard only reads.
       </p>
+      {settings !== null && !settings.configReadable && (
+        <div style={{ ...styles.card, cursor: "default", borderColor: "var(--vscode-editorWarning-foreground)" }}>
+          <div style={{ ...styles.cardTitle, ...styles.warn }}>⚠ config.json unreadable</div>
+          <div style={styles.meta}>
+            Chronicle couldn&apos;t read <code>.chronicle/config.json</code>. The values below are safe
+            defaults, not your real settings — run <code>chronicle doctor</code> to check the store.
+          </div>
+        </div>
+      )}
 
       <div style={{ ...styles.card, cursor: "default" }}>
         <div style={styles.cardTitle}>Project</div>
@@ -681,13 +690,29 @@ function App(): React.JSX.Element {
   const [search, setSearch] = React.useState("");
   const [compareA, setCompareA] = React.useState<string | null>(null);
   const searchRef = React.useRef<HTMLInputElement | null>(null);
-  const endRef = React.useRef<HTMLDivElement | null>(null);
+  const streamRef = React.useRef<HTMLDivElement | null>(null);
   const lastMode = React.useRef<"replace" | "prepend">("replace");
 
+  // Land on the NEWEST moment (bottom) — the stream is chronological, newest
+  // last. Set scrollTop directly (a bottom sentinel's scrollIntoView is
+  // unreliable while tall content is still laying out) after paint.
+  const toNewest = (): void => {
+    requestAnimationFrame(() => {
+      const el = streamRef.current;
+      if (el !== null) el.scrollTop = el.scrollHeight;
+    });
+  };
+
   React.useEffect(() => loadSessions(), []);
+  // A session opening or new content (replace) drops you at the newest moment;
+  // loading earlier (prepend) keeps your place instead of yanking you down.
   React.useEffect(() => {
-    if (view === "timeline" && lastMode.current === "replace") endRef.current?.scrollIntoView({ block: "end" });
+    if (view === "timeline" && lastMode.current === "replace") toNewest();
   }, [entries, view]);
+  // Switching tab lands you on the newest moment of that tab, not the oldest.
+  React.useEffect(() => {
+    if (view === "timeline") toNewest();
+  }, [tab]);
   React.useEffect(() => {
     const unsub = useStore.subscribe((state, prev) => {
       lastMode.current = state.activeSession !== prev.activeSession ? "replace" : "prepend";
@@ -736,7 +761,15 @@ function App(): React.JSX.Element {
     });
   }, [entries, tab, search]);
 
-  const isEmpty = summary !== null && summary.turns === 0 && summary.tools === 0;
+  // "Empty" only when there is genuinely nothing — including the git-sourced
+  // commits/files now folded in (else the header shows "N files" while the body
+  // claims nothing was captured).
+  const isEmpty =
+    summary !== null &&
+    summary.turns === 0 &&
+    summary.tools === 0 &&
+    summary.files === 0 &&
+    !entries.some((e) => e.kind === "commit");
 
   return (
     <div style={styles.app}>
@@ -796,7 +829,7 @@ function App(): React.JSX.Element {
                 </button>
               </div>
             )}
-            <div style={styles.stream}>
+            <div style={styles.stream} ref={streamRef}>
               {activeSession === null ? (
                 <div style={styles.centerNote}>
                   <p style={{ fontSize: 28, margin: "0 0 8px" }}>🕰️</p>
@@ -835,7 +868,6 @@ function App(): React.JSX.Element {
                   </span>
                 </>
               )}
-              <div ref={endRef} />
             </div>
           </>
         )}

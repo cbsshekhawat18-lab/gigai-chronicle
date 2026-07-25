@@ -37,7 +37,9 @@ export type StreamEntry =
 export interface StreamSummary {
   turns: number;
   tools: number;
-  /** Distinct files this session touched (workingSet size) — real, not tokens. */
+  /** Distinct files this session touched — real, not tokens. Sourced from the
+   *  git history in the session's window when available (no provider emits file
+   *  events), else the replay working-set size. */
   files: number;
   fidelity: string;
   gaps: number;
