@@ -20,6 +20,27 @@ export interface PromptWithHistory extends Prompt {
   lastUsedTs: string | null;
 }
 
+/** Store configuration + posture for the Settings page (read from config.json,
+ *  ADR-0009). Read-only projection — the dashboard never writes config. */
+export interface SettingsInfo {
+  projectName: string | null;
+  /** Absolute path to the `.chronicle/` store on this machine. */
+  storePath: string;
+  /** Capture providers and their mode (auto / off). */
+  providers: Array<{ id: string; mode: string }>;
+  /** Secret redaction at capture, and how many custom patterns are configured. */
+  redactSecrets: boolean;
+  customPatterns: number;
+  /** Default visibility for new sessions: "private" | "shared". */
+  visibility: string;
+  /** Whether the `Chronicle-Session:` commit trailer is written (opt-in). */
+  gitTrailer: boolean;
+  /** Retention mode (e.g. "keep-all"). */
+  retention: string;
+  /** Whether per-session digests are written. */
+  sessionDigest: boolean;
+}
+
 export interface SessionListItem {
   /** Human display name: title, else first prompt, else date — never a raw id. */
   label: string;
@@ -53,7 +74,11 @@ export interface ReplayWindow {
 
 /** host → webview */
 export type HostMessage =
-  | { kind: "snapshot"; v: 1; data: { sessions: SessionListItem[]; prompts?: PromptWithHistory[] } }
+  | {
+      kind: "snapshot";
+      v: 1;
+      data: { sessions: SessionListItem[]; prompts?: PromptWithHistory[]; settings?: SettingsInfo };
+    }
   | { kind: "patch"; v: 1; data: ReplayWindow }
   | { kind: "reply"; v: 1; reqId: number; error?: string };
 

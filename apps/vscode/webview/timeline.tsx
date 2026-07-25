@@ -12,7 +12,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
-import type { HostMessage, PromptWithHistory, SessionListItem } from "../src/protocol.js";
+import type { HostMessage, PromptWithHistory, SessionListItem, SettingsInfo } from "../src/protocol.js";
 import type { StreamEntry, StreamSummary, ToolRunLite } from "../src/stream.js";
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
@@ -27,6 +27,7 @@ interface TimelineState {
   totalEntries: number;
   sessions: SessionListItem[];
   prompts: PromptWithHistory[];
+  settings: SettingsInfo | null;
   apply(message: HostMessage): void;
 }
 
@@ -39,11 +40,13 @@ const useStore = create<TimelineState>((set, get) => ({
   totalEntries: 0,
   sessions: [],
   prompts: [],
+  settings: null,
   apply: (message) => {
     if (message.kind === "snapshot") {
       set({
         sessions: message.data.sessions,
         ...(message.data.prompts !== undefined ? { prompts: message.data.prompts } : {}),
+        ...(message.data.settings !== undefined ? { settings: message.data.settings } : {}),
       });
       return;
     }
@@ -563,23 +566,108 @@ function SessionsPanel({ sessions }: { sessions: SessionListItem[] }): React.JSX
   );
 }
 
-function SettingsPanel({ sessions, prompts }: { sessions: SessionListItem[]; prompts: PromptWithHistory[] }): React.JSX.Element {
+function Row({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "3px 0", fontSize: 12 }}>
+      <span style={{ opacity: 0.6 }}>{label}</span>
+      <span style={{ textAlign: "right" }}>{children}</span>
+    </div>
+  );
+}
+
+/** on/off pill — green when a protective setting is on. */
+function OnOff({ on }: { on: boolean }): React.JSX.Element {
+  return <span style={{ color: on ? LIVE : undefined, opacity: on ? 1 : 0.55 }}>{on ? "on" : "off"}</span>;
+}
+
+function SettingsPanel({
+  settings,
+  sessions,
+  prompts,
+}: {
+  settings: SettingsInfo | null;
+  sessions: SessionListItem[];
+  prompts: PromptWithHistory[];
+}): React.JSX.Element {
+  const providersSeen = [...new Set(sessions.flatMap((s) => s.providers))].sort();
+  const modelsSeen = [...new Set(sessions.flatMap((s) => s.models))].sort();
+  const fidelity: Record<string, number> = { full: 0, partial: 0, lossy: 0 };
+  for (const s of sessions) fidelity[s.fidelity] = (fidelity[s.fidelity] ?? 0) + 1;
+  const gaps = sessions.reduce((n, s) => n + s.gaps, 0);
+
   return (
     <div style={styles.panel}>
       <h2 style={styles.panelH}>Settings &amp; posture</h2>
-      <p style={styles.panelSub}>This dashboard is a read-only view over the plain-text store in your repo. It never calls a model and nothing here leaves your machine.</p>
+      <p style={styles.panelSub}>
+        A read-only view of this repo&apos;s Chronicle store. It never calls a model and nothing here
+        leaves your machine — change capture from the CLI; the dashboard only reads.
+      </p>
+
+      <div style={{ ...styles.card, cursor: "default" }}>
+        <div style={styles.cardTitle}>Project</div>
+        <Row label="name">{settings?.projectName ?? "—"}</Row>
+        <Row label="store">
+          <code style={{ fontSize: 11, opacity: 0.85 }}>{settings?.storePath ?? ".chronicle"}</code>
+        </Row>
+      </div>
+
+      <div style={{ ...styles.card, cursor: "default" }}>
+        <div style={styles.cardTitle}>Capture</div>
+        <Row label="providers">
+          {settings && settings.providers.length > 0
+            ? settings.providers.map((p) => (
+                <span key={p.id} style={{ ...styles.badge, marginLeft: 4, opacity: p.mode === "off" ? 0.4 : 1 }}>
+                  {p.id} · {p.mode}
+                </span>
+              ))
+            : "—"}
+        </Row>
+        <Row label="redact secrets">
+          <OnOff on={settings?.redactSecrets ?? true} />
+          {settings && settings.customPatterns > 0 ? (
+            <span style={styles.meta}> · {settings.customPatterns} custom</span>
+          ) : null}
+        </Row>
+        <Row label="default visibility">{settings?.visibility ?? "private"}</Row>
+        <Row label="git commit trailer">
+          <OnOff on={settings?.gitTrailer ?? false} />
+        </Row>
+      </div>
+
       <div style={{ ...styles.card, cursor: "default" }}>
         <div style={styles.cardTitle}>What Chronicle is holding</div>
-        <div style={styles.meta}>
-          {sessions.length} session(s) · {prompts.length} saved prompt(s) in the library
-        </div>
+        <Row label="sessions">{sessions.length}</Row>
+        <Row label="saved prompts">{prompts.length}</Row>
+        {providersSeen.length > 0 && <Row label="providers seen">{providersSeen.join(", ")}</Row>}
+        {modelsSeen.length > 0 && <Row label="models seen">{modelsSeen.join(", ")}</Row>}
+        <Row label="fidelity">
+          {fidelity.full} full
+          {fidelity.partial ? <span style={styles.meta}> · {fidelity.partial} partial</span> : null}
+          {fidelity.lossy ? <span style={styles.meta}> · {fidelity.lossy} lossy</span> : null}
+        </Row>
+        {gaps > 0 && (
+          <Row label="capture gaps">
+            <span style={styles.warn}>{gaps}</span>
+          </Row>
+        )}
       </div>
+
+      <div style={{ ...styles.card, cursor: "default" }}>
+        <div style={styles.cardTitle}>Storage</div>
+        <Row label="retention">{settings?.retention ?? "keep-all"}</Row>
+        <Row label="session digests">
+          <OnOff on={settings?.sessionDigest ?? false} />
+        </Row>
+      </div>
+
       <div style={{ ...styles.card, cursor: "default" }}>
         <div style={styles.cardTitle}>The promises</div>
         <div style={{ ...styles.meta, lineHeight: 1.7 }}>
-          Local-first · plain text · zero network by default · never calls a model · never writes your git history · never scores developers.
+          Local-first · plain text · zero network by default · never calls a model · never writes your
+          git history · never scores developers.
           <br />
-          Change capture mode, redaction, and privacy from the CLI: <code>chronicle init</code> · <code>chronicle doctor</code>.
+          Change capture, redaction, and privacy from the CLI: <code>chronicle init</code> ·{" "}
+          <code>chronicle doctor</code> · <code>chronicle hooks</code>.
         </div>
       </div>
     </div>
@@ -587,7 +675,7 @@ function SettingsPanel({ sessions, prompts }: { sessions: SessionListItem[]; pro
 }
 
 function App(): React.JSX.Element {
-  const { activeSession, info, summary, entries, offset, totalEntries, sessions, prompts } = useStore();
+  const { activeSession, info, summary, entries, offset, totalEntries, sessions, prompts, settings } = useStore();
   const [view, setView] = React.useState<View>("timeline");
   const [tab, setTab] = React.useState<Tab>("conversation");
   const [search, setSearch] = React.useState("");
@@ -659,7 +747,7 @@ function App(): React.JSX.Element {
         ) : view === "sessions" ? (
           <SessionsPanel sessions={sessions} />
         ) : view === "settings" ? (
-          <SettingsPanel sessions={sessions} prompts={prompts} />
+          <SettingsPanel settings={settings} sessions={sessions} prompts={prompts} />
         ) : (
           <>
             <div style={{ ...styles.header, ...(info?.live === true ? { borderTop: `2px solid ${LIVE}` } : {}) }}>
@@ -730,6 +818,12 @@ function App(): React.JSX.Element {
                     <button style={styles.loadEarlier} onClick={() => loadEarlier(activeSession, offset)}>
                       ↑ load earlier moments ({offset} before this point)
                     </button>
+                  )}
+                  {(tab === "git" || tab === "files") && visible.length > 0 && (
+                    <div style={{ ...styles.meta, textAlign: "center", marginBottom: 10 }}>
+                      {tab === "git" ? "Real commits" : "Files those commits changed"} — read from git
+                      history, timed to this session&apos;s active window.
+                    </div>
                   )}
                   {visible.length === 0 ? (
                     <div style={{ ...styles.centerNote, marginTop: 32 }}>Nothing in this view for the loaded window.</div>
