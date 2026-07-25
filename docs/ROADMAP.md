@@ -103,9 +103,15 @@ the UI doesn't invent it):
       into the same store. Tier-2 import today (conversation + tools);
       validated on real rollouts with zero drift. Live hooks + file events are
       the next step up its PROVIDERS.md row.
-- [ ] **Knowledge extraction** — rule-based decisions/TODOs surfaced from the
-      transcripts already captured (the deferred "Knowledge" tab, finally
-      backed by real data).
+- [x] **Knowledge extraction** — `chronicle knowledge` surfaces the decisions
+      & TODOs buried in your sessions (prompts *and* the agent's responses),
+      rule-based and model-free, each with its own source line + confidence.
+      Deliberately conservative — an honest index into the record, not a guess.
+- [x] **Context Pack** — `chronicle context <file>` (and VS Code *"Copy context
+      pack"*) assembles a paste-ready brief from your own history: the prompts
+      that shaped a file + the decisions from those sessions. The pain in AI
+      coding is context loss; Chronicle already captured the answer. Pure
+      assembly — Chronicle never calls a model, it briefs the one you do.
 
 ## Later
 

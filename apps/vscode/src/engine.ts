@@ -8,6 +8,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import {
   EventLog,
+  buildContextPack,
   capturedPromptByEvent,
   capturedPrompts,
   changesByPrompt,
@@ -18,6 +19,7 @@ import {
   replaySession,
   sessionEvents,
   type CapturedPrompt,
+  type ContextPack,
   type PromptUsageInfo,
   type ReplayFrame,
 } from "@gigaichronicle/core";
@@ -141,6 +143,16 @@ export class ChronicleWorkspace {
       const all = await capturedPrompts(this.chronicleDir, log);
       return all.reverse().slice(0, limit);
     });
+  }
+
+  /**
+   * The Context Pack for a file (roadmap "Context Pack"): the prompts that
+   * shaped it + the decisions from those sessions, as paste-ready Markdown.
+   * Pure-fs assembly — Chronicle never calls a model; it briefs the one you do.
+   */
+  async contextPack(relativePath: string): Promise<ContextPack> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return this.#withLog((log) => buildContextPack(this.chronicleDir, log, repoRoot, relativePath));
   }
 
   /** One captured prompt's text by event id — behind the dashboard's Compare. */

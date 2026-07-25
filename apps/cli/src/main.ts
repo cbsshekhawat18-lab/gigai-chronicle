@@ -147,6 +147,26 @@ program
   });
 
 program
+  .command("knowledge")
+  .description("the decisions & TODOs buried in your sessions — surfaced with provenance (model-free)")
+  .option("--type <kind>", "filter to decision|todo")
+  .option("--session <id>", "only this session")
+  .action(async (options: { type?: string; session?: string }) => {
+    const { runKnowledgeCommand } = await import("./commands/knowledge.js");
+    process.exitCode = await runKnowledgeCommand(options, program.opts<{ json?: boolean }>());
+  });
+
+program
+  .command("context <file>")
+  .description("brief your AI tool: the prompts + decisions that shaped a file, as paste-ready Markdown")
+  .option("--limit <n>", "max shaping prompts", "8")
+  .option("--copy", "also place the brief on the system clipboard")
+  .action(async (file: string, options: { limit?: string; copy?: boolean }) => {
+    const { runContextCommand } = await import("./commands/context.js");
+    process.exitCode = await runContextCommand(file, options, program.opts<{ json?: boolean }>());
+  });
+
+program
   .command("restore <eventId>")
   .description("⏪ put your code back to how it was at a captured prompt (safety-checkpointed, ADR-0012)")
   .option("--force", "skip the confirmation (scripts)")

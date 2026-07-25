@@ -82,8 +82,13 @@ function serialize(meta: PromptMeta, body: string): string {
   return lines.join("\n") + body.replace(/\s+$/, "") + "\n";
 }
 
-/** Parse the minimal frontmatter subset; tolerant of hand edits. */
-export function parsePrompt(content: string): Prompt | null {
+/**
+ * Parse the minimal frontmatter subset; tolerant of hand edits. `fallbackSlug`
+ * is the directory name — the prompt's REAL identity. A hand-edited or invalid
+ * frontmatter `slug:` falls back to it, so editing prompt.md (e.g. trying to
+ * rename via the slug field) never makes the prompt silently vanish.
+ */
+export function parsePrompt(content: string, fallbackSlug = ""): Prompt | null {
   const match = /^---\n([\s\S]*?)\n---\n?/.exec(content);
   if (match === null) return null;
   const fields = new Map<string, string>();
@@ -93,7 +98,8 @@ export function parsePrompt(content: string): Prompt | null {
     fields.set(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
   }
   const version = Number(fields.get("version") ?? "");
-  const slug = fields.get("slug") ?? "";
+  const rawSlug = fields.get("slug") ?? "";
+  const slug = SLUG_REGEX.test(rawSlug) ? rawSlug : fallbackSlug;
   if (!SLUG_REGEX.test(slug) || !Number.isInteger(version) || version < 1) return null;
   const rawTags = fields.get("tags") ?? "[]";
   const tags = rawTags
@@ -216,7 +222,9 @@ export async function getPrompt(chronicleDir: string, slug: string, version?: nu
   if (content === null) {
     throw new ChronicleError("E_NOT_INITIALIZED", `no prompt "${slug}"${version !== undefined ? ` v${version}` : ""}`);
   }
-  const parsed = parsePrompt(content);
+  // The directory `slug` is authoritative — pass it so a hand-broken
+  // frontmatter slug doesn't make the prompt disappear.
+  const parsed = parsePrompt(content, slug);
   if (parsed === null) {
     throw new ChronicleError("E_INVALID_EVENT", `unparseable prompt frontmatter: ${file}`);
   }

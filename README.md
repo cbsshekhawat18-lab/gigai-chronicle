@@ -115,6 +115,8 @@ chronicle import claude-code
 | `chronicle init [--yes] [--metadata-only] [--private-sessions]` | Initialize. Prints its complete footprint — 4 paths, named |
 | `chronicle why <file> [--limit n] [--evolution]` | What was **asked** that made this file (ADR-0013); `--evolution` shows how the ask sharpened |
 | `chronicle diff [<evtA> <evtB>]` | The **wording delta** between two prompts you typed — no args = the last two |
+| `chronicle knowledge [--type decision\|todo]` | The **decisions & TODOs** buried in your sessions, surfaced with provenance (model-free) |
+| `chronicle context <file> [--copy]` | **Brief your AI tool** — the prompts + decisions that shaped a file, as paste-ready Markdown |
 | `chronicle restore <evt> [--force]` | ⏪ Code time-travel to any prompt (ADR-0012) |
 | `chronicle replay <session> [--at evt]` | Step through a session |
 | `chronicle timeline [--since --until --branch --type…]` | The journey, filtered |
