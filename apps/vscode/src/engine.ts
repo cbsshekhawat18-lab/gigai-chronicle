@@ -5,6 +5,7 @@
  * (ADR-0008 lazy-loading makes this a packaging property, not a fork).
  */
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
   EventLog,
@@ -24,7 +25,7 @@ import {
   type ReplayFrame,
 } from "@gigaichronicle/core";
 import type { SessionId, WorkspaceId } from "@gigaichronicle/schema";
-import type { PromptWithHistory, SessionListItem } from "./protocol.js";
+import type { PromptWithHistory, SessionListItem, SettingsInfo } from "./protocol.js";
 
 /** One attributed prompt for the "why is this file like this?" view. */
 export interface WhyEntry {
@@ -67,6 +68,45 @@ export class ChronicleWorkspace {
     } finally {
       await log.close();
     }
+  }
+
+  /**
+   * Store configuration + posture for the Settings page — a read-only
+   * projection of `.chronicle/config.json` (ADR-0009). Missing or unreadable
+   * config degrades to safe defaults, never an error; the dashboard never
+   * writes config (that stays a deliberate CLI action).
+   */
+  async settings(): Promise<SettingsInfo> {
+    const raw = await readFile(path.join(this.chronicleDir, "config.json"), "utf8").catch(() => null);
+    let cfg: Record<string, unknown> = {};
+    let configReadable = raw !== null;
+    if (raw !== null) {
+      try {
+        cfg = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        cfg = {};
+        configReadable = false; // present but corrupt — don't show defaults as truth
+      }
+    }
+    const project = (cfg["project"] ?? {}) as { name?: unknown };
+    const capture = (cfg["capture"] ?? {}) as Record<string, unknown>;
+    const redaction = (capture["redaction"] ?? {}) as { secrets?: unknown; customPatterns?: unknown };
+    const storage = (cfg["storage"] ?? {}) as Record<string, unknown>;
+    const retention = (storage["retention"] ?? {}) as { mode?: unknown };
+    const digest = (storage["digest"] ?? {}) as { session?: unknown };
+    const providersRaw = (capture["providers"] ?? {}) as Record<string, unknown>;
+    return {
+      configReadable,
+      projectName: typeof project.name === "string" ? project.name : null,
+      storePath: this.chronicleDir,
+      providers: Object.entries(providersRaw).map(([id, mode]) => ({ id, mode: String(mode) })),
+      redactSecrets: redaction.secrets !== false, // default on
+      customPatterns: Array.isArray(redaction.customPatterns) ? redaction.customPatterns.length : 0,
+      visibility: typeof capture["visibility"] === "string" ? (capture["visibility"] as string) : "private",
+      gitTrailer: capture["gitTrailer"] === true,
+      retention: typeof retention.mode === "string" ? retention.mode : "keep-all",
+      sessionDigest: digest.session === true,
+    };
   }
 
   /** Session summaries for the tree + webview snapshot (newest first). */

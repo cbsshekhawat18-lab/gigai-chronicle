@@ -119,6 +119,17 @@ export {
   type PromptChange,
 } from "./attribution/why.js";
 
+// Session git activity — real commits + files in a session's window, for the
+// dashboard Commits/Files tabs (no provider emits git/file events today).
+export {
+  sessionGitActivity,
+  parseSessionGitLog,
+  type SessionCommit,
+  type SessionFile,
+  type SessionGitActivity,
+  type SessionGitActivityOptions,
+} from "./attribution/history.js";
+
 // Prompt library — version control for prompts (§5.4, ADR-0011)
 export {
   savePrompt,

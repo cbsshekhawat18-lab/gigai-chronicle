@@ -6,11 +6,11 @@
  */
 import * as vscode from "vscode";
 import path from "node:path";
-import { listCheckpointedEvents } from "@gigaichronicle/core";
+import { listCheckpointedEvents, sessionGitActivity } from "@gigaichronicle/core";
 import type { SessionId } from "@gigaichronicle/schema";
 import type { ChronicleWorkspace } from "./engine.js";
 import type { HostMessage, WebviewMessage } from "./protocol.js";
-import { buildStream, summarize, type StreamEntry, type StreamSummary } from "./stream.js";
+import { buildStream, mergeGitActivity, summarize, type StreamEntry, type StreamSummary } from "./stream.js";
 
 /** Entries per window — a few screens of history per load. */
 const WINDOW_SIZE = 300;
@@ -65,11 +65,12 @@ export class TimelinePanel {
   /** Re-push the sessions + library snapshot (e.g. after a prompt is saved). */
   async refreshSnapshot(): Promise<void> {
     if (this.#workspace === null) return;
-    const [sessions, prompts] = await Promise.all([
+    const [sessions, prompts, settings] = await Promise.all([
       this.#workspace.sessions(),
       this.#workspace.libraryPrompts(),
+      this.#workspace.settings(),
     ]);
-    await this.#post({ kind: "snapshot", v: 1, data: { sessions, prompts } });
+    await this.#post({ kind: "snapshot", v: 1, data: { sessions, prompts, settings } });
   }
 
   /** Show a session: build (and cache) its stream, send the LATEST window. */
@@ -78,7 +79,26 @@ export class TimelinePanel {
     const frames = await this.#workspace.frames(session);
     const repoRoot = path.dirname(this.#workspace.chronicleDir);
     const restorable = await listCheckpointedEvents(repoRoot).catch(() => new Set<string>());
-    this.#cache = { session, entries: buildStream(frames, restorable), summary: summarize(frames) };
+    const summary = summarize(frames);
+    // No provider emits git/file events, so the Commits/Files tabs would be
+    // empty. Source them from the real history spanning this session. The
+    // window is the first→last EVENT time (frame.ts), NOT summary.startedTs/
+    // endedTs: a session that merged many start/end markers leaves the last
+    // frame carrying an unpaired (and possibly inverted) start/end.
+    const since = frames[0]?.ts ?? null;
+    const lastTs = frames[frames.length - 1]?.ts ?? null;
+    // A live session's newest commit can post-date its last captured event, so
+    // let git run "up to now" (until = null) and the just-made commit still
+    // shows. An ended session stays bounded by its last event, so unrelated
+    // later commits don't leak in.
+    const live = lastTs !== null && Date.now() - Date.parse(lastTs) < 6 * 3600 * 1000;
+    const git = await sessionGitActivity(repoRoot, since, live ? null : lastTs).catch(() => ({
+      commits: [],
+      files: [],
+    }));
+    const entries = mergeGitActivity(buildStream(frames, restorable), git);
+    summary.files = Math.max(summary.files, git.files.length);
+    this.#cache = { session, entries, summary };
     await this.#sendWindow(session, Math.max(0, this.#cache.entries.length - WINDOW_SIZE), "replace");
   }
 
@@ -143,11 +163,12 @@ export class TimelinePanel {
         return;
       }
       if (message.name === "sessions") {
-        const [sessions, prompts] = await Promise.all([
+        const [sessions, prompts, settings] = await Promise.all([
           this.#workspace.sessions(),
           this.#workspace.libraryPrompts(),
+          this.#workspace.settings(),
         ]);
-        await this.#post({ kind: "snapshot", v: 1, data: { sessions, prompts } });
+        await this.#post({ kind: "snapshot", v: 1, data: { sessions, prompts, settings } });
       } else if (message.name === "frames") {
         await this.showSession(message.args.session as SessionId);
       } else {

@@ -37,7 +37,9 @@ export type StreamEntry =
 export interface StreamSummary {
   turns: number;
   tools: number;
-  /** Distinct files this session touched (workingSet size) — real, not tokens. */
+  /** Distinct files this session touched — real, not tokens. Sourced from the
+   *  git history in the session's window when available (no provider emits file
+   *  events), else the replay working-set size. */
   files: number;
   fidelity: string;
   gaps: number;
@@ -132,6 +134,48 @@ export function buildStream(
     }
   });
   return entries;
+}
+
+/** Real git activity to fold into the stream (dashboard Commits/Files tabs). */
+export interface GitActivityLite {
+  commits: Array<{ sha: string; subject: string; ts: string }>;
+  files: Array<{ path: string; status: string; ts: string }>;
+}
+
+/**
+ * Merge real git commits/files into a built stream — re-sorted by time with day
+ * separators regenerated. The webview already renders `commit` and `file`
+ * entries and filters them into the Commits/Files tabs; they were simply never
+ * produced because no provider emits `GitCommitCreated`/`FileModified` events.
+ * This sources them from the git history instead, so the tabs reflect reality.
+ */
+export function mergeGitActivity(base: StreamEntry[], git: GitActivityLite): StreamEntry[] {
+  if (git.commits.length === 0 && git.files.length === 0) return base;
+  const tsOf = (entry: StreamEntry): string => ("ts" in entry ? entry.ts : "");
+  const extra: StreamEntry[] = [
+    ...git.commits.map(
+      (c): StreamEntry => ({ kind: "commit", ts: c.ts, sha: c.sha, subject: c.subject }),
+    ),
+    ...git.files.map(
+      (f): StreamEntry => ({ kind: "file", ts: f.ts, path: f.path, status: f.status }),
+    ),
+  ];
+  // Drop the derived day rows and re-merge; Array.sort is stable, so same-ts
+  // frame entries keep the order buildStream gave them.
+  const merged = [...base.filter((e) => e.kind !== "day"), ...extra].sort((a, b) =>
+    tsOf(a).localeCompare(tsOf(b)),
+  );
+  const out: StreamEntry[] = [];
+  let day = "";
+  for (const entry of merged) {
+    const entryDay = tsOf(entry).slice(0, 10);
+    if (entryDay !== "" && entryDay !== day) {
+      day = entryDay;
+      out.push({ kind: "day", day });
+    }
+    out.push(entry);
+  }
+  return out;
 }
 
 export function summarize(frames: readonly ReplayFrame[]): StreamSummary {
