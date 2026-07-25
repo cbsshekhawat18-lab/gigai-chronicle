@@ -98,6 +98,15 @@ describe("prompt library", () => {
     expect(parsePrompt("---\nslug: BAD SLUG\nversion: 1\n---\nx")).toBeNull();
   });
 
+  it("a hand-broken frontmatter slug falls back to the directory identity (never vanishes)", () => {
+    // A user edited prompt.md and set an invalid slug (e.g. uppercase). The
+    // directory name is the real identity, so the prompt must still load.
+    const parsed = parsePrompt("---\nslug: V3333\nversion: 1\n---\nKde the h", "untitled");
+    expect(parsed).toMatchObject({ slug: "untitled", version: 1, body: "Kde the h" });
+    // With no fallback, an invalid slug still rejects (the strict default).
+    expect(parsePrompt("---\nslug: V3333\nversion: 1\n---\nx")).toBeNull();
+  });
+
   it("unifiedDiff shows line-level +/- and detects identical inputs", () => {
     const diff = unifiedDiff("a\nb\nc", "a\nB\nc\nd", "v1", "v2");
     expect(diff).toContain("--- v1");

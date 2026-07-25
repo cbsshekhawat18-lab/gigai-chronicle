@@ -627,7 +627,10 @@ function App(): React.JSX.Element {
   const visible = React.useMemo(() => {
     const needle = search.trim().toLowerCase();
     return entries.filter((entry) => {
-      if (entry.kind === "day") return true;
+      // Day/session separators are chronological chrome — only in Conversation.
+      // In a filtered tab they'd be orphans (all the empty date lines the user
+      // saw), so drop them: the tab shows its entries, or a clean empty state.
+      if (entry.kind === "day") return tab === "conversation";
       if (entry.kind === "session") return tab === "conversation";
       if (tab !== "conversation" && entry.kind !== TAB_KIND[tab]) return false;
       if (needle === "") return true;

@@ -236,7 +236,12 @@ export function activate(context: vscode.ExtensionContext): void {
       const panel = TimelinePanel.show(context.extensionUri, workspace);
       await panel.showSession(item.session as SessionId);
     }),
-    vscode.commands.registerCommand("chronicle.refresh", () => void sidebar.refresh()),
+    vscode.commands.registerCommand("chronicle.refresh", () => {
+      // Refresh BOTH surfaces — the sidebar and the dashboard panel — so a
+      // newly-saved prompt or session shows wherever you're looking.
+      void sidebar.refresh();
+      void TimelinePanel.current?.refreshSnapshot();
+    }),
     vscode.commands.registerCommand("chronicle.restoreCheckpoint", async (eventId: string) => {
       if (workspace === null) return;
       const repoRoot = path.dirname(workspace.chronicleDir);
