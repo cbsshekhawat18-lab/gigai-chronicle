@@ -40,6 +40,13 @@ Every captured prompt snapshots your working tree into a hidden git ref. Jump
 back to how the code was at any prompt — always safety-checkpointed, so nothing
 is ever lost.
 
+### 📋 Copy context pack
+Right-click any file → **Chronicle: Copy context pack**. Chronicle assembles the
+prompts that shaped that file plus the decisions from those sessions into a
+paste-ready brief — so your next AI session starts with what was already asked
+and decided, instead of re-explaining the project. Pure assembly: it never calls
+a model, it briefs the one you do.
+
 ---
 
 ## Commands
@@ -50,6 +57,8 @@ is ever lost.
 | **Chronicle: Replay Session** | Step through a session |
 | **Chronicle: Open Timeline** | The full journey |
 | **Chronicle: Save a prompt to the library** | Keep a prompt you typed, versioned |
+| **Chronicle: Copy context pack (brief my AI tool)** | The prompts + decisions that shaped a file, to your clipboard |
+| **Chronicle: Import Codex sessions** | Backfill your `~/.codex` history for this repo |
 | **Chronicle: Refresh** | Re-read the store |
 
 Also on the right-click menu for any file (editor and Explorer).
@@ -70,8 +79,9 @@ Then work normally — sessions appear in the sidebar. Already have history?
 > Get the CLI and full docs:
 > **[github.com/cbsshekhawat18-lab/gigai-chronicle](https://github.com/cbsshekhawat18-lab/gigai-chronicle)**
 
-**Provider support today:** Claude Code. Other tools are on the roadmap — the
-extension will show their sessions as providers land.
+**Provider support today:** Claude Code (live capture) and **Codex** (import
+your existing `~/.codex` history). Other tools are on the roadmap — the
+extension shows their sessions as providers land.
 
 ## Works everywhere VS Code does
 
