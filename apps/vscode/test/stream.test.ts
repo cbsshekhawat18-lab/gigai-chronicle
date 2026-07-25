@@ -33,7 +33,9 @@ describe("mergeGitActivity", () => {
       frame({
         ts: "2026-07-20T10:00:00.000Z",
         startedTs: "2026-07-20T10:00:00.000Z",
-        conversation: [{ role: "human", text: "do the thing", eventId: "evt_a" }] as ReplayFrame["conversation"],
+        conversation: [
+          { role: "human", text: "do the thing", eventId: "evt_a", ts: "2026-07-20T10:00:00.000Z" },
+        ] as ReplayFrame["conversation"],
       }),
     ];
     const base = buildStream(frames);
