@@ -814,7 +814,7 @@ function App(): React.JSX.Element {
                 </div>
               ) : (
                 <>
-                  {tab === "conversation" && offset > 0 && (
+                  {offset > 0 && (
                     <button style={styles.loadEarlier} onClick={() => loadEarlier(activeSession, offset)}>
                       ↑ load earlier moments ({offset} before this point)
                     </button>

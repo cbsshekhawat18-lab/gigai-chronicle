@@ -81,8 +81,13 @@ export class TimelinePanel {
     const restorable = await listCheckpointedEvents(repoRoot).catch(() => new Set<string>());
     const summary = summarize(frames);
     // No provider emits git/file events, so the Commits/Files tabs would be
-    // empty. Source them from the real history in this session's time window.
-    const git = await sessionGitActivity(repoRoot, summary.startedTs, summary.endedTs).catch(() => ({
+    // empty. Source them from the real history spanning this session. The
+    // window is the first→last EVENT time (frame.ts), NOT summary.startedTs/
+    // endedTs: a session that merged many start/end markers leaves the last
+    // frame carrying an unpaired (and possibly inverted) start/end.
+    const since = frames[0]?.ts ?? null;
+    const until = frames[frames.length - 1]?.ts ?? null;
+    const git = await sessionGitActivity(repoRoot, since, until).catch(() => ({
       commits: [],
       files: [],
     }));
