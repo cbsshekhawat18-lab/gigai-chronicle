@@ -223,6 +223,31 @@ chronicle replay <session-id>
 Step through prompts, responses, tool runs, and commits interleaved in order.
 Code review with the intent attached.
 
+### Brief your next session — Knowledge & Context Pack
+
+The pain in AI coding is context loss: every new session you re-explain the
+project. Chronicle already captured the answer, so it hands it back.
+
+```bash
+chronicle knowledge                   # the decisions & TODOs buried in your sessions
+chronicle knowledge --type decision   # just decisions (or --type todo)
+chronicle context src/auth.ts         # a paste-ready brief for one file
+chronicle context src/auth.ts --copy  # …straight to your clipboard
+```
+
+`knowledge` reads your prompts **and** the agent's responses for high-signal
+phrasings ("let's use X", "TODO", "instead of Y") — each with its own source
+line, who said it, and a confidence tier. Rule-based and **model-free**, an
+honest index into the record: deliberately conservative (a negated or
+questioning line is never surfaced as a decision), never a guess.
+
+`context <file>` assembles the prompts that shaped a file plus the decisions
+from those sessions into Markdown you paste into your AI tool — so your next
+prompt starts with what was already asked and decided. Pure assembly:
+**Chronicle never calls a model; it briefs the one you do.** In the editor it's
+**Chronicle: Copy context pack** on any file (right-click, editor title, or
+Explorer).
+
 ## Command reference
 
 | Command | Purpose |
@@ -235,6 +260,8 @@ Code review with the intent attached.
 | `chronicle timeline` | The journey, filtered (`--since --until --branch --type…`) |
 | `chronicle sessions` | Sessions with provider/model badges |
 | `chronicle prompt save\|list\|show\|versions\|diff\|use\|compare\|revert` | The prompt library: version control (`--note`, revert), lifecycle (`use`, ● used / ○ saved), cross-prompt compare |
+| `chronicle knowledge [--type decision\|todo] [--session <id>]` | The **decisions & TODOs** buried in your sessions, with provenance + confidence (model-free) |
+| `chronicle context <file> [--copy] [--limit <n>]` | **Brief your AI** — the prompts + decisions that shaped a file, as paste-ready Markdown |
 | `chronicle inspect <id\|sha>` | The `git show` of Chronicle |
 | `chronicle session privatize\|promote <id>` | Move a session off the shared record, or back |
 | `chronicle import <provider>` | Backfill from existing transcripts |
@@ -282,8 +309,10 @@ never calls a model or phones home. `chronicle doctor` proves it.
 writes it's explicit about: the `Chronicle-Session:` commit trailer (opt-in) and
 shadow code checkpoints (opt-out). It never rewrites your commits.
 
-**Which AI tools does it support?** Claude Code today. Codex, Gemini, and Cursor
-are on the roadmap — see [PROVIDERS.md](PROVIDERS.md).
+**Which AI tools does it support?** Claude Code with live capture today, and
+**Codex** via `chronicle import codex` (reads your existing `~/.codex` rollouts,
+scoped to this repo). Gemini and Cursor are on the roadmap — see
+[PROVIDERS.md](PROVIDERS.md).
 
 **What if I use a tool it doesn't support yet?** Capture is per-provider, so that
 tool's sessions won't be recorded until a provider lands. Everything else (git
