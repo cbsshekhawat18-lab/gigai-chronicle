@@ -129,6 +129,12 @@
         "title": "Chronicle: Import Codex sessions",
         "category": "Chronicle",
         "icon": "$(cloud-download)"
+      },
+      {
+        "command": "chronicle.contextPack",
+        "title": "Chronicle: Copy context pack (brief my AI tool)",
+        "category": "Chronicle",
+        "icon": "$(clippy)"
       }
     ],
     "menus": {
@@ -166,14 +172,23 @@
           "group": "chronicle@1"
         },
         {
+          "command": "chronicle.contextPack",
+          "when": "editorTextFocus && resourceScheme == file",
+          "group": "chronicle@2"
+        },
+        {
           "command": "chronicle.savePromptFromEditor",
           "when": "editorTextFocus",
-          "group": "chronicle@2"
+          "group": "chronicle@3"
         }
       ],
       "commandPalette": [
         {
           "command": "chronicle.whyFile",
+          "when": "editorIsOpen"
+        },
+        {
+          "command": "chronicle.contextPack",
           "when": "editorIsOpen"
         },
         {
@@ -192,6 +207,11 @@
           "command": "chronicle.whyFile",
           "when": "resourceScheme == file",
           "group": "chronicle@1"
+        },
+        {
+          "command": "chronicle.contextPack",
+          "when": "resourceScheme == file",
+          "group": "chronicle@2"
         }
       ],
       "explorer/context": [
@@ -199,6 +219,11 @@
           "command": "chronicle.whyFile",
           "when": "resourceScheme == file && !explorerResourceIsFolder",
           "group": "chronicle@1"
+        },
+        {
+          "command": "chronicle.contextPack",
+          "when": "resourceScheme == file && !explorerResourceIsFolder",
+          "group": "chronicle@2"
         }
       ]
     }

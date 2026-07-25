@@ -187,6 +187,47 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("chronicle.newPrompt", () => authorNewPrompt()),
     vscode.commands.registerCommand("chronicle.savePromptFromEditor", () => savePromptFromEditor()),
     vscode.commands.registerCommand("chronicle.importCodex", () => importCodex()),
+    // "Context Pack" — brief your AI tool with what shaped the active file
+    // (the prompts + the decisions from those sessions). Copies paste-ready
+    // Markdown; Chronicle assembles, your AI tool does the thinking.
+    vscode.commands.registerCommand("chronicle.contextPack", async (target?: vscode.Uri) => {
+      if (workspace === null) {
+        void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+        return;
+      }
+      const uri = target ?? vscode.window.activeTextEditor?.document.uri;
+      if (uri === undefined || uri.scheme !== "file") {
+        void vscode.window.showInformationMessage("Chronicle: open a file to build its context pack.");
+        return;
+      }
+      const repoRoot = path.dirname(workspace.chronicleDir);
+      const relative = path.relative(repoRoot, uri.fsPath);
+      if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
+        void vscode.window.showInformationMessage("Chronicle: that file is outside this repository.");
+        return;
+      }
+      const posix = relative.split(path.sep).join("/");
+      const pack = await workspace.contextPack(posix).catch((error: unknown) => {
+        void vscode.window.showErrorMessage(`Chronicle context pack failed: ${(error as Error).message}`);
+        return null;
+      });
+      if (pack === null) return;
+      if (pack.empty) {
+        void vscode.window.showInformationMessage(
+          `Chronicle: no captured history shaped ${posix} yet — nothing to brief.`,
+        );
+        return;
+      }
+      await vscode.env.clipboard.writeText(pack.markdown);
+      const open = await vscode.window.showInformationMessage(
+        `Chronicle: context pack for ${posix} copied — paste it as the first message to your AI tool.`,
+        "Preview",
+      );
+      if (open === "Preview") {
+        const doc = await vscode.workspace.openTextDocument({ language: "markdown", content: pack.markdown });
+        await vscode.window.showTextDocument(doc, { preview: true });
+      }
+    }),
     vscode.commands.registerCommand("chronicle.openTimeline", () => {
       TimelinePanel.show(context.extensionUri, workspace);
     }),

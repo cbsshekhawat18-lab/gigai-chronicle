@@ -136,6 +136,20 @@ export {
 export { unifiedDiff } from "./prompts/diff.js";
 // Derived usage — capture observing a library prompt actually being used
 export { promptUsage, type PromptUsageInfo, type PromptUse } from "./prompts/usage.js";
+// Knowledge — decisions/TODOs surfaced from captured sessions, and the Context
+// Pack that briefs your AI tool with what you already decided (model-free).
+export {
+  extractKnowledge,
+  type KnowledgeItem,
+  type KnowledgeKind,
+  type KnowledgeOptions,
+} from "./knowledge/knowledge.js";
+export {
+  buildContextPack,
+  type ContextPack,
+  type ContextPackPrompt,
+  type ContextPackOptions,
+} from "./knowledge/context-pack.js";
 // The seam: promote a prompt you already typed into the library (ADR-0014)
 export {
   capturedPrompts,
