@@ -47,6 +47,13 @@ paste-ready brief — so your next AI session starts with what was already asked
 and decided, instead of re-explaining the project. Pure assembly: it never calls
 a model, it briefs the one you do.
 
+### 📊 Dashboard: Commits, Files & Settings
+The timeline is a workspace with tabs over one session. **Commits** and **Files**
+show what the session actually changed — sourced from your real git history and
+timed to the session's window (never fabricated). **Settings** is a read-only
+view of your capture config and privacy posture — the dashboard only reads;
+changing config stays a deliberate CLI action.
+
 ---
 
 ## Commands

@@ -110,6 +110,12 @@ cd apps/cli && npm link    # exposes `chronicle`
   [Releases](https://github.com/cbsshekhawat18-lab/gigai-chronicle/releases) →
   Command Palette → *Extensions: Install from VSIX…*
 
+The extension opens a **dashboard** (one webview) over the store: a session's
+**Conversation · Tools · Commits · Files · Gaps** tabs, a **Prompts** library
+view, and a read-only **Settings** page (your capture config + privacy posture).
+Commits and Files come from your real git history, timed to the session — never
+fabricated. It renders the store; it never captures or calls a model.
+
 ## Your first 5 minutes
 
 ```bash
