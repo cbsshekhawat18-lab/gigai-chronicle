@@ -53,8 +53,8 @@ export async function runKnowledgeCommand(
       console.log(
         "no decisions or TODOs found in the captured record yet.\n" +
           '  knowledge reads your prompts and the agent\'s responses for high-signal phrasings\n' +
-          '  ("let\'s use X", "TODO", "instead of Y") — it grows as you work, and shows the\n' +
-          "  exact source line so you judge it, never a paraphrase.",
+          '  ("let\'s use X", "TODO", "instead of Y") — it grows as you work, and shows your\n' +
+          "  own source line so you judge it, never a paraphrase.",
       );
       return EXIT_OK;
     }

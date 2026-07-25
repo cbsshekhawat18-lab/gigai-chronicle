@@ -114,3 +114,64 @@ describe("knowledge — dedup + filters", () => {
     expect(onlyTodos.every((i) => i.kind === "todo")).toBe(true);
   });
 });
+
+describe("knowledge — review hardening (negation, ordering, scope, blobs)", () => {
+  it("guards negated & interrogative lines — a rejection is never surfaced as a decision", async () => {
+    const dir = await storeWith([
+      responseEvent(SES, "I haven't decided to drop the cache yet."),
+      responseEvent(SES, "We are not going with Redis after all."),
+      promptEvent(SES, "Are you going with Postgres?"),
+      promptEvent(SES, "I don't think we should use a queue here."),
+    ]);
+    // Every line matches a rule textually, but negation/question voids it.
+    expect(await withLog(dir, (log) => extractKnowledge(dir, log))).toEqual([]);
+  });
+
+  it("an authored TODO marker survives even inside a negation ('don't')", async () => {
+    const dir = await storeWith([promptEvent(SES, "TODO: don't forget to add retries")]);
+    const todos = await withLog(dir, (log) => extractKnowledge(dir, log));
+    expect(todos).toHaveLength(1);
+    expect(todos[0]).toMatchObject({ kind: "todo", confidence: "high" });
+  });
+
+  it("a line with both signals is classified by the stronger one (high TODO beats medium decision)", async () => {
+    const dir = await storeWith([promptEvent(SES, "The plan is to add a TODO for retries")]);
+    const [item] = await withLog(dir, (log) => extractKnowledge(dir, log));
+    expect(item).toMatchObject({ kind: "todo", confidence: "high" });
+  });
+
+  it("scoped extraction is not suppressed by an identical line in an unrelated, earlier-scanned session", async () => {
+    // UNREL sorts before WANT, so global dedup would keep UNREL's copy and a
+    // post-filter would then drop the wanted session's decision entirely.
+    const UNREL = "ses_01ARZ3NDEKTSV4RRFFQ69G5AAA" as SessionId;
+    const WANT = "ses_01ARZ3NDEKTSV4RRFFQ69G5ZZZ" as SessionId;
+    const dir = await storeWith([
+      promptEvent(UNREL, "let's use JWT for auth"),
+      promptEvent(WANT, "let's use JWT for auth"),
+    ]);
+    const scoped = await withLog(dir, (log) => extractKnowledge(dir, log, { sessions: [WANT] }));
+    expect(scoped).toHaveLength(1);
+    expect(scoped[0]).toMatchObject({ session: WANT, text: "let's use JWT for auth" });
+  });
+
+  it("dedups on the full line, not the display snippet — two long lines sharing a 199-char prefix stay distinct", async () => {
+    const prefix = "let's use ".padEnd(210, "x"); // >200 chars, identical prefix
+    const dir = await storeWith([
+      promptEvent(SES, `${prefix} alpha`),
+      promptEvent(SES, `${prefix} beta`),
+    ]);
+    const decisions = (await withLog(dir, (log) => extractKnowledge(dir, log))).filter(
+      (i) => i.kind === "decision",
+    );
+    expect(decisions).toHaveLength(2); // not collapsed by snippet truncation
+  });
+
+  it("resolves a blob-spilled prompt (>64KB) so its decision is still surfaced", async () => {
+    const big = `let's use zustand for state\n${"x".repeat(70 * 1024)}`;
+    const dir = await storeWith([promptEvent(SES, big)]);
+    const decisions = (await withLog(dir, (log) => extractKnowledge(dir, log))).filter(
+      (i) => i.kind === "decision",
+    );
+    expect(decisions.map((d) => d.text)).toEqual(["let's use zustand for state"]);
+  });
+});

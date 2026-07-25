@@ -105,7 +105,7 @@ the UI doesn't invent it):
       the next step up its PROVIDERS.md row.
 - [x] **Knowledge extraction** — `chronicle knowledge` surfaces the decisions
       & TODOs buried in your sessions (prompts *and* the agent's responses),
-      rule-based and model-free, each with its exact source line + confidence.
+      rule-based and model-free, each with its own source line + confidence.
       Deliberately conservative — an honest index into the record, not a guess.
 - [x] **Context Pack** — `chronicle context <file>` (and VS Code *"Copy context
       pack"*) assembles a paste-ready brief from your own history: the prompts

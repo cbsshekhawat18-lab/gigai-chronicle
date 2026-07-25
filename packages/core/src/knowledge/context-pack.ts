@@ -14,7 +14,7 @@
  */
 import { changesByPrompt } from "../attribution/why.js";
 import type { EventLog } from "../store/event-log.js";
-import { extractKnowledge, type KnowledgeItem } from "./knowledge.js";
+import { extractKnowledge, resolveEventText, type KnowledgeItem } from "./knowledge.js";
 
 /** A prompt that shaped the file, with its churn and text. */
 export interface ContextPackPrompt {
@@ -48,11 +48,6 @@ function churn(files: { insertions: number | null; deletions: number | null }[])
   return `+${plus} −${minus}`;
 }
 
-function resolveText(payload: unknown): string | null {
-  const text = (payload as Record<string, unknown>)["text"];
-  return typeof text === "string" && text.trim() !== "" ? text : null;
-}
-
 function oneLine(text: string, max = 100): string {
   const flat = text.replace(/\s+/gu, " ").trim();
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
@@ -77,12 +72,19 @@ export async function buildContextPack(
   const changes = await changesByPrompt(repoRoot, { path: file, limit: options.limit ?? 8 });
 
   // eventId → {text, session, ts} for the shaping prompts (pure-fs scan).
+  // resolveEventText follows a blob ref, so a >64KB prompt spilled to a blob
+  // reads its real text — not "(prompt text unavailable)".
   const wanted = new Set(changes.map((c) => c.eventId));
   const meta = new Map<string, { text: string | null; session: string | null; ts: string }>();
   if (wanted.size > 0) {
-    for await (const { event } of log.scan({ visibility: "all" })) {
+    for await (const scanned of log.scan({ visibility: "all" })) {
+      const { event } = scanned;
       if (!wanted.has(event.id)) continue;
-      meta.set(event.id, { text: resolveText(event.payload), session: event.session ?? null, ts: event.ts });
+      meta.set(event.id, {
+        text: await resolveEventText(chronicleDir, scanned),
+        session: event.session ?? null,
+        ts: event.ts,
+      });
     }
   }
 
@@ -97,10 +99,13 @@ export async function buildContextPack(
     };
   });
 
-  // Decisions/TODOs from the sessions that shaped this file — the "why" behind it.
+  // Decisions/TODOs from the sessions that shaped this file — the "why" behind
+  // it. Scope the extraction to those sessions so dedup stays in-scope: an
+  // identical line ("let's use X") in an unrelated session can no longer win the
+  // global dedup and suppress this file's own decision.
   const sessions = new Set(prompts.map((p) => p.session).filter((s): s is string => s !== null));
-  const allKnowledge = sessions.size > 0 ? await extractKnowledge(chronicleDir, log) : [];
-  const knowledge = allKnowledge.filter((k) => k.session !== null && sessions.has(k.session));
+  const knowledge =
+    sessions.size > 0 ? await extractKnowledge(chronicleDir, log, { sessions: [...sessions] }) : [];
 
   const empty = prompts.length === 0;
   const markdown = renderMarkdown(file, prompts, knowledge, empty);
