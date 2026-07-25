@@ -20,7 +20,7 @@ catalog:
   "@vscode/vsce": "^3.0.0"
   better-sqlite3: "^12.0.0"
   "@types/better-sqlite3": "^7.6.0"
-  commander: "^14.0.0"
+  commander: "^15.0.0"
   esbuild: "^0.28.1"
 
 # pnpm 10 blocks dependency build scripts by default; esbuild (vitest's
