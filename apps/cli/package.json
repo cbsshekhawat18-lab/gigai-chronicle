@@ -11,6 +11,8 @@
     "history",
     "prompts",
     "claude-code",
+    "codex",
+    "openai",
     "version-control",
     "provenance",
     "local-first",
