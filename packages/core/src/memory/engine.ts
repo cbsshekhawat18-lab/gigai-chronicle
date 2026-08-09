@@ -329,7 +329,10 @@ function resolve(candidates: Candidate[]): MemoryBuildResult {
     for (let j = 0; j < i; j++) {
       const earlier = decisions[j] as MemoryItem;
       const em = meta.get(earlier.id);
-      if (em === undefined || earlier.status !== "active" || later.status !== "active") continue;
+      // A firm decision retires an earlier decision OR an earlier proposal
+      // (candidate) on the same subject — a chosen path supersedes what was
+      // merely considered before it.
+      if (em === undefined || (earlier.status !== "active" && earlier.status !== "candidate") || later.status !== "active") continue;
       if (!overlaps(lm.subject, em.subject)) continue;
       earlier.status = "superseded";
       earlier.supersededBy = later.id;
