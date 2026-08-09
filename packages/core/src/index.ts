@@ -225,6 +225,35 @@ export { changeImpact, type ImpactResult, type AffectedFile } from "./intelligen
 export { scopeDrift, type ScopeResult } from "./intelligence/scope.js";
 export { preflight, type PreflightResult, type Contradiction } from "./intelligence/preflight.js";
 export { postflight, type PostflightResult } from "./intelligence/postflight.js";
+export {
+  decisionHealth,
+  decisionDrift,
+  learningsFrom,
+  type DecisionHealthReport,
+  type DecisionHealthItem,
+  type DriftItem,
+} from "./intelligence/decisions.js";
+export { unfinishedWork, stuckWork, type UnfinishedItem, type StuckItem } from "./intelligence/work.js";
+export { technicalDebt, type DebtItem } from "./intelligence/debt.js";
+export {
+  thinkingEvolution,
+  developmentStory,
+  type Thinking,
+  type ThinkingStep,
+  type Story,
+} from "./intelligence/insights.js";
+export { heatmap, workGraph, type HeatmapEntry, type GraphResult, type GraphEdge } from "./intelligence/heatmap.js";
+export {
+  projectHealth,
+  developmentDna,
+  memoryHealth,
+  onboardingTest,
+  type HealthReport,
+  type Metric,
+  type Dna,
+  type MemoryHealth,
+  type OnboardingTest,
+} from "./intelligence/health.js";
 // The seam: promote a prompt you already typed into the library (ADR-0014)
 export {
   capturedPrompts,

@@ -240,9 +240,16 @@ program
 
 // Development Intelligence — explainable, deterministic insight over history +
 // memory + git. Umbrella + signature top-level commands (the docs feature both).
+const INTEL_CORE = new Set(["risk", "why-not", "repeat", "impact", "scope", "preflight", "postflight"]);
 const intel = async (action: string, target: string | undefined, options: { file?: string; task?: string; since?: string }): Promise<void> => {
-  const { runIntelligenceCommand } = await import("./commands/intelligence.js");
-  process.exitCode = await runIntelligenceCommand(action, target, options, program.opts<{ json?: boolean }>());
+  const g = program.opts<{ json?: boolean }>();
+  if (INTEL_CORE.has(action)) {
+    const { runIntelligenceCommand } = await import("./commands/intelligence.js");
+    process.exitCode = await runIntelligenceCommand(action, target, options, g);
+  } else {
+    const { runInsightsCommand } = await import("./commands/insights.js");
+    process.exitCode = await runInsightsCommand(action, target, options, g);
+  }
 };
 
 program
@@ -290,6 +297,22 @@ program
   .command("scope")
   .description("scope drift: did the latest session change areas beyond its stated task?")
   .action(() => intel("scope", undefined, {}));
+
+// Development-intelligence reports (each also reachable via `chronicle intelligence <action>`).
+program.command("drift").description("decision drift: active decisions the code may have outgrown").action(() => intel("drift", undefined, {}));
+program.command("decisions").description("decision health: age, drift, and conflicts across active decisions").action(() => intel("decision-health", undefined, {}));
+program.command("unfinished").description("work that looks started but not completed (confidence-labeled)").action(() => intel("unfinished", undefined, {}));
+program.command("stuck").description("tasks that appear stalled — repeated across sessions with no resolution").action(() => intel("stuck", undefined, {}));
+program.command("debt").description("technical debt discovered through development (with provenance)").action(() => intel("debt", undefined, {}));
+program.command("learnings").description("lessons derived from history — rejected/superseded approaches, resolved issues").action(() => intel("learnings", undefined, {}));
+program.command("thinking <task>").description("how your thinking on a task evolved (decisions, rejections, direction)").action((task: string) => intel("thinking", task, {}));
+program.command("story").description("a development narrative from your history").option("--since <ts>", "only since this ISO timestamp").action((options: { since?: string }) => intel("story", undefined, options));
+program.command("heatmap").description("where development activity concentrates (prompts + churn + repeated fixes)").action(() => intel("heatmap", undefined, {}));
+program.command("graph [file]").description("work graph connecting files, decisions, and issues").option("--task <text>", "scope to a task").action((file: string | undefined, options: { task?: string }) => intel("graph", file, options));
+program.command("health").description("overall project development health (explainable sub-metrics)").action(() => intel("health", undefined, {}));
+program.command("dna").description("this repository's development profile (derived from evidence)").action(() => intel("dna", undefined, {}));
+program.command("memory-health").description("is the project understandable to a new AI? (coverage + recommendations)").action(() => intel("memory-health", undefined, {}));
+program.command("onboarding-test").description("simulate a new AI entering the repo — readiness score + gaps").action(() => intel("onboarding-test", undefined, {}));
 
 program
   .command("restore <eventId>")
