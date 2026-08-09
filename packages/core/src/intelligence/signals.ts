@@ -108,3 +108,24 @@ export function scoreOf(signals: Signal[]): number {
 export function memProvenance(items: MemoryItem[], max = 4): Provenance[] {
   return items.slice(0, max).flatMap((m) => m.sourceRefs.slice(0, 1));
 }
+
+const STOPWORDS = new Set([
+  "the", "a", "an", "for", "to", "of", "in", "on", "and", "or", "we", "use",
+  "using", "with", "as", "is", "will", "be", "our", "this", "that", "it", "fix",
+  "add", "implement", "make", "please", "can", "you", "i", "how", "do", "replace",
+  "change", "switch", "update", "from", "into", "new", "old", "all", "some",
+]);
+
+/** Significant, stemmed keywords of a phrase — shared by scope/preflight/task matching. */
+export function keywords(text: string): string[] {
+  return [
+    ...new Set(
+      text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s/._-]/gu, " ")
+        .split(/\s+/u)
+        .map((w) => w.replace(/s$/u, ""))
+        .filter((w) => w.length >= 3 && !STOPWORDS.has(w)),
+    ),
+  ];
+}

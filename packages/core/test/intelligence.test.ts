@@ -12,6 +12,7 @@ import { newId, type ChronicleEvent, type SessionId } from "@gigaichronicle/sche
 import {
   EventLog,
   levelOf,
+  preflight,
   repeatedProblems,
   riskSignals,
   scoreOf,
@@ -145,5 +146,22 @@ describe("intelligence — repeated-mistake detection", () => {
     const authOnly = await repeat(dir, { task: "authentication" });
     expect(authOnly.length).toBe(1);
     expect(authOnly[0]?.subject).toContain("authentication");
+  });
+
+  it("preflight flags a task that contradicts an active decision / reintroduces a rejected approach", async () => {
+    const dir = await withEvents([
+      promptEvent(s("A"), "let's keep session state in PostgreSQL"),
+      promptEvent(s("B"), "instead of Redis, use PostgreSQL for sessions"),
+    ]);
+    const log = await EventLog.open(dir, { workspaceId: WORKSPACE, fsyncIntervalMs: 0 });
+    try {
+      const pf = await preflight(dir, log, "/tmp/app", "Replace PostgreSQL sessions with Redis");
+      expect(pf.riskLevel).toBe("high");
+      expect(pf.verdict).toBe("caution");
+      expect(pf.contradictions.length).toBeGreaterThan(0);
+      expect(pf.markdown).toContain("REVIEW BEFORE IMPLEMENTING");
+    } finally {
+      await log.close();
+    }
   });
 });

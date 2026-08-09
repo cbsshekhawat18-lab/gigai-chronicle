@@ -272,6 +272,26 @@ program
   .action((options: { file?: string; task?: string; since?: string }) => intel("repeat", undefined, options));
 
 program
+  .command("impact <file>")
+  .description("change impact radar: files that historically change with this one + its dependencies")
+  .action((file: string) => intel("impact", file, {}));
+
+program
+  .command("preflight <task>")
+  .description("before you code: decisions, previous attempts, contradictions, risk, tests, verdict")
+  .action((task: string) => intel("preflight", task, {}));
+
+program
+  .command("postflight")
+  .description("after you code: changed files, scope drift, new decisions/TODOs, status")
+  .action(() => intel("postflight", undefined, {}));
+
+program
+  .command("scope")
+  .description("scope drift: did the latest session change areas beyond its stated task?")
+  .action(() => intel("scope", undefined, {}));
+
+program
   .command("restore <eventId>")
   .description("⏪ put your code back to how it was at a captured prompt (safety-checkpointed, ADR-0012)")
   .option("--force", "skip the confirmation (scripts)")

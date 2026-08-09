@@ -7,8 +7,12 @@
 import path from "node:path";
 import {
   EventLog,
+  changeImpact,
   fileRisk,
+  postflight,
+  preflight,
   repeatedProblems,
+  scopeDrift,
   whyNot,
   type RepeatOptions,
 } from "@gigaichronicle/core";
@@ -29,7 +33,7 @@ interface Flags {
   since?: string;
 }
 
-const ACTIONS = new Set(["risk", "why-not", "repeat"]);
+const ACTIONS = new Set(["risk", "why-not", "repeat", "impact", "scope", "preflight", "postflight"]);
 
 async function withLog<T>(chronicleDir: string, fn: (log: EventLog) => Promise<T>): Promise<T> {
   const log = await EventLog.open(chronicleDir, {
@@ -89,7 +93,46 @@ export async function runIntelligenceCommand(
     return EXIT_OK;
   }
 
-  // ---- risk / why-not need a file -----------------------------------------
+  // ---- preflight <task>: briefing before a change --------------------------
+  if (action === "preflight") {
+    if (target === undefined) {
+      console.error('preflight: needs a task (e.g. `chronicle preflight "replace Redis with PostgreSQL"`)');
+      return EXIT_USAGE;
+    }
+    const pf = await withLog(chronicleDir, (log) => preflight(chronicleDir, log, repoRoot, target));
+    if (global.json === true) {
+      printJson("intelligence", { task: pf.task, verdict: pf.verdict, riskLevel: pf.riskLevel, contradictions: pf.contradictions, previousAttempts: pf.previousAttempts, relevantDecisions: pf.relevantDecisions, knownRisks: pf.knownRisks, affectedAreas: pf.affectedAreas, recommendations: pf.recommendedReview, suggestedTests: pf.suggestedTests });
+      return EXIT_OK;
+    }
+    process.stdout.write(pf.markdown);
+    return EXIT_OK;
+  }
+
+  // ---- postflight / scope: analyse the latest session ----------------------
+  if (action === "postflight") {
+    const pf = await withLog(chronicleDir, (log) => postflight(chronicleDir, log, repoRoot));
+    if (global.json === true) {
+      printJson("intelligence", { session: pf.session, task: pf.task, status: pf.status, changedFiles: pf.changedFiles, scope: pf.scope, newDecisions: pf.newDecisions, newTodos: pf.newTodos, concerns: pf.concerns });
+      return EXIT_OK;
+    }
+    process.stdout.write(pf.markdown);
+    return EXIT_OK;
+  }
+  if (action === "scope") {
+    const sc = await withLog(chronicleDir, (log) => scopeDrift(chronicleDir, log, repoRoot));
+    if (global.json === true) {
+      printJson("intelligence", sc as unknown as Record<string, unknown>);
+      return EXIT_OK;
+    }
+    console.log(`SCOPE — ${sc.level.toUpperCase()}`);
+    if (sc.task !== null) console.log(`  task: ${sc.task}`);
+    console.log(`  changed files: ${sc.changedFiles.length}`);
+    if (sc.unexpected.length > 0) console.log(`  ⚠ outside expected area: ${sc.unexpected.join(", ")}`);
+    console.log(`\n  ${sc.note}`);
+    return EXIT_OK;
+  }
+
+  // ---- risk / why-not / impact need a file --------------------------------
   if (target === undefined) {
     console.error(`${action}: needs a file (e.g. \`chronicle ${action} src/auth/token.ts\`)`);
     return EXIT_USAGE;
@@ -98,6 +141,28 @@ export async function runIntelligenceCommand(
   if (rel === null) {
     console.error(`${action}: "${target}" is outside this repository`);
     return EXIT_USAGE;
+  }
+
+  if (action === "impact") {
+    const im = await withLog(chronicleDir, (log) => changeImpact(chronicleDir, log, repoRoot, rel));
+    if (global.json === true) {
+      printJson("intelligence", { target: im.target, riskLevel: im.riskLevel, affected: im.affected, historicalDependencies: im.historicalDependencies });
+      return EXIT_OK;
+    }
+    console.log(`CHANGE IMPACT RADAR — ${im.target}`);
+    console.log(`  historical risk: ${im.riskLevel.toUpperCase()}\n`);
+    if (im.affected.length === 0) {
+      console.log("  no co-change history yet.");
+    } else {
+      console.log("  Potentially affected (by co-change history):");
+      for (const a of im.affected.slice(0, 15)) console.log(`  ${a.band.toUpperCase().padEnd(6)} ${a.file}  (${a.coChanges}×)`);
+    }
+    if (im.historicalDependencies.length > 0) {
+      console.log("\n  Historical dependencies:");
+      for (const d of im.historicalDependencies) console.log(`  ✓ ${d}`);
+    }
+    console.log(`\n  ${im.note}`);
+    return EXIT_OK;
   }
 
   if (action === "risk") {

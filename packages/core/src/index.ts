@@ -220,6 +220,11 @@ export {
 export { fileRisk, riskSignals, type RiskResult } from "./intelligence/risk.js";
 export { whyNot, type WhyNot, type WhyNotReason } from "./intelligence/why-not.js";
 export { repeatedProblems, type RepeatedProblem, type RepeatOptions } from "./intelligence/repeat.js";
+export { keywords } from "./intelligence/signals.js";
+export { changeImpact, type ImpactResult, type AffectedFile } from "./intelligence/impact.js";
+export { scopeDrift, type ScopeResult } from "./intelligence/scope.js";
+export { preflight, type PreflightResult, type Contradiction } from "./intelligence/preflight.js";
+export { postflight, type PostflightResult } from "./intelligence/postflight.js";
 // The seam: promote a prompt you already typed into the library (ADR-0014)
 export {
   capturedPrompts,
