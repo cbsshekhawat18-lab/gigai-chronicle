@@ -113,6 +113,32 @@ the UI doesn't invent it):
       coding is context loss; Chronicle already captured the answer. Pure
       assembly — Chronicle never calls a model, it briefs the one you do.
 
+## Project Memory & AI Continuity *(built, in local review)*
+
+The layer that lets **any AI model continue a project without the developer
+re-explaining it**. Git remembers what changed; Chronicle events remember what
+was asked; **Project Memory remembers what the project knows** — and the Context
+Engine hands the next agent exactly what it needs. Derived, rebuildable,
+provenance-backed, model-free, local-first. See
+[project-memory.md](project-memory.md), [context-engine.md](context-engine.md),
+[ai-continuity.md](ai-continuity.md).
+
+- [x] **Project Memory** — decisions, constraints, requirements, known issues,
+      failed approaches, current work — derived from the event history with
+      deterministic rules, temporal supersession, conflict detection, and
+      provenance on every item. `chronicle memory rebuild|list|search|show|
+      verify|conflicts|stats`.
+- [x] **Context Engine** — `chronicle project context --task/--file/--budget`:
+      relevance-ranked, budget-fitted briefing that separates current state from
+      superseded/failed approaches.
+- [x] **AI continuity** — `chronicle bootstrap` (onboard a new agent),
+      `chronicle continue` (paste-ready continuation), `chronicle handoff`
+      (persisted for the next agent), and `chronicle agents init`
+      (AGENTS/CLAUDE/GEMINI.md). VS Code: a **Project Memory** panel + commands.
+- Provider-independent by construction; the golden cross-model handoff is
+  covered by tests. MCP is a deliberate deferral (Chronicle exposes no MCP yet;
+  the same reads are available via `--json`).
+
 ## Later
 
 - **Attempt clustering** — detect near-identical consecutive prompts and group

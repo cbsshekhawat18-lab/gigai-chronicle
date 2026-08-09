@@ -106,6 +106,7 @@ describe("ai continuity — golden cross-model handoff", () => {
     expect(md).toMatch(/Failed \/ Superseded[\s\S]*Redis/);
     expect(md).toContain("## Recommended Next Step");
     expect(md.toLowerCase()).toContain("race condition"); // the unresolved work
+    expect(md.toLowerCase()).toContain("refresh tokens"); // the requested feature exists
   });
 
   it("continue produces a ready-to-paste continuation prompt", async () => {

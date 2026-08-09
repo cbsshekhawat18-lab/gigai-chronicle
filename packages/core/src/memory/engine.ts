@@ -65,6 +65,10 @@ const RULES: readonly Rule[] = [
   { kind: "constraint", factType: "constraint", base: 0.65, re: /\b(?:node|python|go|rust|java)\s*(?:>=|>|version)\b/i },
   { kind: "constraint", factType: "constraint", base: 0.6, re: /\b(?:must|has to|required to|needs? to)\b/i },
   { kind: "requirement", factType: "requirement", base: 0.7, re: /\b(?:requirement|acceptance criteria|the goal is)\b/i },
+  // A prompt that STARTS with a build/feature verb states a requirement — "Add
+  // refresh tokens", "Implement webhook retries". Anchored at the line start so
+  // it doesn't fire mid-sentence; modest confidence (it's a request, not proof).
+  { kind: "requirement", factType: "requirement", base: 0.5, re: /^(?:add|implement|build|create|support|introduce|set up)\b/i },
   // --- known issues --------------------------------------------------------
   { kind: "known_issue", factType: "fact", base: 0.7, re: /\b(?:bug|race condition|deadlock|regression|broken|crashes?|fails?|not working|doesn'?t work|memory leak|flaky)\b/i },
   // --- todos ---------------------------------------------------------------
