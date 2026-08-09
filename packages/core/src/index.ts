@@ -161,6 +161,31 @@ export {
   type ContextPackPrompt,
   type ContextPackOptions,
 } from "./knowledge/context-pack.js";
+// Project Memory — derived, rebuildable understanding of the project (what it
+// knows, why, what's current, what failed), with provenance back to events.
+export {
+  MEMORY_SCHEMA_VERSION,
+  MEMORY_KINDS,
+  MEMORY_STATUSES,
+  FACT_TYPES,
+  memoryId,
+  validateMemoryItem,
+  serializeMemory,
+  parseMemory,
+  type MemoryItem,
+  type MemoryKind,
+  type MemoryStatus,
+  type FactType,
+  type MemoryVisibility,
+  type MemorySource,
+} from "./memory/schema.js";
+export {
+  writeMemory,
+  readMemory,
+  listMemory,
+  clearMemory,
+  type ListMemoryOptions,
+} from "./memory/store.js";
 // The seam: promote a prompt you already typed into the library (ADR-0014)
 export {
   capturedPrompts,
