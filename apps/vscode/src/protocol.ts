@@ -20,6 +20,16 @@ export interface PromptWithHistory extends Prompt {
   lastUsedTs: string | null;
 }
 
+/** Development Intelligence summary for the dashboard panel (derived, read-only). */
+export interface IntelligenceSummary {
+  health: number;
+  warnings: number;
+  unfinished: number;
+  stuck: number;
+  debt: number;
+  topStuck: string | null;
+}
+
 /** Project Memory summary for the dashboard's Memory panel (derived, read-only). */
 export interface MemorySummary {
   total: number;
@@ -97,6 +107,7 @@ export type HostMessage =
         prompts?: PromptWithHistory[];
         settings?: SettingsInfo;
         memory?: MemorySummary;
+        intelligence?: IntelligenceSummary;
       };
     }
   | { kind: "patch"; v: 1; data: ReplayWindow }
@@ -118,5 +129,5 @@ export type WebviewMessage =
   | { kind: "compareLibrary"; v: 1; aSlug: string; aVersion: number; bSlug: string; bVersion: number }
   /** Save a captured prompt into the library — the QuickPick flow, from the dashboard. */
   | { kind: "savePrompt"; v: 1 }
-  /** Project Memory panel actions → run the matching continuity command. */
-  | { kind: "memoryAction"; v: 1; action: "prepare" | "handoff" | "continue" | "search" };
+  /** Project Memory / Development Intelligence panel actions → run the command. */
+  | { kind: "memoryAction"; v: 1; action: "prepare" | "handoff" | "continue" | "search" | "preflight" | "whynot" | "risk" };

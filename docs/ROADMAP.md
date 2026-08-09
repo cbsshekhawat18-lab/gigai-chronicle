@@ -139,6 +139,32 @@ provenance-backed, model-free, local-first. See
   covered by tests. MCP is a deliberate deferral (Chronicle exposes no MCP yet;
   the same reads are available via `--json`).
 
+## Development Intelligence *(built, in local review)*
+
+Chronicle stops being a passive recorder and starts *understanding the development
+process* — answering what Git, chat history, and generic AI memory cannot.
+Deterministic, model-free, explainable (every score is a sum of named signals with
+provenance), no false certainty. See
+[development-intelligence.md](development-intelligence.md).
+
+- [x] **`why-not <file>`** — negative knowledge: what NOT to change and why
+      ([negative-knowledge.md](negative-knowledge.md)).
+- [x] **`risk <file>`** — explainable 0–100 risk ([risk-engine.md](risk-engine.md)).
+- [x] **`impact <file>`** — change-impact radar from co-change history.
+- [x] **`repeat` / `stuck` / `unfinished`** — repeated mistakes, stalled work,
+      incomplete work (confidence-labeled).
+- [x] **`preflight "<task>"` / `postflight` / `scope`** — the safe-change bookends
+      ([preflight-postflight.md](preflight-postflight.md)).
+- [x] **`drift` / `decisions`** — decision drift & health
+      ([decision-drift.md](decision-drift.md)).
+- [x] **`debt` / `learnings` / `thinking` / `story` / `heatmap` / `graph`** —
+      project insights derived from history.
+- [x] **`health` / `dna` / `memory-health` / `onboarding-test`** — can a NEW AI
+      understand this project? (explainable, bounded scores).
+- [x] VS Code: a **Development Intelligence** panel + Pre-flight / Why-NOT / Risk
+      commands.
+- AI-hook auto pre/post-flight is designed opt-in and not enabled by default.
+
 ## Later
 
 - **Attempt clustering** — detect near-identical consecutive prompts and group

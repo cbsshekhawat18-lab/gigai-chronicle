@@ -12,7 +12,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
-import type { HostMessage, MemorySummary, PromptWithHistory, SessionListItem, SettingsInfo } from "../src/protocol.js";
+import type { HostMessage, IntelligenceSummary, MemorySummary, PromptWithHistory, SessionListItem, SettingsInfo } from "../src/protocol.js";
 import type { StreamEntry, StreamSummary, ToolRunLite } from "../src/stream.js";
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
@@ -29,6 +29,7 @@ interface TimelineState {
   prompts: PromptWithHistory[];
   settings: SettingsInfo | null;
   memory: MemorySummary | null;
+  intelligence: IntelligenceSummary | null;
   apply(message: HostMessage): void;
 }
 
@@ -43,6 +44,7 @@ const useStore = create<TimelineState>((set, get) => ({
   prompts: [],
   settings: null,
   memory: null,
+  intelligence: null,
   apply: (message) => {
     if (message.kind === "snapshot") {
       set({
@@ -50,6 +52,7 @@ const useStore = create<TimelineState>((set, get) => ({
         ...(message.data.prompts !== undefined ? { prompts: message.data.prompts } : {}),
         ...(message.data.settings !== undefined ? { settings: message.data.settings } : {}),
         ...(message.data.memory !== undefined ? { memory: message.data.memory } : {}),
+        ...(message.data.intelligence !== undefined ? { intelligence: message.data.intelligence } : {}),
       });
       return;
     }
@@ -207,12 +210,13 @@ const TABS: ReadonlyArray<[Tab, string]> = [
 ];
 const TAB_KIND: Record<Exclude<Tab, "conversation">, string> = { tools: "tools", git: "commit", files: "file", gaps: "gap" };
 
-type View = "timeline" | "sessions" | "prompts" | "memory" | "settings";
+type View = "timeline" | "sessions" | "prompts" | "memory" | "intelligence" | "settings";
 const NAV: ReadonlyArray<{ view: View; label: string; glyph: string; tab?: Tab }> = [
   { view: "timeline", label: "Timeline", glyph: "◷" },
   { view: "sessions", label: "Sessions", glyph: "▤" },
   { view: "prompts", label: "Prompts", glyph: "▷" },
   { view: "memory", label: "Project Memory", glyph: "❖" },
+  { view: "intelligence", label: "Dev Intelligence", glyph: "✦" },
   { view: "timeline", label: "Commits", glyph: "⎇", tab: "git" },
   { view: "timeline", label: "Files", glyph: "▦", tab: "files" },
   { view: "settings", label: "Settings", glyph: "⚙" },
@@ -743,8 +747,59 @@ function MemoryPanel({ memory }: { memory: MemorySummary | null }): React.JSX.El
   );
 }
 
+function IntelligencePanel({ intel }: { intel: IntelligenceSummary | null }): React.JSX.Element {
+  const btn: React.CSSProperties = {
+    fontSize: 12,
+    padding: "7px 12px",
+    borderRadius: 8,
+    cursor: "pointer",
+    border: `1px solid ${ACCENT}77`,
+    background: `${ACCENT}14`,
+    color: ACCENT,
+    fontWeight: 600,
+  };
+  const act = (action: "preflight" | "whynot" | "risk"): void => send({ kind: "memoryAction", action });
+  const healthColor = intel === null ? undefined : intel.health >= 67 ? LIVE : intel.health >= 34 ? "var(--vscode-editorWarning-foreground)" : "var(--vscode-editorError-foreground)";
+  return (
+    <div style={styles.panel}>
+      <h2 style={styles.panelH}>Development Intelligence</h2>
+      <p style={styles.panelSub}>
+        Active insight over your history, Project Memory, and git — risk, negative knowledge, repeated
+        mistakes, project health. Explainable and model-free; findings are labeled, never asserted as
+        certainty.
+      </p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <button style={btn} onClick={() => act("preflight")}>🛡 Pre-flight a change</button>
+        <button style={btn} onClick={() => act("whynot")}>⊘ Why NOT (this file)</button>
+        <button style={btn} onClick={() => act("risk")}>⚠ Risk (this file)</button>
+      </div>
+      {intel === null ? (
+        <div style={styles.centerNote}>
+          No intelligence yet. Run <code>chronicle memory rebuild</code>, then explore
+          <code> chronicle health</code>, <code>risk</code>, <code>why-not</code>, <code>preflight</code>.
+        </div>
+      ) : (
+        <>
+          <div style={{ ...styles.card, cursor: "default" }}>
+            <div style={styles.cardTitle}>Project health</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: healthColor }}>{intel.health}/100</div>
+          </div>
+          <div style={{ ...styles.card, cursor: "default" }}>
+            <div style={styles.cardTitle}>Signals</div>
+            <Row label="warnings">{intel.warnings}</Row>
+            <Row label="unfinished work">{intel.unfinished}</Row>
+            <Row label="stalled tasks">{intel.stuck}</Row>
+            <Row label="technical debt">{intel.debt}</Row>
+            {intel.topStuck !== null && <Row label="most stuck">{intel.topStuck}</Row>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function App(): React.JSX.Element {
-  const { activeSession, info, summary, entries, offset, totalEntries, sessions, prompts, settings, memory } = useStore();
+  const { activeSession, info, summary, entries, offset, totalEntries, sessions, prompts, settings, memory, intelligence } = useStore();
   const [view, setView] = React.useState<View>("timeline");
   const [tab, setTab] = React.useState<Tab>("conversation");
   const [search, setSearch] = React.useState("");
@@ -841,6 +896,8 @@ function App(): React.JSX.Element {
           <SessionsPanel sessions={sessions} />
         ) : view === "memory" ? (
           <MemoryPanel memory={memory} />
+        ) : view === "intelligence" ? (
+          <IntelligencePanel intel={intelligence} />
         ) : view === "settings" ? (
           <SettingsPanel settings={settings} sessions={sessions} prompts={prompts} />
         ) : (

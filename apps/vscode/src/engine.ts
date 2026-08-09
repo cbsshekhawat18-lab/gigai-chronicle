@@ -17,21 +17,31 @@ import {
   capturedPromptByEvent,
   capturedPrompts,
   changesByPrompt,
+  fileRisk,
   listMemory,
   listPrompts,
   openWorkspace,
+  preflight,
+  projectHealth,
   promptHistory,
   promptUsage,
   replaySession,
   sessionEvents,
+  stuckWork,
+  technicalDebt,
+  unfinishedWork,
+  whyNot,
   type CapturedPrompt,
   type ContextPack,
   type MemoryItem,
+  type PreflightResult,
   type PromptUsageInfo,
   type ReplayFrame,
+  type RiskResult,
+  type WhyNot,
 } from "@gigaichronicle/core";
 import type { SessionId, WorkspaceId } from "@gigaichronicle/schema";
-import type { MemorySummary, PromptWithHistory, SessionListItem, SettingsInfo } from "./protocol.js";
+import type { IntelligenceSummary, MemorySummary, PromptWithHistory, SessionListItem, SettingsInfo } from "./protocol.js";
 
 /** One attributed prompt for the "why is this file like this?" view. */
 export interface WhyEntry {
@@ -231,6 +241,46 @@ export class ChronicleWorkspace {
     const stored = await listMemory(this.chronicleDir);
     if (stored.length > 0) return stored;
     return this.#withLog(async (log) => (await buildProjectContext(this.chronicleDir, log, path.dirname(this.chronicleDir), { budget: 999999 })).included);
+  }
+
+  // ---- Development Intelligence (Phase 9 / DI Phase 5-6) -------------------
+
+  /** Pre-flight briefing for a task (risk, contradictions, previous attempts). */
+  async preflight(task: string): Promise<PreflightResult> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return this.#withLog((log) => preflight(this.chronicleDir, log, repoRoot, task));
+  }
+
+  /** Negative knowledge for a file — what NOT to change and why. */
+  async whyNot(relativePath: string): Promise<WhyNot> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return this.#withLog((log) => whyNot(this.chronicleDir, log, repoRoot, relativePath));
+  }
+
+  /** Explainable risk for a file. */
+  async risk(relativePath: string): Promise<RiskResult> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return this.#withLog((log) => fileRisk(this.chronicleDir, log, repoRoot, relativePath));
+  }
+
+  /** Counts for the Development Intelligence dashboard panel. */
+  async intelligenceSummary(): Promise<IntelligenceSummary> {
+    return this.#withLog(async (log) => {
+      const [health, unfinished, stuck, debt] = await Promise.all([
+        projectHealth(this.chronicleDir, log),
+        unfinishedWork(this.chronicleDir, log),
+        stuckWork(this.chronicleDir, log),
+        technicalDebt(this.chronicleDir, log),
+      ]);
+      return {
+        health: health.overall,
+        warnings: health.warnings.length,
+        unfinished: unfinished.length,
+        stuck: stuck.length,
+        debt: debt.length,
+        topStuck: stuck[0]?.subject ?? null,
+      };
+    });
   }
 
   /** Counts by status/kind for the Project Memory dashboard panel. */

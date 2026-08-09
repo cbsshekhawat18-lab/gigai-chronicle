@@ -159,6 +159,24 @@
         "title": "Chronicle: Search Project Memory",
         "category": "Chronicle",
         "icon": "$(search)"
+      },
+      {
+        "command": "chronicle.preflight",
+        "title": "Chronicle: Pre-flight a change (risk + history)",
+        "category": "Chronicle",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "chronicle.whyNotFile",
+        "title": "Chronicle: Why NOT change this file?",
+        "category": "Chronicle",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "chronicle.riskFile",
+        "title": "Chronicle: Risk of this file",
+        "category": "Chronicle",
+        "icon": "$(warning)"
       }
     ],
     "menus": {
@@ -201,9 +219,19 @@
           "group": "chronicle@2"
         },
         {
+          "command": "chronicle.whyNotFile",
+          "when": "editorTextFocus && resourceScheme == file",
+          "group": "chronicle@3"
+        },
+        {
+          "command": "chronicle.riskFile",
+          "when": "editorTextFocus && resourceScheme == file",
+          "group": "chronicle@4"
+        },
+        {
           "command": "chronicle.savePromptFromEditor",
           "when": "editorTextFocus",
-          "group": "chronicle@3"
+          "group": "chronicle@5"
         }
       ],
       "commandPalette": [
