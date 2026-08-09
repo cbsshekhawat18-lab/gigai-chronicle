@@ -185,6 +185,50 @@ program
     process.exitCode = await runContextCommand(file, options, program.opts<{ json?: boolean }>());
   });
 
+const continuityOpts = <T extends import("commander").Command>(cmd: T): T =>
+  cmd
+    .option("--task <text>", "scope the briefing to a task")
+    .option("--file <path>", "scope the briefing to a file")
+    .option("--budget <n>", "approximate token budget for the pack")
+    .option("--since <ts>", "only memory updated at/after this ISO timestamp")
+    .option("--compact", "terser output")
+    .option("--full", "fuller output")
+    .option("--copy", "also place the output on the system clipboard")
+    .option("--include-local", "include local (private-derived) memory — owner-only") as T;
+
+continuityOpts(
+  program
+    .command("project <action>")
+    .description("project context: an AI-ready briefing from Project Memory (action: context)"),
+).action(async (action: string, options: Record<string, string | boolean | undefined>) => {
+  const { runProjectCommand } = await import("./commands/continuity.js");
+  process.exitCode = await runProjectCommand(action, options, program.opts<{ json?: boolean }>());
+});
+
+continuityOpts(
+  program.command("bootstrap").description("onboard a new AI agent to this project (rules + state + next step)"),
+).action(async (options: Record<string, string | boolean | undefined>) => {
+  const { runBootstrapCommand } = await import("./commands/continuity.js");
+  process.exitCode = await runBootstrapCommand(options, program.opts<{ json?: boolean }>());
+});
+
+continuityOpts(
+  program.command("continue").description("a ready-to-paste prompt to continue where the last session stopped"),
+).action(async (options: Record<string, string | boolean | undefined>) => {
+  const { runContinueCommand } = await import("./commands/continuity.js");
+  process.exitCode = await runContinueCommand(options, program.opts<{ json?: boolean }>());
+});
+
+continuityOpts(
+  program
+    .command("handoff")
+    .description("a development handoff, persisted into memory for the next agent")
+    .option("--objective <text>", "state the handoff objective explicitly"),
+).action(async (options: Record<string, string | boolean | undefined>) => {
+  const { runHandoffCommand } = await import("./commands/continuity.js");
+  process.exitCode = await runHandoffCommand(options, program.opts<{ json?: boolean }>());
+});
+
 program
   .command("restore <eventId>")
   .description("⏪ put your code back to how it was at a captured prompt (safety-checkpointed, ADR-0012)")

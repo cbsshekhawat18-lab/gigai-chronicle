@@ -193,6 +193,18 @@ export {
   type MemoryBuildResult,
   type MemoryConflict,
 } from "./memory/engine.js";
+export {
+  buildProjectContext,
+  type ProjectContext,
+  type ProjectContextOptions,
+} from "./memory/context.js";
+export {
+  buildBootstrap,
+  buildContinue,
+  buildHandoff,
+  type Continuity,
+  type ContinuityOptions,
+} from "./memory/continuity.js";
 // The seam: promote a prompt you already typed into the library (ADR-0014)
 export {
   capturedPrompts,
