@@ -54,5 +54,15 @@ export async function whyNot(
   const rank: Record<WhyNotReason["kind"], number> = { decision: 0, constraint: 1, failed_approach: 2, known_issue: 3 };
   reasons.sort((a, b) => rank[a.kind] - rank[b.kind]);
 
-  return { file, reasons, riskLevel: risk.level, empty: reasons.length === 0 };
+  // Dedup by text and cap — a single broad session shouldn't dump dozens of
+  // near-identical reasons; keep the strongest kinds (they sort first).
+  const seen = new Set<string>();
+  const deduped = reasons.filter((r) => {
+    const key = r.text.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 20);
+
+  return { file, reasons: deduped, riskLevel: risk.level, empty: deduped.length === 0 };
 }

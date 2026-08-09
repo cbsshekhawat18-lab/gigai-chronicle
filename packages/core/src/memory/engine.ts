@@ -52,7 +52,10 @@ const RULES: readonly Rule[] = [
   { kind: "failed_approach", factType: "rejected", base: 0.8, rejects: true, re: /\b(?:not going with|no longer using|dropped|removed|rejected|reverted|abandon(?:ed)?|scrap(?:ped)?)\b/i },
   // --- decisions -----------------------------------------------------------
   { kind: "decision", factType: "decision", base: 0.85, re: /\bdecided to\b/i },
-  { kind: "decision", factType: "decision", base: 0.85, re: /\b(?:we(?:'ll| will| are going to)|let'?s|i(?:'ll| will))\s+(?:use|go with|switch to|adopt|keep)\b/i },
+  // Narrow verbs that name a technical choice. NOT "keep" — it fires on
+  // conversational "I'll keep an eye on it"; the real "keep X in Y" decision is
+  // caught by the dedicated keep…in rule below.
+  { kind: "decision", factType: "decision", base: 0.85, re: /\b(?:we(?:'ll| will| are going to)|let'?s|i(?:'ll| will))\s+(?:use|go with|switch to|adopt)\b/i },
   { kind: "decision", factType: "decision", base: 0.8, re: /\bgoing with\b/i },
   { kind: "decision", factType: "decision", base: 0.8, re: /\bchose\b[^.]{0,60}\bover\b/i },
   { kind: "decision", factType: "decision", base: 0.7, re: /\bkeep\b[^.]{0,40}\bin\b/i },
