@@ -157,6 +157,25 @@ program
   });
 
 program
+  .command("memory <action> [id]")
+  .description("Project Memory: list|search|show|verify|rebuild|conflicts|stats (derived, model-free)")
+  .option("--type <kind>", "filter by memory kind (decision, todo, known_issue, …)")
+  .option("--status <status>", "filter by status (active, superseded, …)")
+  .option("--file <path>", "filter to items related to a file path")
+  .option("--since <ts>", "only items updated at/after this ISO timestamp")
+  .option("--include-local", "include local (private-derived) memory — an owner-only read")
+  .action(
+    async (
+      action: string,
+      id: string | undefined,
+      options: { type?: string; status?: string; file?: string; since?: string; includeLocal?: boolean },
+    ) => {
+      const { runMemoryCommand } = await import("./commands/memory.js");
+      process.exitCode = await runMemoryCommand(action, id, options, program.opts<{ json?: boolean }>());
+    },
+  );
+
+program
   .command("context <file>")
   .description("brief your AI tool: the prompts + decisions that shaped a file, as paste-ready Markdown")
   .option("--limit <n>", "max shaping prompts", "8")

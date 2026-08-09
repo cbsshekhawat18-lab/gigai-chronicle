@@ -8,3 +8,10 @@
 # opt-out for the public mirror. Remove it if you want this repo to dogfood
 # the shared-journey model in public again.
 sessions/
+
+# Derived Project Memory is generated from the sessions above — which this
+# public repo does not commit — so it is excluded here too, to guarantee no
+# dev-conversation content leaks in via a derived artifact. In a normal repo
+# `.chronicle/memory/` IS committed (it travels with the project); this is the
+# same deliberate, repo-specific opt-out as `sessions/` above.
+memory/
