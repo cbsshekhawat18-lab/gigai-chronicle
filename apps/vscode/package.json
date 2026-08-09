@@ -135,6 +135,30 @@
         "title": "Chronicle: Copy context pack (brief my AI tool)",
         "category": "Chronicle",
         "icon": "$(clippy)"
+      },
+      {
+        "command": "chronicle.prepareAiContext",
+        "title": "Chronicle: Prepare AI Context (bootstrap a new agent)",
+        "category": "Chronicle",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "chronicle.continueWork",
+        "title": "Chronicle: Continue Previous Work",
+        "category": "Chronicle",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "chronicle.createHandoff",
+        "title": "Chronicle: Create Handoff",
+        "category": "Chronicle",
+        "icon": "$(git-pull-request)"
+      },
+      {
+        "command": "chronicle.searchMemory",
+        "title": "Chronicle: Search Project Memory",
+        "category": "Chronicle",
+        "icon": "$(search)"
       }
     ],
     "menus": {

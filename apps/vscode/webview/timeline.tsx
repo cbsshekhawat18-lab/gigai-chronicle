@@ -12,7 +12,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
-import type { HostMessage, PromptWithHistory, SessionListItem, SettingsInfo } from "../src/protocol.js";
+import type { HostMessage, MemorySummary, PromptWithHistory, SessionListItem, SettingsInfo } from "../src/protocol.js";
 import type { StreamEntry, StreamSummary, ToolRunLite } from "../src/stream.js";
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
@@ -28,6 +28,7 @@ interface TimelineState {
   sessions: SessionListItem[];
   prompts: PromptWithHistory[];
   settings: SettingsInfo | null;
+  memory: MemorySummary | null;
   apply(message: HostMessage): void;
 }
 
@@ -41,12 +42,14 @@ const useStore = create<TimelineState>((set, get) => ({
   sessions: [],
   prompts: [],
   settings: null,
+  memory: null,
   apply: (message) => {
     if (message.kind === "snapshot") {
       set({
         sessions: message.data.sessions,
         ...(message.data.prompts !== undefined ? { prompts: message.data.prompts } : {}),
         ...(message.data.settings !== undefined ? { settings: message.data.settings } : {}),
+        ...(message.data.memory !== undefined ? { memory: message.data.memory } : {}),
       });
       return;
     }
@@ -204,11 +207,12 @@ const TABS: ReadonlyArray<[Tab, string]> = [
 ];
 const TAB_KIND: Record<Exclude<Tab, "conversation">, string> = { tools: "tools", git: "commit", files: "file", gaps: "gap" };
 
-type View = "timeline" | "sessions" | "prompts" | "settings";
+type View = "timeline" | "sessions" | "prompts" | "memory" | "settings";
 const NAV: ReadonlyArray<{ view: View; label: string; glyph: string; tab?: Tab }> = [
   { view: "timeline", label: "Timeline", glyph: "◷" },
   { view: "sessions", label: "Sessions", glyph: "▤" },
   { view: "prompts", label: "Prompts", glyph: "▷" },
+  { view: "memory", label: "Project Memory", glyph: "❖" },
   { view: "timeline", label: "Commits", glyph: "⎇", tab: "git" },
   { view: "timeline", label: "Files", glyph: "▦", tab: "files" },
   { view: "settings", label: "Settings", glyph: "⚙" },
@@ -683,8 +687,64 @@ function SettingsPanel({
   );
 }
 
+function MemoryPanel({ memory }: { memory: MemorySummary | null }): React.JSX.Element {
+  const btn: React.CSSProperties = {
+    fontSize: 12,
+    padding: "7px 12px",
+    borderRadius: 8,
+    cursor: "pointer",
+    border: `1px solid ${ACCENT}77`,
+    background: `${ACCENT}14`,
+    color: ACCENT,
+    fontWeight: 600,
+  };
+  const act = (action: "prepare" | "handoff" | "continue" | "search"): void =>
+    send({ kind: "memoryAction", action });
+  return (
+    <div style={styles.panel}>
+      <h2 style={styles.panelH}>Project Memory</h2>
+      <p style={styles.panelSub}>
+        What the project knows — decisions, constraints, issues, and unfinished work — derived from
+        your captured history, each traceable to its source. Model-free. Any AI agent can load this to
+        continue where the last one stopped.
+      </p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <button style={btn} onClick={() => act("prepare")}>🚀 Prepare AI Context</button>
+        <button style={btn} onClick={() => act("continue")}>▷ Continue</button>
+        <button style={btn} onClick={() => act("handoff")}>⇢ Create Handoff</button>
+        <button style={btn} onClick={() => act("search")}>🔍 Search</button>
+      </div>
+      {memory === null || memory.total === 0 ? (
+        <div style={styles.centerNote}>
+          No Project Memory yet. Run <code>chronicle memory rebuild</code> after some sessions — it fills
+          up from your captured history.
+        </div>
+      ) : (
+        <>
+          {memory.currentWork !== null && (
+            <div style={{ ...styles.card, cursor: "default" }}>
+              <div style={styles.cardTitle}>Current Work</div>
+              <div style={styles.meta}>{memory.currentWork}</div>
+            </div>
+          )}
+          <div style={{ ...styles.card, cursor: "default" }}>
+            <div style={styles.cardTitle}>What Chronicle knows</div>
+            <Row label="active decisions">{memory.activeDecisions}</Row>
+            <Row label="constraints">{memory.constraints}</Row>
+            <Row label="open TODOs">{memory.todos}</Row>
+            <Row label="known issues">{memory.knownIssues}</Row>
+            <Row label="failed / superseded approaches">{memory.failedApproaches}</Row>
+            <Row label="handoffs">{memory.handoffs}</Row>
+            <Row label="total memory items">{memory.total}</Row>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function App(): React.JSX.Element {
-  const { activeSession, info, summary, entries, offset, totalEntries, sessions, prompts, settings } = useStore();
+  const { activeSession, info, summary, entries, offset, totalEntries, sessions, prompts, settings, memory } = useStore();
   const [view, setView] = React.useState<View>("timeline");
   const [tab, setTab] = React.useState<Tab>("conversation");
   const [search, setSearch] = React.useState("");
@@ -779,6 +839,8 @@ function App(): React.JSX.Element {
           <PromptsPanel prompts={prompts} />
         ) : view === "sessions" ? (
           <SessionsPanel sessions={sessions} />
+        ) : view === "memory" ? (
+          <MemoryPanel memory={memory} />
         ) : view === "settings" ? (
           <SettingsPanel settings={settings} sessions={sessions} prompts={prompts} />
         ) : (

@@ -36,6 +36,37 @@ function stripScaffold(text: string): string {
   return noBom.startsWith(NEW_PROMPT_SCAFFOLD) ? noBom.slice(NEW_PROMPT_SCAFFOLD.length) : noBom;
 }
 
+/**
+ * Produce an AI briefing (bootstrap / continue / handoff), copy it to the
+ * clipboard, and offer a Markdown preview — the shared shape of the continuity
+ * commands (Phase 9).
+ */
+async function emitBriefing(
+  workspace: ChronicleWorkspace | null,
+  label: string,
+  produce: () => Promise<string> | undefined,
+  successNote: string,
+): Promise<void> {
+  if (workspace === null) {
+    void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+    return;
+  }
+  const md = await Promise.resolve(produce()).catch((error: unknown) => {
+    void vscode.window.showErrorMessage(`Chronicle ${label} failed: ${(error as Error).message}`);
+    return null;
+  });
+  if (md === null || md === undefined) return;
+  await vscode.env.clipboard.writeText(md);
+  const open = await vscode.window.showInformationMessage(
+    `Chronicle: ${successNote} — paste it to your AI tool.`,
+    "Preview",
+  );
+  if (open === "Preview") {
+    const doc = await vscode.workspace.openTextDocument({ language: "markdown", content: md });
+    await vscode.window.showTextDocument(doc, { preview: true });
+  }
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   // ---- Phase A (sync): register everything, render empty states ---------
   const sidebar = new SessionsViewProvider(context.extensionUri);
@@ -227,6 +258,34 @@ export function activate(context: vscode.ExtensionContext): void {
         const doc = await vscode.workspace.openTextDocument({ language: "markdown", content: pack.markdown });
         await vscode.window.showTextDocument(doc, { preview: true });
       }
+    }),
+    vscode.commands.registerCommand("chronicle.prepareAiContext", async () => {
+      await emitBriefing(workspace, "prepare AI context", () => workspace?.bootstrap(), "AI context prepared");
+    }),
+    vscode.commands.registerCommand("chronicle.continueWork", async () => {
+      await emitBriefing(workspace, "continue", () => workspace?.continueWork(), "continuation prompt copied");
+    }),
+    vscode.commands.registerCommand("chronicle.createHandoff", async () => {
+      await emitBriefing(workspace, "handoff", () => workspace?.handoff(), "handoff created + copied");
+    }),
+    vscode.commands.registerCommand("chronicle.searchMemory", async () => {
+      if (workspace === null) {
+        void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+        return;
+      }
+      const items = await workspace.memoryItems().catch(() => []);
+      if (items.length === 0) {
+        void vscode.window.showInformationMessage("Chronicle: no Project Memory yet — run `chronicle memory rebuild`.");
+        return;
+      }
+      const picked = await vscode.window.showQuickPick(
+        items.map((m) => ({ label: `[${m.kind}] ${m.title}`, description: `${m.status} · ${m.id}`, m })),
+        { placeHolder: "Search Project Memory (decisions, constraints, issues, failed approaches)…", matchOnDescription: true },
+      );
+      if (picked === undefined) return;
+      const md = `# ${picked.m.title}\n\n- kind: ${picked.m.kind}\n- status: ${picked.m.status}\n- confidence: ${picked.m.confidence}\n- sources: ${picked.m.sourceRefs.map((s) => `${s.session ?? "-"}/${s.event ?? "-"}`).join(", ")}\n\n${picked.m.content}\n`;
+      const doc = await vscode.workspace.openTextDocument({ language: "markdown", content: md });
+      await vscode.window.showTextDocument(doc, { preview: true });
     }),
     vscode.commands.registerCommand("chronicle.openTimeline", () => {
       TimelinePanel.show(context.extensionUri, workspace);

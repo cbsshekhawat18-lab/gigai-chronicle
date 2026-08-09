@@ -9,10 +9,15 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
   EventLog,
+  buildBootstrap,
   buildContextPack,
+  buildContinue,
+  buildHandoff,
+  buildProjectContext,
   capturedPromptByEvent,
   capturedPrompts,
   changesByPrompt,
+  listMemory,
   listPrompts,
   openWorkspace,
   promptHistory,
@@ -21,11 +26,12 @@ import {
   sessionEvents,
   type CapturedPrompt,
   type ContextPack,
+  type MemoryItem,
   type PromptUsageInfo,
   type ReplayFrame,
 } from "@gigaichronicle/core";
 import type { SessionId, WorkspaceId } from "@gigaichronicle/schema";
-import type { PromptWithHistory, SessionListItem, SettingsInfo } from "./protocol.js";
+import type { MemorySummary, PromptWithHistory, SessionListItem, SettingsInfo } from "./protocol.js";
 
 /** One attributed prompt for the "why is this file like this?" view. */
 export interface WhyEntry {
@@ -193,6 +199,55 @@ export class ChronicleWorkspace {
   async contextPack(relativePath: string): Promise<ContextPack> {
     const repoRoot = path.dirname(this.chronicleDir);
     return this.#withLog((log) => buildContextPack(this.chronicleDir, log, repoRoot, relativePath));
+  }
+
+  /** Onboard a new AI agent: rules + current state + next step (Phase 6). */
+  async bootstrap(): Promise<string> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return (await this.#withLog((log) => buildBootstrap(this.chronicleDir, log, repoRoot))).markdown;
+  }
+
+  /** A ready-to-paste "continue where we left off" prompt. */
+  async continueWork(): Promise<string> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return (await this.#withLog((log) => buildContinue(this.chronicleDir, log, repoRoot))).markdown;
+  }
+
+  /** A development handoff, persisted into memory for the next agent. */
+  async handoff(): Promise<string> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return (await this.#withLog((log) => buildHandoff(this.chronicleDir, log, repoRoot))).markdown;
+  }
+
+  /** A task-scoped AI briefing from Project Memory. */
+  async projectContext(task?: string): Promise<string> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    const opts = task !== undefined && task.trim() !== "" ? { task: task.trim() } : {};
+    return (await this.#withLog((log) => buildProjectContext(this.chronicleDir, log, repoRoot, opts))).markdown;
+  }
+
+  /** All memory items (persisted store, else freshly derived) — for the view + search. */
+  async memoryItems(): Promise<MemoryItem[]> {
+    const stored = await listMemory(this.chronicleDir);
+    if (stored.length > 0) return stored;
+    return this.#withLog(async (log) => (await buildProjectContext(this.chronicleDir, log, path.dirname(this.chronicleDir), { budget: 999999 })).included);
+  }
+
+  /** Counts by status/kind for the Project Memory dashboard panel. */
+  async memorySummary(): Promise<MemorySummary> {
+    const items = await this.memoryItems();
+    const active = (k: MemoryItem["kind"]): number =>
+      items.filter((m) => m.kind === k && m.status === "active").length;
+    return {
+      total: items.length,
+      currentWork: items.filter((m) => m.kind === "current_work").map((m) => m.content).slice(0, 1)[0] ?? null,
+      activeDecisions: active("decision"),
+      constraints: active("constraint"),
+      todos: items.filter((m) => m.kind === "todo" && m.status !== "resolved").length,
+      knownIssues: items.filter((m) => m.kind === "known_issue" && m.status !== "resolved").length,
+      failedApproaches: items.filter((m) => m.kind === "failed_approach" || (m.kind === "decision" && (m.status === "superseded" || m.status === "rejected"))).length,
+      handoffs: items.filter((m) => m.kind === "handoff").length,
+    };
   }
 
   /** One captured prompt's text by event id — behind the dashboard's Compare. */

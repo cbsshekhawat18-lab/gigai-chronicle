@@ -65,12 +65,13 @@ export class TimelinePanel {
   /** Re-push the sessions + library snapshot (e.g. after a prompt is saved). */
   async refreshSnapshot(): Promise<void> {
     if (this.#workspace === null) return;
-    const [sessions, prompts, settings] = await Promise.all([
+    const [sessions, prompts, settings, memory] = await Promise.all([
       this.#workspace.sessions(),
       this.#workspace.libraryPrompts(),
       this.#workspace.settings(),
+      this.#workspace.memorySummary().catch(() => undefined),
     ]);
-    await this.#post({ kind: "snapshot", v: 1, data: { sessions, prompts, settings } });
+    await this.#post({ kind: "snapshot", v: 1, data: { sessions, prompts, settings, memory } });
   }
 
   /** Show a session: build (and cache) its stream, send the LATEST window. */
@@ -146,6 +147,18 @@ export class TimelinePanel {
       await vscode.commands.executeCommand("chronicle.savePrompt");
       return;
     }
+    if (message.kind === "memoryAction") {
+      const cmd =
+        message.action === "prepare"
+          ? "chronicle.prepareAiContext"
+          : message.action === "handoff"
+            ? "chronicle.createHandoff"
+            : message.action === "continue"
+              ? "chronicle.continueWork"
+              : "chronicle.searchMemory";
+      await vscode.commands.executeCommand(cmd);
+      return;
+    }
     if (message.kind === "compareLibrary") {
       await vscode.commands.executeCommand(
         "chronicle.promptCompare",
@@ -163,12 +176,13 @@ export class TimelinePanel {
         return;
       }
       if (message.name === "sessions") {
-        const [sessions, prompts, settings] = await Promise.all([
+        const [sessions, prompts, settings, memory] = await Promise.all([
           this.#workspace.sessions(),
           this.#workspace.libraryPrompts(),
           this.#workspace.settings(),
+          this.#workspace.memorySummary().catch(() => undefined),
         ]);
-        await this.#post({ kind: "snapshot", v: 1, data: { sessions, prompts, settings } });
+        await this.#post({ kind: "snapshot", v: 1, data: { sessions, prompts, settings, memory } });
       } else if (message.name === "frames") {
         await this.showSession(message.args.session as SessionId);
       } else {
