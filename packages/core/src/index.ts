@@ -205,6 +205,7 @@ export {
   type Continuity,
   type ContinuityOptions,
 } from "./memory/continuity.js";
+export { AGENT_FILES, agentInstructions, type AgentFile } from "./memory/agents.js";
 // The seam: promote a prompt you already typed into the library (ADR-0014)
 export {
   capturedPrompts,

@@ -230,6 +230,15 @@ continuityOpts(
 });
 
 program
+  .command("agents <action>")
+  .description("write provider-neutral AI instruction files (AGENTS.md/CLAUDE.md/GEMINI.md); action: init")
+  .option("--force", "overwrite existing files (default: never clobber user-authored files)")
+  .action(async (action: string, options: { force?: boolean }) => {
+    const { runAgentsCommand } = await import("./commands/agents.js");
+    process.exitCode = await runAgentsCommand(action, options, program.opts<{ json?: boolean }>());
+  });
+
+program
   .command("restore <eventId>")
   .description("⏪ put your code back to how it was at a captured prompt (safety-checkpointed, ADR-0012)")
   .option("--force", "skip the confirmation (scripts)")

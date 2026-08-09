@@ -95,7 +95,9 @@ describe("chronicle context <file>", () => {
     expect(code).toBe(0);
     expect(stdout).toContain("# Context for auth.js");
     expect(stdout).toContain("let's use JWT");
-    expect(stdout).toContain("[decision]");
+    // The pack now surfaces state-aware Project Memory (the "why"), not just raw knowledge.
+    expect(stdout).toContain("Why this file looks the way it does");
+    expect(stdout).toContain("Active decisions");
     expect(stdout).toContain("never calls a model");
   });
 
