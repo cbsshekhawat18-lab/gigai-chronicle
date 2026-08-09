@@ -268,6 +268,11 @@ Explorer).
 | `chronicle prompt save\|list\|show\|versions\|diff\|use\|compare\|revert` | The prompt library: version control (`--note`, revert), lifecycle (`use`, ● used / ○ saved), cross-prompt compare |
 | `chronicle knowledge [--type decision\|todo] [--session <id>]` | The **decisions & TODOs** buried in your sessions, with provenance + confidence (model-free) |
 | `chronicle context <file> [--copy] [--limit <n>]` | **Brief your AI** — the prompts + decisions that shaped a file, as paste-ready Markdown |
+| `chronicle memory rebuild\|list\|search\|show\|verify\|conflicts\|stats` | **Project Memory** — derived, rebuildable project knowledge ([project-memory.md](project-memory.md)) |
+| `chronicle bootstrap · project context · continue · handoff · agents init` | **AI Continuity** — brief/continue any model ([ai-continuity.md](ai-continuity.md)) |
+| `chronicle preflight · postflight · risk · why-not · impact · scope` | **Development Intelligence** — safer changes ([development-intelligence.md](development-intelligence.md)) |
+| `chronicle repeat · stuck · unfinished · debt · drift · decisions` | Repeated mistakes, stalled/incomplete work, debt, decision drift/health |
+| `chronicle health · dna · memory-health · onboarding-test · story · heatmap · graph · learnings · thinking` | Project insight & "can a new AI understand this?" |
 | `chronicle inspect <id\|sha>` | The `git show` of Chronicle |
 | `chronicle session privatize\|promote <id>` | Move a session off the shared record, or back |
 | `chronicle import <provider>` | Backfill from existing transcripts |
