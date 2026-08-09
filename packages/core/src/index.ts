@@ -186,6 +186,13 @@ export {
   clearMemory,
   type ListMemoryOptions,
 } from "./memory/store.js";
+export {
+  buildMemory,
+  rebuildMemory,
+  type BuildMemoryOptions,
+  type MemoryBuildResult,
+  type MemoryConflict,
+} from "./memory/engine.js";
 // The seam: promote a prompt you already typed into the library (ADR-0014)
 export {
   capturedPrompts,
