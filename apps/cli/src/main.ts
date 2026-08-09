@@ -238,6 +238,39 @@ program
     process.exitCode = await runAgentsCommand(action, options, program.opts<{ json?: boolean }>());
   });
 
+// Development Intelligence — explainable, deterministic insight over history +
+// memory + git. Umbrella + signature top-level commands (the docs feature both).
+const intel = async (action: string, target: string | undefined, options: { file?: string; task?: string; since?: string }): Promise<void> => {
+  const { runIntelligenceCommand } = await import("./commands/intelligence.js");
+  process.exitCode = await runIntelligenceCommand(action, target, options, program.opts<{ json?: boolean }>());
+};
+
+program
+  .command("intelligence <action> [target]")
+  .description("development intelligence: risk|why-not|repeat (explainable, model-free)")
+  .option("--file <path>", "repeat: filter to a file")
+  .option("--task <text>", "repeat: filter to a task")
+  .option("--since <ts>", "repeat: only occurrences at/after this ISO timestamp")
+  .action((action: string, target: string | undefined, options: { file?: string; task?: string; since?: string }) => intel(action, target, options));
+
+program
+  .command("risk [file]")
+  .description("explainable risk score for a file (previous failures, active decisions, churn…)")
+  .action((file: string | undefined) => intel("risk", file, {}));
+
+program
+  .command("why-not <file>")
+  .description("negative knowledge: what should NOT change here, and why (decisions, failed approaches)")
+  .action((file: string) => intel("why-not", file, {}));
+
+program
+  .command("repeat")
+  .description("repeated problems detected across sessions (review before trying again)")
+  .option("--file <path>", "filter to a file")
+  .option("--task <text>", "filter to a task")
+  .option("--since <ts>", "only occurrences at/after this ISO timestamp")
+  .action((options: { file?: string; task?: string; since?: string }) => intel("repeat", undefined, options));
+
 program
   .command("restore <eventId>")
   .description("⏪ put your code back to how it was at a captured prompt (safety-checkpointed, ADR-0012)")
