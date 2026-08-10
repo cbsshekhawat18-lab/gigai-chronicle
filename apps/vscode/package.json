@@ -1,7 +1,7 @@
 {
   "name": "gigaichronicle-vscode",
   "version": "0.4.0",
-  "description": "Your AI development history — recorded in-repo, linked to git, replayable.",
+  "description": "AI development memory & intelligence in your repo — Project Memory, cross-model continuity (Claude, Codex, Gemini, Cursor), risk/why-not/preflight. Local-first, git-native, never calls a model.",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -20,9 +20,9 @@
     "package": "vsce package --no-dependencies --out gigaichronicle-vscode.vsix"
   },
   "dependencies": {
-    "@gigaichronicle/schema": "workspace:^",
     "@gigaichronicle/core": "workspace:^",
     "@gigaichronicle/provider-codex": "workspace:^",
+    "@gigaichronicle/schema": "workspace:^",
     "@gigaichronicle/ui": "workspace:^",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -30,13 +30,13 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "typescript": "catalog:",
-    "vitest": "catalog:",
-    "@types/vscode": "^1.90.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@types/vscode": "^1.90.0",
     "@vscode/vsce": "catalog:",
-    "esbuild": "catalog:"
+    "esbuild": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "displayName": "Gigai Chronicle",
   "publisher": "gigaichronicle",
@@ -51,15 +51,22 @@
   ],
   "keywords": [
     "ai",
-    "git",
-    "history",
-    "prompts",
-    "claude-code",
+    "llm",
+    "ai memory",
+    "project memory",
+    "ai continuity",
+    "development intelligence",
+    "claude code",
     "codex",
-    "openai",
-    "version-control",
+    "cursor",
+    "windsurf",
+    "gemini",
+    "ai agent",
+    "prompt history",
+    "context",
+    "git",
     "provenance",
-    "replay"
+    "local-first"
   ],
   "activationEvents": [
     "workspaceContains:.chronicle/config.json"

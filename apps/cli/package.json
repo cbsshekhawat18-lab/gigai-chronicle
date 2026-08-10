@@ -1,19 +1,27 @@
 {
   "name": "gigai-chronicle",
   "version": "0.4.0",
-  "description": "chronicle — your AI development history, recorded in-repo, linked to git, replayable. git blame says who; `chronicle why` says what was asked.",
+  "description": "Persistent development memory & intelligence for AI coding — Project Memory, cross-model AI continuity (Claude Code, Codex, Gemini, Cursor), risk & why-not. Local-first, git-native, model-free.",
   "license": "MIT",
   "author": "Gigai Kripa Services (https://gigaikripaservices.com)",
   "type": "module",
   "keywords": [
     "ai",
-    "git",
-    "history",
-    "prompts",
+    "llm",
+    "ai-agent",
+    "ai-memory",
+    "project-memory",
+    "ai-continuity",
+    "development-intelligence",
+    "context-engine",
     "claude-code",
     "codex",
-    "openai",
-    "version-control",
+    "cursor",
+    "windsurf",
+    "gemini",
+    "aider",
+    "prompts",
+    "git",
     "provenance",
     "local-first",
     "cli",
@@ -48,15 +56,15 @@
     "better-sqlite3": "catalog:"
   },
   "devDependencies": {
-    "@gigaichronicle/schema": "workspace:^",
     "@gigaichronicle/core": "workspace:^",
     "@gigaichronicle/provider-claude-code": "workspace:^",
     "@gigaichronicle/provider-codex": "workspace:^",
-    "commander": "catalog:",
+    "@gigaichronicle/schema": "workspace:^",
     "@types/node": "catalog:",
+    "commander": "catalog:",
+    "esbuild": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "esbuild": "catalog:"
+    "vitest": "catalog:"
   },
   "bin": {
     "chronicle": "./dist/main.js"
