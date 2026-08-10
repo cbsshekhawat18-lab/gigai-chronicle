@@ -301,5 +301,10 @@
   "galleryBanner": {
     "color": "#1b2430",
     "theme": "dark"
-  }
+  },
+  "homepage": "https://gigaikripaservices.com/gigai-chronicle/",
+  "bugs": {
+    "url": "https://github.com/cbsshekhawat18-lab/gigai-chronicle/issues"
+  },
+  "qna": "marketplace"
 }
