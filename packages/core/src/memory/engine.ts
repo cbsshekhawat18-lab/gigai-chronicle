@@ -157,6 +157,22 @@ function clamp(line: string, max: number): string {
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }
 
+/**
+ * Documentation / spec scaffolding — a heading, a list or numbered item, a
+ * tree-diagram line, an ALL-CAPS section label, or an intro ending in ":". These
+ * are the SHAPE of a pasted spec, not statements the project is making, so they
+ * must not be mined as decisions/constraints (which is what floods memory when a
+ * long instruction prompt is captured).
+ */
+function isScaffolding(line: string): boolean {
+  return (
+    /^#{1,6}\s/u.test(line) ||
+    /^(?:[-*•>|]|\d+[.)]|[│├└─])/u.test(line) ||
+    line.endsWith(":") ||
+    /^[A-Z0-9][A-Z0-9 ,&/'"\-]{6,}$/u.test(line)
+  );
+}
+
 interface Candidate {
   kind: MemoryKind;
   factType: FactType;
@@ -241,9 +257,13 @@ export async function buildMemory(
       }
     }
 
+    // One event isn't 50 project constraints — cap the low-signal kinds so a
+    // pasted spec/instruction dump can't flood memory with them.
+    const perEvent: Record<string, number> = { constraint: 0, requirement: 0 };
     for (const rawLine of body.split("\n")) {
       const line = rawLine.trim();
       if (line.length < 6) continue;
+      if (isScaffolding(line)) continue; // spec shape, not a project statement
       const negated = NEGATION.test(line);
       const question = line.endsWith("?");
       const tech = techTokens(line);
@@ -253,6 +273,10 @@ export async function buildMemory(
         // the rejection rules (which expect negation) may fire there.
         if ((negated || question) && rule.rejects !== true && rule.factType === "decision") continue;
         if (!rule.re.test(line)) continue;
+        if (rule.kind === "constraint" || rule.kind === "requirement") {
+          if ((perEvent[rule.kind] ?? 0) >= 3) break; // this event already hit its cap
+          perEvent[rule.kind] = (perEvent[rule.kind] ?? 0) + 1;
+        }
         const firm = rule.factType === "decision" || rule.factType === "constraint" || rule.factType === "requirement";
         candidates.push({
           kind: rule.kind,
