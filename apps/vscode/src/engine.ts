@@ -9,23 +9,39 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
   EventLog,
+  buildBootstrap,
   buildContextPack,
+  buildContinue,
+  buildHandoff,
+  buildProjectContext,
   capturedPromptByEvent,
   capturedPrompts,
   changesByPrompt,
+  fileRisk,
+  listMemory,
   listPrompts,
   openWorkspace,
+  preflight,
+  projectHealth,
   promptHistory,
   promptUsage,
   replaySession,
   sessionEvents,
+  stuckWork,
+  technicalDebt,
+  unfinishedWork,
+  whyNot,
   type CapturedPrompt,
   type ContextPack,
+  type MemoryItem,
+  type PreflightResult,
   type PromptUsageInfo,
   type ReplayFrame,
+  type RiskResult,
+  type WhyNot,
 } from "@gigaichronicle/core";
 import type { SessionId, WorkspaceId } from "@gigaichronicle/schema";
-import type { PromptWithHistory, SessionListItem, SettingsInfo } from "./protocol.js";
+import type { IntelligenceSummary, MemorySummary, PromptWithHistory, SessionListItem, SettingsInfo } from "./protocol.js";
 
 /** One attributed prompt for the "why is this file like this?" view. */
 export interface WhyEntry {
@@ -193,6 +209,95 @@ export class ChronicleWorkspace {
   async contextPack(relativePath: string): Promise<ContextPack> {
     const repoRoot = path.dirname(this.chronicleDir);
     return this.#withLog((log) => buildContextPack(this.chronicleDir, log, repoRoot, relativePath));
+  }
+
+  /** Onboard a new AI agent: rules + current state + next step (Phase 6). */
+  async bootstrap(): Promise<string> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return (await this.#withLog((log) => buildBootstrap(this.chronicleDir, log, repoRoot))).markdown;
+  }
+
+  /** A ready-to-paste "continue where we left off" prompt. */
+  async continueWork(): Promise<string> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return (await this.#withLog((log) => buildContinue(this.chronicleDir, log, repoRoot))).markdown;
+  }
+
+  /** A development handoff, persisted into memory for the next agent. */
+  async handoff(): Promise<string> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return (await this.#withLog((log) => buildHandoff(this.chronicleDir, log, repoRoot))).markdown;
+  }
+
+  /** A task-scoped AI briefing from Project Memory. */
+  async projectContext(task?: string): Promise<string> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    const opts = task !== undefined && task.trim() !== "" ? { task: task.trim() } : {};
+    return (await this.#withLog((log) => buildProjectContext(this.chronicleDir, log, repoRoot, opts))).markdown;
+  }
+
+  /** All memory items (persisted store, else freshly derived) — for the view + search. */
+  async memoryItems(): Promise<MemoryItem[]> {
+    const stored = await listMemory(this.chronicleDir);
+    if (stored.length > 0) return stored;
+    return this.#withLog(async (log) => (await buildProjectContext(this.chronicleDir, log, path.dirname(this.chronicleDir), { budget: 999999 })).included);
+  }
+
+  // ---- Development Intelligence (Phase 9 / DI Phase 5-6) -------------------
+
+  /** Pre-flight briefing for a task (risk, contradictions, previous attempts). */
+  async preflight(task: string): Promise<PreflightResult> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return this.#withLog((log) => preflight(this.chronicleDir, log, repoRoot, task));
+  }
+
+  /** Negative knowledge for a file — what NOT to change and why. */
+  async whyNot(relativePath: string): Promise<WhyNot> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return this.#withLog((log) => whyNot(this.chronicleDir, log, repoRoot, relativePath));
+  }
+
+  /** Explainable risk for a file. */
+  async risk(relativePath: string): Promise<RiskResult> {
+    const repoRoot = path.dirname(this.chronicleDir);
+    return this.#withLog((log) => fileRisk(this.chronicleDir, log, repoRoot, relativePath));
+  }
+
+  /** Counts for the Development Intelligence dashboard panel. */
+  async intelligenceSummary(): Promise<IntelligenceSummary> {
+    return this.#withLog(async (log) => {
+      const [health, unfinished, stuck, debt] = await Promise.all([
+        projectHealth(this.chronicleDir, log),
+        unfinishedWork(this.chronicleDir, log),
+        stuckWork(this.chronicleDir, log),
+        technicalDebt(this.chronicleDir, log),
+      ]);
+      return {
+        health: health.overall,
+        warnings: health.warnings.length,
+        unfinished: unfinished.length,
+        stuck: stuck.length,
+        debt: debt.length,
+        topStuck: stuck[0]?.subject ?? null,
+      };
+    });
+  }
+
+  /** Counts by status/kind for the Project Memory dashboard panel. */
+  async memorySummary(): Promise<MemorySummary> {
+    const items = await this.memoryItems();
+    const active = (k: MemoryItem["kind"]): number =>
+      items.filter((m) => m.kind === k && m.status === "active").length;
+    return {
+      total: items.length,
+      currentWork: items.filter((m) => m.kind === "current_work").map((m) => m.content).slice(0, 1)[0] ?? null,
+      activeDecisions: active("decision"),
+      constraints: active("constraint"),
+      todos: items.filter((m) => m.kind === "todo" && m.status !== "resolved").length,
+      knownIssues: items.filter((m) => m.kind === "known_issue" && m.status !== "resolved").length,
+      failedApproaches: items.filter((m) => m.kind === "failed_approach" || (m.kind === "decision" && (m.status === "superseded" || m.status === "rejected"))).length,
+      handoffs: items.filter((m) => m.kind === "handoff").length,
+    };
   }
 
   /** One captured prompt's text by event id — behind the dashboard's Compare. */

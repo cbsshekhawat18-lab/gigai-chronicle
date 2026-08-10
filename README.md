@@ -55,6 +55,23 @@ asked for** — and can put the code back to the moment before you asked.
 Plus a VS Code extension: history in the sidebar, prompt version history as a
 git-style graph, and **Why is this file like this?** in the editor.
 
+### Beyond `why` — memory & intelligence
+
+The captured journey becomes **persistent project knowledge** and **development
+intelligence** — all local, deterministic, and model-free (Chronicle never calls
+a model):
+
+| | |
+|---|---|
+| 🧠 **Project Memory** | Decisions, constraints, known issues, failed approaches — derived from history, each traceable to its source. `chronicle memory rebuild / list / verify` |
+| 🤝 **AI Continuity** | Any AI (Claude, Codex, Gemini, Cursor…) continues where the last stopped. `chronicle bootstrap / project context / continue / handoff` |
+| 🛡 **`chronicle preflight "<task>"`** | Before you code: risks, contradictions, previous attempts, a verdict |
+| ⊘ **`chronicle why-not <file>`** | Negative knowledge — what *not* to change, and why |
+| ⚠ **`chronicle risk <file>`** | An **explainable** risk score — every point a named signal |
+| ✦ **`chronicle health` · `onboarding-test`** | Project health · can a new AI understand this project? |
+
+New here? → **[Quick Start](docs/QUICKSTART.md)** · **[Why Chronicle?](docs/WHY-CHRONICLE.md)** · **[Features](docs/FEATURES.md)**
+
 ## Install
 
 Requires **Node ≥ 20.19** and **git**.
@@ -200,7 +217,14 @@ attribute lines. Replay is the team surface; `why` is your personal one.
 
 | Doc | What it is |
 |---|---|
+| [QUICKSTART.md](docs/QUICKSTART.md) | Up and running in 5 minutes |
+| [WHY-CHRONICLE.md](docs/WHY-CHRONICLE.md) | The problem, and how Chronicle is different |
+| [FEATURES.md](docs/FEATURES.md) | Every capability in plain English |
+| [COOKBOOK.md](docs/COOKBOOK.md) | Real-world recipes |
 | [GUIDE.md](docs/GUIDE.md) | The complete guide — what/why/how, install, workflows, FAQ |
+| [project-memory.md](docs/project-memory.md) · [ai-continuity.md](docs/ai-continuity.md) | Project Memory & AI Continuity |
+| [development-intelligence.md](docs/development-intelligence.md) · [context-engine.md](docs/context-engine.md) | Development Intelligence & the Context Engine |
+| [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Symptom → cause → solution |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | The technical spec — pipeline, event model, store format |
 | [privacy.md](docs/privacy.md) | The privacy model, in full |
 | [CAPTURE-SURFACES.md](docs/CAPTURE-SURFACES.md) | Every lawful capture mechanism, per tool, audited |

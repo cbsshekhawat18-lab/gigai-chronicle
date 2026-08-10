@@ -157,6 +157,25 @@ program
   });
 
 program
+  .command("memory <action> [id]")
+  .description("Project Memory: list|search|show|verify|rebuild|conflicts|stats (derived, model-free)")
+  .option("--type <kind>", "filter by memory kind (decision, todo, known_issue, …)")
+  .option("--status <status>", "filter by status (active, superseded, …)")
+  .option("--file <path>", "filter to items related to a file path")
+  .option("--since <ts>", "only items updated at/after this ISO timestamp")
+  .option("--include-local", "include local (private-derived) memory — an owner-only read")
+  .action(
+    async (
+      action: string,
+      id: string | undefined,
+      options: { type?: string; status?: string; file?: string; since?: string; includeLocal?: boolean },
+    ) => {
+      const { runMemoryCommand } = await import("./commands/memory.js");
+      process.exitCode = await runMemoryCommand(action, id, options, program.opts<{ json?: boolean }>());
+    },
+  );
+
+program
   .command("context <file>")
   .description("brief your AI tool: the prompts + decisions that shaped a file, as paste-ready Markdown")
   .option("--limit <n>", "max shaping prompts", "8")
@@ -165,6 +184,135 @@ program
     const { runContextCommand } = await import("./commands/context.js");
     process.exitCode = await runContextCommand(file, options, program.opts<{ json?: boolean }>());
   });
+
+const continuityOpts = <T extends import("commander").Command>(cmd: T): T =>
+  cmd
+    .option("--task <text>", "scope the briefing to a task")
+    .option("--file <path>", "scope the briefing to a file")
+    .option("--budget <n>", "approximate token budget for the pack")
+    .option("--since <ts>", "only memory updated at/after this ISO timestamp")
+    .option("--compact", "terser output")
+    .option("--full", "fuller output")
+    .option("--copy", "also place the output on the system clipboard")
+    .option("--include-local", "include local (private-derived) memory — owner-only") as T;
+
+continuityOpts(
+  program
+    .command("project <action>")
+    .description("project context: an AI-ready briefing from Project Memory (action: context)"),
+).action(async (action: string, options: Record<string, string | boolean | undefined>) => {
+  const { runProjectCommand } = await import("./commands/continuity.js");
+  process.exitCode = await runProjectCommand(action, options, program.opts<{ json?: boolean }>());
+});
+
+continuityOpts(
+  program.command("bootstrap").description("onboard a new AI agent to this project (rules + state + next step)"),
+).action(async (options: Record<string, string | boolean | undefined>) => {
+  const { runBootstrapCommand } = await import("./commands/continuity.js");
+  process.exitCode = await runBootstrapCommand(options, program.opts<{ json?: boolean }>());
+});
+
+continuityOpts(
+  program.command("continue").description("a ready-to-paste prompt to continue where the last session stopped"),
+).action(async (options: Record<string, string | boolean | undefined>) => {
+  const { runContinueCommand } = await import("./commands/continuity.js");
+  process.exitCode = await runContinueCommand(options, program.opts<{ json?: boolean }>());
+});
+
+continuityOpts(
+  program
+    .command("handoff")
+    .description("a development handoff, persisted into memory for the next agent")
+    .option("--objective <text>", "state the handoff objective explicitly"),
+).action(async (options: Record<string, string | boolean | undefined>) => {
+  const { runHandoffCommand } = await import("./commands/continuity.js");
+  process.exitCode = await runHandoffCommand(options, program.opts<{ json?: boolean }>());
+});
+
+program
+  .command("agents <action>")
+  .description("write provider-neutral AI instruction files (AGENTS.md/CLAUDE.md/GEMINI.md); action: init")
+  .option("--force", "overwrite existing files (default: never clobber user-authored files)")
+  .action(async (action: string, options: { force?: boolean }) => {
+    const { runAgentsCommand } = await import("./commands/agents.js");
+    process.exitCode = await runAgentsCommand(action, options, program.opts<{ json?: boolean }>());
+  });
+
+// Development Intelligence — explainable, deterministic insight over history +
+// memory + git. Umbrella + signature top-level commands (the docs feature both).
+const INTEL_CORE = new Set(["risk", "why-not", "repeat", "impact", "scope", "preflight", "postflight"]);
+const intel = async (action: string, target: string | undefined, options: { file?: string; task?: string; since?: string }): Promise<void> => {
+  const g = program.opts<{ json?: boolean }>();
+  if (INTEL_CORE.has(action)) {
+    const { runIntelligenceCommand } = await import("./commands/intelligence.js");
+    process.exitCode = await runIntelligenceCommand(action, target, options, g);
+  } else {
+    const { runInsightsCommand } = await import("./commands/insights.js");
+    process.exitCode = await runInsightsCommand(action, target, options, g);
+  }
+};
+
+program
+  .command("intelligence <action> [target]")
+  .description("development intelligence: risk|why-not|repeat (explainable, model-free)")
+  .option("--file <path>", "repeat: filter to a file")
+  .option("--task <text>", "repeat: filter to a task")
+  .option("--since <ts>", "repeat: only occurrences at/after this ISO timestamp")
+  .action((action: string, target: string | undefined, options: { file?: string; task?: string; since?: string }) => intel(action, target, options));
+
+program
+  .command("risk [file]")
+  .description("explainable risk score for a file (previous failures, active decisions, churn…)")
+  .action((file: string | undefined) => intel("risk", file, {}));
+
+program
+  .command("why-not <file>")
+  .description("negative knowledge: what should NOT change here, and why (decisions, failed approaches)")
+  .action((file: string) => intel("why-not", file, {}));
+
+program
+  .command("repeat")
+  .description("repeated problems detected across sessions (review before trying again)")
+  .option("--file <path>", "filter to a file")
+  .option("--task <text>", "filter to a task")
+  .option("--since <ts>", "only occurrences at/after this ISO timestamp")
+  .action((options: { file?: string; task?: string; since?: string }) => intel("repeat", undefined, options));
+
+program
+  .command("impact <file>")
+  .description("change impact radar: files that historically change with this one + its dependencies")
+  .action((file: string) => intel("impact", file, {}));
+
+program
+  .command("preflight <task>")
+  .description("before you code: decisions, previous attempts, contradictions, risk, tests, verdict")
+  .action((task: string) => intel("preflight", task, {}));
+
+program
+  .command("postflight")
+  .description("after you code: changed files, scope drift, new decisions/TODOs, status")
+  .action(() => intel("postflight", undefined, {}));
+
+program
+  .command("scope")
+  .description("scope drift: did the latest session change areas beyond its stated task?")
+  .action(() => intel("scope", undefined, {}));
+
+// Development-intelligence reports (each also reachable via `chronicle intelligence <action>`).
+program.command("drift").description("decision drift: active decisions the code may have outgrown").action(() => intel("drift", undefined, {}));
+program.command("decisions").description("decision health: age, drift, and conflicts across active decisions").action(() => intel("decision-health", undefined, {}));
+program.command("unfinished").description("work that looks started but not completed (confidence-labeled)").action(() => intel("unfinished", undefined, {}));
+program.command("stuck").description("tasks that appear stalled — repeated across sessions with no resolution").action(() => intel("stuck", undefined, {}));
+program.command("debt").description("technical debt discovered through development (with provenance)").action(() => intel("debt", undefined, {}));
+program.command("learnings").description("lessons derived from history — rejected/superseded approaches, resolved issues").action(() => intel("learnings", undefined, {}));
+program.command("thinking <task>").description("how your thinking on a task evolved (decisions, rejections, direction)").action((task: string) => intel("thinking", task, {}));
+program.command("story").description("a development narrative from your history").option("--since <ts>", "only since this ISO timestamp").action((options: { since?: string }) => intel("story", undefined, options));
+program.command("heatmap").description("where development activity concentrates (prompts + churn + repeated fixes)").action(() => intel("heatmap", undefined, {}));
+program.command("graph [file]").description("work graph connecting files, decisions, and issues").option("--task <text>", "scope to a task").action((file: string | undefined, options: { task?: string }) => intel("graph", file, options));
+program.command("health").description("overall project development health (explainable sub-metrics)").action(() => intel("health", undefined, {}));
+program.command("dna").description("this repository's development profile (derived from evidence)").action(() => intel("dna", undefined, {}));
+program.command("memory-health").description("is the project understandable to a new AI? (coverage + recommendations)").action(() => intel("memory-health", undefined, {}));
+program.command("onboarding-test").description("simulate a new AI entering the repo — readiness score + gaps").action(() => intel("onboarding-test", undefined, {}));
 
 program
   .command("restore <eventId>")

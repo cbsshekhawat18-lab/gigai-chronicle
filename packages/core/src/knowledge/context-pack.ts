@@ -13,6 +13,9 @@
  * the same pack the CLI does.
  */
 import { changesByPrompt } from "../attribution/why.js";
+import { buildMemory } from "../memory/engine.js";
+import type { MemoryItem } from "../memory/schema.js";
+import { listMemory } from "../memory/store.js";
 import type { EventLog } from "../store/event-log.js";
 import { extractKnowledge, resolveEventText, type KnowledgeItem } from "./knowledge.js";
 
@@ -29,6 +32,10 @@ export interface ContextPack {
   file: string;
   prompts: ContextPackPrompt[];
   knowledge: KnowledgeItem[];
+  /** Project Memory relevant to this file — the "why it looks like this" (§20):
+   *  active decisions, constraints, known issues, and failed approaches from the
+   *  sessions that shaped it. Empty until memory has been derived. */
+  memory: MemoryItem[];
   /** The assembled brief, ready to paste into an AI tool. */
   markdown: string;
   /** True when nothing was captured for this file — the pack is honestly empty. */
@@ -107,15 +114,54 @@ export async function buildContextPack(
   const knowledge =
     sessions.size > 0 ? await extractKnowledge(chronicleDir, log, { sessions: [...sessions] }) : [];
 
+  // Project Memory relevant to this file — the richer "why it looks like this":
+  // decisions (with current/superseded state), constraints, issues, failed
+  // approaches from the sessions that shaped it. Persisted store first, else
+  // derived fresh so the command works without a prior `memory rebuild`.
+  let memory: MemoryItem[] = [];
+  if (sessions.size > 0) {
+    let all = await listMemory(chronicleDir);
+    if (all.length === 0) all = (await buildMemory(chronicleDir, log)).items;
+    memory = all
+      .filter((m) => m.relatedSessions.some((s) => sessions.has(s)))
+      .filter((m) => m.kind !== "current_work" && m.kind !== "handoff");
+  }
+
   const empty = prompts.length === 0;
-  const markdown = renderMarkdown(file, prompts, knowledge, empty);
-  return { file, prompts, knowledge, markdown, empty };
+  const markdown = renderMarkdown(file, prompts, knowledge, memory, empty);
+  return { file, prompts, knowledge, memory, markdown, empty };
+}
+
+/** Group memory by section for the "why this file looks like this" block. */
+function renderMemory(memory: MemoryItem[], lines: string[]): void {
+  const groups: Array<{ heading: string; match: (m: MemoryItem) => boolean }> = [
+    { heading: "Active decisions", match: (m) => m.kind === "decision" && m.status === "active" },
+    { heading: "Constraints", match: (m) => m.kind === "constraint" && m.status !== "rejected" },
+    { heading: "Known issues", match: (m) => m.kind === "known_issue" && m.status !== "resolved" },
+    {
+      heading: "Failed / superseded approaches (do NOT repeat)",
+      match: (m) => m.kind === "failed_approach" || (m.kind === "decision" && (m.status === "superseded" || m.status === "rejected")),
+    },
+    { heading: "Open TODOs", match: (m) => m.kind === "todo" && m.status !== "resolved" },
+  ];
+  const shown = new Set<string>();
+  const sections = groups
+    .map((g) => ({ heading: g.heading, items: memory.filter((m) => g.match(m) && !shown.has(m.id) && shown.add(m.id)) }))
+    .filter((s) => s.items.length > 0);
+  if (sections.length === 0) return;
+  lines.push("", "## Why this file looks the way it does (Project Memory)", "");
+  for (const s of sections) {
+    lines.push(`**${s.heading}**`);
+    for (const m of s.items) lines.push(`- ${m.content}`);
+    lines.push("");
+  }
 }
 
 function renderMarkdown(
   file: string,
   prompts: ContextPackPrompt[],
   knowledge: KnowledgeItem[],
+  memory: MemoryItem[],
   empty: boolean,
 ): string {
   const lines: string[] = [`# Context for ${file}`, ""];
@@ -138,7 +184,11 @@ function renderMarkdown(
     lines.push(`${i + 1}. ${whenOf(p.ts)}  ${p.churn}  — ${text}`);
   });
 
-  if (knowledge.length > 0) {
+  // Prefer the richer, state-aware Project Memory; fall back to raw knowledge
+  // when memory hasn't been derived yet (keeps older behavior working).
+  if (memory.length > 0) {
+    renderMemory(memory, lines);
+  } else if (knowledge.length > 0) {
     lines.push("", "## Decisions & TODOs from these sessions", "");
     for (const k of knowledge) {
       lines.push(`- **[${k.kind}]** ${k.text}  _(${k.role}, ${whenOf(k.ts)})_`);

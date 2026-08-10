@@ -161,6 +161,99 @@ export {
   type ContextPackPrompt,
   type ContextPackOptions,
 } from "./knowledge/context-pack.js";
+// Project Memory — derived, rebuildable understanding of the project (what it
+// knows, why, what's current, what failed), with provenance back to events.
+export {
+  MEMORY_SCHEMA_VERSION,
+  MEMORY_KINDS,
+  MEMORY_STATUSES,
+  FACT_TYPES,
+  memoryId,
+  validateMemoryItem,
+  serializeMemory,
+  parseMemory,
+  type MemoryItem,
+  type MemoryKind,
+  type MemoryStatus,
+  type FactType,
+  type MemoryVisibility,
+  type MemorySource,
+} from "./memory/schema.js";
+export {
+  writeMemory,
+  readMemory,
+  listMemory,
+  clearMemory,
+  type ListMemoryOptions,
+} from "./memory/store.js";
+export {
+  buildMemory,
+  rebuildMemory,
+  type BuildMemoryOptions,
+  type MemoryBuildResult,
+  type MemoryConflict,
+} from "./memory/engine.js";
+export {
+  buildProjectContext,
+  type ProjectContext,
+  type ProjectContextOptions,
+} from "./memory/context.js";
+export {
+  buildBootstrap,
+  buildContinue,
+  buildHandoff,
+  type Continuity,
+  type ContinuityOptions,
+} from "./memory/continuity.js";
+export { AGENT_FILES, agentInstructions, type AgentFile } from "./memory/agents.js";
+// Development Intelligence — active insight over history + memory + git:
+// explainable risk, negative knowledge (why-not), repeated mistakes.
+export {
+  collectFileEvidence,
+  loadMemory,
+  levelOf,
+  scoreOf,
+  type Signal,
+  type Provenance,
+  type FileEvidence,
+} from "./intelligence/signals.js";
+export { fileRisk, riskSignals, type RiskResult } from "./intelligence/risk.js";
+export { whyNot, type WhyNot, type WhyNotReason } from "./intelligence/why-not.js";
+export { repeatedProblems, type RepeatedProblem, type RepeatOptions } from "./intelligence/repeat.js";
+export { keywords } from "./intelligence/signals.js";
+export { changeImpact, type ImpactResult, type AffectedFile } from "./intelligence/impact.js";
+export { scopeDrift, type ScopeResult } from "./intelligence/scope.js";
+export { preflight, type PreflightResult, type Contradiction } from "./intelligence/preflight.js";
+export { postflight, type PostflightResult } from "./intelligence/postflight.js";
+export {
+  decisionHealth,
+  decisionDrift,
+  learningsFrom,
+  type DecisionHealthReport,
+  type DecisionHealthItem,
+  type DriftItem,
+} from "./intelligence/decisions.js";
+export { unfinishedWork, stuckWork, type UnfinishedItem, type StuckItem } from "./intelligence/work.js";
+export { technicalDebt, type DebtItem } from "./intelligence/debt.js";
+export {
+  thinkingEvolution,
+  developmentStory,
+  type Thinking,
+  type ThinkingStep,
+  type Story,
+} from "./intelligence/insights.js";
+export { heatmap, workGraph, type HeatmapEntry, type GraphResult, type GraphEdge } from "./intelligence/heatmap.js";
+export {
+  projectHealth,
+  developmentDna,
+  memoryHealth,
+  onboardingTest,
+  type HealthReport,
+  type Metric,
+  type Dna,
+  type MemoryHealth,
+  type OnboardingTest,
+} from "./intelligence/health.js";
 // The seam: promote a prompt you already typed into the library (ADR-0014)
 export {
   capturedPrompts,

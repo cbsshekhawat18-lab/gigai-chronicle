@@ -20,6 +20,28 @@ export interface PromptWithHistory extends Prompt {
   lastUsedTs: string | null;
 }
 
+/** Development Intelligence summary for the dashboard panel (derived, read-only). */
+export interface IntelligenceSummary {
+  health: number;
+  warnings: number;
+  unfinished: number;
+  stuck: number;
+  debt: number;
+  topStuck: string | null;
+}
+
+/** Project Memory summary for the dashboard's Memory panel (derived, read-only). */
+export interface MemorySummary {
+  total: number;
+  currentWork: string | null;
+  activeDecisions: number;
+  constraints: number;
+  todos: number;
+  knownIssues: number;
+  failedApproaches: number;
+  handoffs: number;
+}
+
 /** Store configuration + posture for the Settings page (read from config.json,
  *  ADR-0009). Read-only projection — the dashboard never writes config. */
 export interface SettingsInfo {
@@ -80,7 +102,13 @@ export type HostMessage =
   | {
       kind: "snapshot";
       v: 1;
-      data: { sessions: SessionListItem[]; prompts?: PromptWithHistory[]; settings?: SettingsInfo };
+      data: {
+        sessions: SessionListItem[];
+        prompts?: PromptWithHistory[];
+        settings?: SettingsInfo;
+        memory?: MemorySummary;
+        intelligence?: IntelligenceSummary;
+      };
     }
   | { kind: "patch"; v: 1; data: ReplayWindow }
   | { kind: "reply"; v: 1; reqId: number; error?: string };
@@ -100,4 +128,6 @@ export type WebviewMessage =
   /** Diff two library prompts (cross-slug) in the native diff editor. */
   | { kind: "compareLibrary"; v: 1; aSlug: string; aVersion: number; bSlug: string; bVersion: number }
   /** Save a captured prompt into the library — the QuickPick flow, from the dashboard. */
-  | { kind: "savePrompt"; v: 1 };
+  | { kind: "savePrompt"; v: 1 }
+  /** Project Memory / Development Intelligence panel actions → run the command. */
+  | { kind: "memoryAction"; v: 1; action: "prepare" | "handoff" | "continue" | "search" | "preflight" | "whynot" | "risk" };

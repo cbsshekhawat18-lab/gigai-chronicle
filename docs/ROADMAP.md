@@ -113,6 +113,58 @@ the UI doesn't invent it):
       coding is context loss; Chronicle already captured the answer. Pure
       assembly — Chronicle never calls a model, it briefs the one you do.
 
+## Project Memory & AI Continuity *(built, in local review)*
+
+The layer that lets **any AI model continue a project without the developer
+re-explaining it**. Git remembers what changed; Chronicle events remember what
+was asked; **Project Memory remembers what the project knows** — and the Context
+Engine hands the next agent exactly what it needs. Derived, rebuildable,
+provenance-backed, model-free, local-first. See
+[project-memory.md](project-memory.md), [context-engine.md](context-engine.md),
+[ai-continuity.md](ai-continuity.md).
+
+- [x] **Project Memory** — decisions, constraints, requirements, known issues,
+      failed approaches, current work — derived from the event history with
+      deterministic rules, temporal supersession, conflict detection, and
+      provenance on every item. `chronicle memory rebuild|list|search|show|
+      verify|conflicts|stats`.
+- [x] **Context Engine** — `chronicle project context --task/--file/--budget`:
+      relevance-ranked, budget-fitted briefing that separates current state from
+      superseded/failed approaches.
+- [x] **AI continuity** — `chronicle bootstrap` (onboard a new agent),
+      `chronicle continue` (paste-ready continuation), `chronicle handoff`
+      (persisted for the next agent), and `chronicle agents init`
+      (AGENTS/CLAUDE/GEMINI.md). VS Code: a **Project Memory** panel + commands.
+- Provider-independent by construction; the golden cross-model handoff is
+  covered by tests. MCP is a deliberate deferral (Chronicle exposes no MCP yet;
+  the same reads are available via `--json`).
+
+## Development Intelligence *(built, in local review)*
+
+Chronicle stops being a passive recorder and starts *understanding the development
+process* — answering what Git, chat history, and generic AI memory cannot.
+Deterministic, model-free, explainable (every score is a sum of named signals with
+provenance), no false certainty. See
+[development-intelligence.md](development-intelligence.md).
+
+- [x] **`why-not <file>`** — negative knowledge: what NOT to change and why
+      ([negative-knowledge.md](negative-knowledge.md)).
+- [x] **`risk <file>`** — explainable 0–100 risk ([risk-engine.md](risk-engine.md)).
+- [x] **`impact <file>`** — change-impact radar from co-change history.
+- [x] **`repeat` / `stuck` / `unfinished`** — repeated mistakes, stalled work,
+      incomplete work (confidence-labeled).
+- [x] **`preflight "<task>"` / `postflight` / `scope`** — the safe-change bookends
+      ([preflight-postflight.md](preflight-postflight.md)).
+- [x] **`drift` / `decisions`** — decision drift & health
+      ([decision-drift.md](decision-drift.md)).
+- [x] **`debt` / `learnings` / `thinking` / `story` / `heatmap` / `graph`** —
+      project insights derived from history.
+- [x] **`health` / `dna` / `memory-health` / `onboarding-test`** — can a NEW AI
+      understand this project? (explainable, bounded scores).
+- [x] VS Code: a **Development Intelligence** panel + Pre-flight / Why-NOT / Risk
+      commands.
+- AI-hook auto pre/post-flight is designed opt-in and not enabled by default.
+
 ## Later
 
 - **Attempt clustering** — detect near-identical consecutive prompts and group
