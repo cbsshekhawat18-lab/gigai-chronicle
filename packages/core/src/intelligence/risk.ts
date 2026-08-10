@@ -43,7 +43,7 @@ export function riskSignals(evidence: FileEvidence): Signal[] {
   if (architectural > 0) {
     signals.push({
       code: "active-decision",
-      detail: `${architectural} active architectural decision(s)/constraint(s) depend on this file`,
+      detail: `${architectural} active architectural decision(s)/constraint(s) recorded for this file`,
       weight: Math.min(30, architectural * 10),
       provenance: memProvenance([...decisions, ...constraints]),
     });

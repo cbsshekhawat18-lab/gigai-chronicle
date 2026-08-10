@@ -57,6 +57,9 @@ export interface RepeatOptions {
   task?: string;
   /** Only occurrences at/after this ISO timestamp. */
   since?: string;
+  /** Owner-only: also read local (private) sessions. Default false — private
+   *  content must never surface in shared intelligence output. */
+  includeLocal?: boolean;
 }
 
 interface Occurrence {
@@ -79,6 +82,8 @@ export async function repeatedProblems(
   for await (const scanned of log.scan({ visibility: "all" })) {
     const event = scanned.event;
     if (event.type !== "PromptSubmitted" && event.type !== "PromptEdited") continue;
+    // Privacy: never read local (private) text into shared intelligence output.
+    if (event.meta.visibility === "local" && options.includeLocal !== true) continue;
     if (options.since !== undefined && event.ts < options.since) continue;
     const body = await resolveEventText(chronicleDir, scanned);
     if (body === null) continue;

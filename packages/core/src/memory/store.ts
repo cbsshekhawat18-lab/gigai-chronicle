@@ -108,8 +108,13 @@ export async function clearMemory(
   chronicleDir: string,
   options: { includeLocal?: boolean } = {},
 ): Promise<void> {
-  await rm(memoryRoot(chronicleDir, "shared"), { recursive: true, force: true });
-  if (options.includeLocal === true) {
-    await rm(memoryRoot(chronicleDir, "local"), { recursive: true, force: true });
+  const tiers: MemoryVisibility[] = options.includeLocal === true ? ["shared", "local"] : ["shared"];
+  for (const visibility of tiers) {
+    for (const kind of MEMORY_KINDS) {
+      // Handoffs are AUTHORED records (chronicle handoff), not derived — a
+      // rebuild must not destroy them. Every other kind is regenerated.
+      if (kind === "handoff") continue;
+      await rm(path.join(memoryRoot(chronicleDir, visibility), kind), { recursive: true, force: true });
+    }
   }
 }

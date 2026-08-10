@@ -6,6 +6,7 @@
  * the persisted store; `conflicts`/`verify` re-derive to report live integrity.
  * Model-free and local; every item carries provenance back to its events.
  */
+import { dirname as pathDirname } from "node:path";
 import {
   EventLog,
   buildMemory,
@@ -92,7 +93,8 @@ export async function runMemoryCommand(
 
   // ---- rebuild: re-derive from the event history, persist, report ----------
   if (action === "rebuild") {
-    const result = await withLog(chronicleDir, (log) => rebuildMemory(chronicleDir, log, { includeLocal }));
+    const repoRoot = pathDirname(chronicleDir);
+    const result = await withLog(chronicleDir, (log) => rebuildMemory(chronicleDir, log, { includeLocal, repoRoot }));
     if (global.json === true) {
       printJson("memory", { rebuilt: result.items.length, conflicts: result.conflicts.length });
       return EXIT_OK;

@@ -13,6 +13,7 @@ import {
   buildHandoff,
   buildProjectContext,
   listMemory,
+  rebuildMemory,
 } from "../src/index.js";
 import { WORKSPACE, makeTempChronicleDir, nextTs, promptEvent } from "./helpers/events.js";
 
@@ -128,5 +129,13 @@ describe("ai continuity — golden cross-model handoff", () => {
     // It was persisted — a later read finds it.
     const stored = await listMemory(dir);
     expect(stored.some((m) => m.kind === "handoff")).toBe(true);
+  });
+
+  it("a persisted handoff survives `memory rebuild` (authored, not derived)", async () => {
+    const { dir, open } = await goldenProject();
+    await withLog(open, (log) => buildHandoff(dir, log, "/tmp/p", { objective: "finish auth", now: "2026-02-01T00:00:00.000Z" }));
+    await withLog(open, (log) => rebuildMemory(dir, log)); // clears + re-derives everything else
+    const stored = await listMemory(dir);
+    expect(stored.some((m) => m.kind === "handoff")).toBe(true); // not destroyed by rebuild
   });
 });

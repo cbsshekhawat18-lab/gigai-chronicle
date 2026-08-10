@@ -42,13 +42,18 @@ Each entry: **symptom → cause → solution → verify.**
 - **Solution:** reload the window; click **Refresh** in the dashboard.
 - **Verify:** the Sessions / Project Memory / Dev Intelligence panels populate.
 
-## Memory looks noisy or over-attributed
-- **Cause:** extraction is deterministic and conservative, but quality tracks
-  capture granularity — one giant session that touched everything makes
-  file-scoped views broader than many small, focused sessions would.
-- **Solution:** capture in focused sessions; `chronicle memory rebuild` after the
-  fix. `chronicle memory verify` flags integrity problems.
-- **Verify:** `why-not`/`risk` on a file show the expected, deduped signals.
+## File `risk`/`why-not` looks broad (a README shows high risk)
+- **Cause:** file-scoped intelligence attributes a decision to the files its
+  *turn* changed, using **checkpoint** attribution. With normal per-prompt
+  capture (hooks running), each turn's diff is small → precise. If checkpoints
+  are sparse (e.g. a bulk `import`, or capture that ran intermittently), a single
+  checkpoint spans many prompts and files, so a turn's file set — and the
+  attribution — is broad.
+- **Solution:** run with `chronicle hooks install <provider>` so a checkpoint is
+  taken at every prompt, then `chronicle memory rebuild`. `chronicle memory
+  verify` flags integrity problems.
+- **Verify:** on a file changed in a focused, checkpointed turn, `why-not`/`risk`
+  show only that turn's decisions (project-level history stays out).
 
 ## "unresolved conflicts" in `memory verify`
 - **Cause:** two firm decisions on the same subject disagree and neither clearly

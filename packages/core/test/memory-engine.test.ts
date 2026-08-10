@@ -117,15 +117,41 @@ describe("memory engine — temporal state", () => {
     expect(items.find((i) => i.tags.includes("kafka"))?.status).toBe("active");
   });
 
-  it("records a genuine conflict when two firm decisions collide at the same moment", async () => {
+  it("records a conflict WITHOUT inventing a winner — both decisions stay active", async () => {
     const ts = "2026-03-01T09:00:00.000Z";
     const dir = await storeWith([
       promptEvent(SES, "let's use Auth0 for authentication", { ts }),
       promptEvent(SES, "let's use Clerk for authentication", { ts }),
     ]);
-    const { conflicts } = await build(dir);
+    const { items, conflicts } = await build(dir);
     expect(conflicts.length).toBe(1);
-    expect(conflicts[0]?.kind).toBe("decision");
+    // Neither is silently superseded by a hash tiebreak — the standoff is reported.
+    const both = items.filter((i) => i.kind === "decision" && (i.tags.includes("auth0") || i.tags.includes("clerk")));
+    expect(both.length).toBe(2);
+    expect(both.every((i) => i.status === "active")).toBe(true);
+  });
+
+  it("does NOT supersede two different decisions that merely share one noun", async () => {
+    const dir = await storeWith([
+      promptEvent(SES, "let's use PostgreSQL for user storage"),
+      promptEvent(SES, "let's use MongoDB for document storage"),
+    ]);
+    const { items } = await build(dir);
+    const pg = items.find((i) => i.kind === "decision" && i.tags.includes("postgres"));
+    const mongo = items.find((i) => i.kind === "decision" && i.tags.includes("mongo"));
+    // "user storage" and "document storage" are DIFFERENT subjects — both stay active.
+    expect(pg?.status).toBe("active");
+    expect(mongo?.status).toBe("active");
+  });
+
+  it("scopes an explicit rejection to its subject (rejecting Redis for A keeps Redis for B)", async () => {
+    const dir = await storeWith([
+      promptEvent(SES, "let's use Redis for session storage"),
+      promptEvent(SES, "for the rate limiter, in-memory instead of Redis"),
+    ]);
+    const { items } = await build(dir);
+    const sessionRedis = items.find((i) => i.kind === "decision" && i.content.toLowerCase().includes("session"));
+    expect(sessionRedis?.status).toBe("active"); // not retired by the rate-limiter rejection
   });
 });
 

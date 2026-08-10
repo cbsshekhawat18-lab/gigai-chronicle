@@ -14,6 +14,7 @@
  * PROPOSAL, never a decision. When two firm decisions collide and neither clearly
  * supersedes the other, we record a CONFLICT rather than inventing a winner.
  */
+import { changesByPrompt } from "../attribution/why.js";
 import type { EventLog } from "../store/event-log.js";
 import { resolveEventText } from "../knowledge/knowledge.js";
 import {
@@ -58,7 +59,9 @@ const RULES: readonly Rule[] = [
   { kind: "decision", factType: "decision", base: 0.85, re: /\b(?:we(?:'ll| will| are going to)|let'?s|i(?:'ll| will))\s+(?:use|go with|switch to|adopt)\b/i },
   { kind: "decision", factType: "decision", base: 0.8, re: /\bgoing with\b/i },
   { kind: "decision", factType: "decision", base: 0.8, re: /\bchose\b[^.]{0,60}\bover\b/i },
-  { kind: "decision", factType: "decision", base: 0.7, re: /\bkeep\b[^.]{0,40}\bin\b/i },
+  // "keep X in Y" is a decision only when Y names a technology — otherwise it's
+  // conversational filler ("keep in mind", "keep that in the back of your head").
+  { kind: "decision", factType: "decision", base: 0.7, requiresTech: true, re: /\bkeep\b[^.]{0,40}\bin\b/i },
   { kind: "decision", factType: "decision", base: 0.6, requiresTech: true, re: /\b(?:using|based on|built on|powered by)\b/i },
   { kind: "decision", factType: "proposal", base: 0.4, re: /\bwe should\b/i },
   { kind: "decision", factType: "proposal", base: 0.4, re: /\b(?:the (?:approach|plan|decision|design) (?:is|will be|was))\b/i },
@@ -139,6 +142,16 @@ function overlaps(a: Set<string>, b: Set<string>): boolean {
   return false;
 }
 
+/** True when one subject is a subset of (or equal to) the other — a precise
+ *  "same subject" test, so two decisions that merely share one noun ("storage")
+ *  are NOT treated as the same subject. */
+function subsetOrEqual(a: Set<string>, b: Set<string>): boolean {
+  if (a.size === 0 || b.size === 0) return false;
+  const [small, big] = a.size <= b.size ? [a, b] : [b, a];
+  for (const x of small) if (!big.has(x)) return false;
+  return true;
+}
+
 function clamp(line: string, max: number): string {
   const flat = line.replace(/\s+/gu, " ").trim();
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
@@ -161,6 +174,11 @@ interface Candidate {
 export interface BuildMemoryOptions {
   /** Also derive LOCAL memory from local-visibility events (owner-only read). */
   includeLocal?: boolean;
+  /** Repo root — when set, each item's `relatedFiles` is populated from the
+   *  checkpoint attribution of its source events, so file-scoped intelligence is
+   *  precise (a decision attaches to the files its turn changed, not to every
+   *  file its session touched). One git pass; skipped when omitted. */
+  repoRoot?: string;
 }
 
 /** Two firm active decisions that disagree and neither supersedes the other. */
@@ -255,7 +273,24 @@ export async function buildMemory(
   }
   if (latestHumanPrompt !== null) candidates.push(latestHumanPrompt);
 
-  return resolve(candidates);
+  const result = resolve(candidates);
+  if (options.repoRoot !== undefined) await populateRelatedFiles(options.repoRoot, result.items);
+  return result;
+}
+
+/** Attach each item's changed files, from the checkpoint attribution of its
+ *  source events (one git pass). Makes file-scoped intelligence precise. */
+async function populateRelatedFiles(repoRoot: string, items: MemoryItem[]): Promise<void> {
+  const changes = await changesByPrompt(repoRoot, { limit: 2000 });
+  const filesByEvent = new Map<string, string[]>();
+  for (const c of changes) {
+    filesByEvent.set(c.eventId, c.files.map((f) => f.path).filter((p) => !p.startsWith(".chronicle/")));
+  }
+  for (const item of items) {
+    const files = new Set<string>();
+    for (const evt of item.relatedEvents) for (const f of filesByEvent.get(evt) ?? []) files.add(f);
+    item.relatedFiles = [...files].sort();
+  }
 }
 
 function initialStatus(c: Candidate): MemoryStatusLite {
@@ -313,19 +348,30 @@ function resolve(candidates: Candidate[]): MemoryBuildResult {
   const items = [...byId.values()];
   const conflicts: MemoryConflict[] = [];
 
-  // 1) Explicit rejections retire any active decision naming the same technology.
-  const rejectedTech = new Set<string>();
-  for (const it of items) {
-    if (it.kind === "failed_approach") for (const t of meta.get(it.id)?.rejectTech ?? []) rejectedTech.add(t);
-  }
+  // 1) Explicit rejections retire an active decision only when it names the same
+  //    technology AND shares the rejection's subject — so rejecting Redis for the
+  //    rate limiter does NOT retire a valid Redis-for-sessions decision.
+  const rejections = items
+    .filter((it) => it.kind === "failed_approach")
+    .map((it) => meta.get(it.id))
+    .filter((m): m is NonNullable<typeof m> => m !== undefined)
+    .map((m) => ({ tech: m.rejectTech, subject: m.subject }));
   for (const it of items) {
     if (it.kind !== "decision" || it.status !== "active") continue;
-    if ([...(meta.get(it.id)?.tech ?? [])].some((x) => rejectedTech.has(x))) it.status = "superseded";
+    const m = meta.get(it.id);
+    if (m === undefined) continue;
+    const retired = rejections.some(
+      (r) => [...m.tech].some((t) => r.tech.has(t)) && subsetOrEqual(r.subject, m.subject),
+    );
+    if (retired) it.status = "superseded";
   }
 
-  // 2) Temporal supersession within a subject group: a later FIRM decision wins;
-  //    an earlier decision/proposal on the same subject is superseded by it.
-  //    A firm-vs-firm, different-tech, same-instant standoff is a CONFLICT.
+  // 2) Temporal supersession WITHIN THE SAME SUBJECT: a later firm decision wins;
+  //    an earlier decision/proposal on the same subject is superseded. Subjects
+  //    must be subset-or-equal (not merely share one noun) — "user storage" and
+  //    "document storage" are DIFFERENT decisions, not a supersession. A firm-vs-
+  //    firm, different-tech, same-instant standoff is a CONFLICT and leaves BOTH
+  //    active (we report it, we never invent a winner).
   const decisions = items
     .filter((it) => it.kind === "decision")
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
@@ -336,23 +382,24 @@ function resolve(candidates: Candidate[]): MemoryBuildResult {
     for (let j = 0; j < i; j++) {
       const earlier = decisions[j] as MemoryItem;
       const em = meta.get(earlier.id);
-      // A firm decision retires an earlier decision OR an earlier proposal
-      // (candidate) on the same subject — a chosen path supersedes what was
-      // merely considered before it.
       if (em === undefined || (earlier.status !== "active" && earlier.status !== "candidate") || later.status !== "active") continue;
-      if (!overlaps(lm.subject, em.subject)) continue;
-      earlier.status = "superseded";
-      earlier.supersededBy = later.id;
-      later.supersedes = earlier.id;
+      if (!subsetOrEqual(lm.subject, em.subject)) continue;
       const differentTech = lm.tech.size > 0 && em.tech.size > 0 && ![...lm.tech].some((x) => em.tech.has(x));
-      if (differentTech && em.factType === "decision" && em.role === "human" && lm.role === "human" && earlier.createdAt === later.createdAt) {
+      const isConflict =
+        differentTech && em.factType === "decision" && em.role === "human" && lm.role === "human" && earlier.createdAt === later.createdAt;
+      if (isConflict) {
+        // Genuine standoff — record it, leave both active. Never pick by hash.
         conflicts.push({
           kind: "decision",
           subject: [...lm.subject].sort().join(" ") || "(unknown)",
           a: { id: earlier.id, title: earlier.title },
           b: { id: later.id, title: later.title },
         });
+        continue;
       }
+      earlier.status = "superseded";
+      earlier.supersededBy = later.id;
+      later.supersedes = earlier.id;
     }
   }
 

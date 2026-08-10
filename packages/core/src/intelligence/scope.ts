@@ -36,6 +36,8 @@ export async function scopeDrift(
   const firstPrompt = new Map<string, string>();
   for await (const scanned of log.scan({ visibility: "all" })) {
     const event = scanned.event;
+    // Privacy: never read local (private) text into shared intelligence output.
+    if (event.meta.visibility === "local") continue;
     const ses = event.session ?? null;
     if (ses === null) continue;
     if (options.session === undefined) target = ses; // default: last session seen

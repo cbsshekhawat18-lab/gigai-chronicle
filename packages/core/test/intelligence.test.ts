@@ -136,6 +136,23 @@ describe("intelligence — repeated-mistake detection", () => {
     expect(problems.find((p) => p.subject.includes("idempotency"))?.resolved).toBe(true);
   });
 
+  it("PRIVACY: never surfaces local (private) session content by default", async () => {
+    const localPrompt = (ses: SessionId, text: string): ChronicleEvent =>
+      promptEvent(ses, text, {
+        meta: { provider: "example-tool@1.0.0", workspace: WORKSPACE, schema: "PromptSubmitted/1", visibility: "local" },
+      });
+    const dir = await withEvents([
+      localPrompt(s("A"), "fix the AcmeSecret valuation race condition"),
+      localPrompt(s("B"), "fix the AcmeSecret valuation race condition"),
+    ]);
+    // Default (shared) must NOT leak private content into intelligence output.
+    const shared = await repeat(dir);
+    expect(shared.some((p) => p.subject.includes("acmesecret"))).toBe(false);
+    // The owner can opt in explicitly.
+    const owner = await repeat(dir, { includeLocal: true });
+    expect(owner.some((p) => p.subject.includes("acmesecret"))).toBe(true);
+  });
+
   it("--task filters to matching subjects", async () => {
     const dir = await withEvents([
       promptEvent(s("A"), "Fix the authentication race condition"),

@@ -83,7 +83,12 @@ export async function collectFileEvidence(
   }
 
   const all = await loadMemory(chronicleDir, log);
-  const memory = all.filter((m) => m.relatedSessions.some((s) => sessions.has(s)));
+  // Attribute memory to a file ONLY via precise file evidence (relatedFiles,
+  // populated at rebuild from checkpoint attribution). We deliberately do NOT
+  // fall back to session overlap: a decision made in a broad session that merely
+  // touched this file is not "about" this file, and attributing it would inflate
+  // risk (e.g. make a README look high-risk). No evidence → honestly no signal.
+  const memory = all.filter((m) => m.relatedFiles.includes(file));
 
   return {
     file,
