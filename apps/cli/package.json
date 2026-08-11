@@ -1,6 +1,6 @@
 {
   "name": "gigai-chronicle",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Persistent development memory & intelligence for AI coding — Project Memory, cross-model AI continuity (Claude Code, Codex, Gemini, Cursor), risk & why-not. Local-first, git-native, model-free.",
   "license": "MIT",
   "author": "Gigai Kripa Services (https://gigaikripaservices.com)",
