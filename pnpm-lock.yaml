@@ -10,7 +10,7 @@ catalogs:
       specifier: ^7.6.0
       version: 7.6.13
     '@types/node':
-      specifier: ^26.1.2
+      specifier: ^26.2.0
       version: 26.2.0
     '@types/react':
       specifier: ^19.0.0
