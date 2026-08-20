@@ -6,7 +6,7 @@ packages:
 
 # Single source of truth for shared toolchain versions (pnpm catalogs).
 catalog:
-  "@types/node": "^26.1.2"
+  "@types/node": "^26.2.0"
   typescript: "^5.6.0"
   vitest: "^4.1.10"
   fast-check: "^4.0.0"
@@ -21,7 +21,7 @@ catalog:
   better-sqlite3: "^12.0.0"
   "@types/better-sqlite3": "^7.6.0"
   commander: "^15.0.0"
-  esbuild: "^0.28.1"
+  esbuild: "^0.28.2"
 
 # pnpm 10 blocks dependency build scripts by default; esbuild (vitest's
 # transform engine) is the only approved one. Additions require review.
