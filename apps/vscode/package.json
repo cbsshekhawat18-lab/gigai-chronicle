@@ -32,7 +32,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@types/vscode": "^1.90.0",
+    "@types/vscode": "^1.134.0",
     "@vscode/vsce": "catalog:",
     "esbuild": "catalog:",
     "typescript": "catalog:",
