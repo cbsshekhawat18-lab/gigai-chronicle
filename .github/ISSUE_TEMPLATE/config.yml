@@ -1,5 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability
     url: https://github.com/cbsshekhawat18-lab/gigai-chronicle/security/advisories/new
     about: Never file security issues publicly — use private reporting (see SECURITY.md).
+  - name: Question or usage help
+    url: https://github.com/cbsshekhawat18-lab/gigai-chronicle#readme
+    about: Not a bug? Start with the README and docs before opening an issue.

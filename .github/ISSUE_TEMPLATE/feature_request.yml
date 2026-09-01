@@ -1,0 +1,60 @@
+name: Feature request
+description: Propose something new (read the gate first)
+title: "[Feature]: "
+labels: ["type:feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        New ideas are welcome; silent scope creep is not
+        ([IMPLEMENTATION-MODE.md](../../docs/IMPLEMENTATION-MODE.md)).
+  - type: checkboxes
+    id: gate
+    attributes:
+      label: The gate
+      description: Please confirm before proposing.
+      options:
+        - label: >-
+            I checked [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) and the
+            [milestone epics](../../docs/issues/README.md) — this isn't already
+            planned (if it is, link it below and this becomes a scheduling
+            request, not a design one).
+          required: true
+        - label: >-
+            I understand that an architecture change needs an ADR proposal
+            ([docs/adr/](../../docs/adr/README.md)) — a maintainer will convert
+            it if needed.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem (the pain, not the solution)
+      description: What problem would this solve? Who feels it?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe what you'd like to happen.
+    validations:
+      required: true
+  - type: checkboxes
+    id: design-laws
+    attributes:
+      label: Which design laws does it touch?
+      description: See ARCHITECTURE.md §2. Tick any this proposal affects.
+      options:
+        - label: Zero-network by default (never calls a model, never phones home)
+        - label: Append-only truth (events are immutable; the store is the source)
+        - label: Provenance-required (every derived fact links back to its source)
+        - label: No surveillance (local-visibility content never leaks into shared memory)
+        - label: Local-first / git-native (travels by `git clone`, plain text)
+  - type: input
+    id: prior-art
+    attributes:
+      label: Already specced or discussed?
+      description: Link an ADR, milestone, issue, or doc section if one exists.
+      placeholder: docs/adr/0013-... / #123
+    validations:
+      required: false

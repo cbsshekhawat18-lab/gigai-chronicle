@@ -1,0 +1,104 @@
+name: Bug report
+description: Something broke, lost data, or lied about confidence
+title: "[Bug]: "
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please fill out the sections below so we can
+        reproduce and fix it quickly.
+
+        **Suspected security issue?** STOP — do not file it publicly. Use
+        private reporting (see [SECURITY.md](../../SECURITY.md)).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: A clear description of the bug.
+      placeholder: After `chronicle hooks install claude-code`, prompts aren't being captured ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: What should have happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: >-
+        The smallest repo/steps that shows it. For capture bugs, say which
+        provider and which tier (`chronicle status` shows this).
+      placeholder: |
+        1. `chronicle init`
+        2. `chronicle hooks install claude-code`
+        3. Run a prompt in Claude Code
+        4. `chronicle status` shows 0 events ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of Chronicle?
+      options:
+        - Capture / hooks (Claude Code, Codex, ...)
+        - Store (.chronicle events / integrity)
+        - Replay
+        - Project Memory
+        - Development Intelligence (risk / why-not / preflight)
+        - CLI
+        - VS Code / Cursor / Windsurf extension
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did you hit it?
+      options:
+        - CLI
+        - Extension
+        - Both
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node version, and the Chronicle version (`chronicle --version`).
+      placeholder: |
+        - OS: macOS 15
+        - Node: 20.19.0
+        - Chronicle: 0.4.1
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: chronicle doctor output
+      description: >-
+        Paste `chronicle doctor` output. It never contains secrets or file
+        contents by design — redact anything you like anyway.
+      render: shell
+    validations:
+      required: false
+  - type: dropdown
+    id: trust-impact
+    attributes:
+      label: Data-loss or trust impact?
+      description: >-
+        Did this lose events, corrupt the store, mislink a commit, or surface
+        something it shouldn't? These are P0 by policy.
+      options:
+        - "No — behaviour/UX bug"
+        - "Yes — lost or corrupted events"
+        - "Yes — wrong git/commit attribution"
+        - "Yes — memory/intelligence said something untrue or leaked local data"
+    validations:
+      required: true
