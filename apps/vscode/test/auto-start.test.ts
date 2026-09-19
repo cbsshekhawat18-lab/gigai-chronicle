@@ -12,10 +12,11 @@ import { ChronicleWorkspace } from "../src/engine.js";
 import { aiToolInUse, planAutoStart, startChronicle, type AutoStartInput } from "../src/auto-start.js";
 
 const dirs: string[] = [];
-const realHome = process.env["HOME"];
+const realHome = { HOME: process.env["HOME"], USERPROFILE: process.env["USERPROFILE"] };
 afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-  process.env["HOME"] = realHome;
+  process.env["HOME"] = realHome.HOME;
+  process.env["USERPROFILE"] = realHome.USERPROFILE;
 });
 
 function tempRepo(): string {
@@ -29,12 +30,18 @@ function tempRepo(): string {
   return dir;
 }
 
-/** A HOME the test owns, so tool detection is the test's property, not the machine's. */
+/**
+ * A home directory the test owns, so tool detection is the test's property and
+ * not the machine's. Both variables: `os.homedir()` reads HOME on POSIX and
+ * USERPROFILE on Windows, and setting only one passes locally then fails on
+ * the Windows leg of the matrix.
+ */
 function useHome(withClaudeCode: boolean): void {
   const home = mkdtempSync(path.join(tmpdir(), "chronicle autostart home "));
   dirs.push(home);
   if (withClaudeCode) mkdirSync(path.join(home, ".claude"));
   process.env["HOME"] = home;
+  process.env["USERPROFILE"] = home;
 }
 
 const ready: AutoStartInput = {
