@@ -15,7 +15,34 @@ This file is a high-level, human-readable index across the whole project:
 
 ## [Unreleased]
 
-_Nothing released yet. Changes land here via Changesets before the next tagged release._
+_Nothing released yet. Changes land here before the next tagged release._
+
+## [0.5.0] — 2026-09-19
+
+**Chronicle starts itself.** Setting a project up was two commands, and the
+second one — `chronicle hooks install claude-code` — was the one nobody ran.
+Skipping it produced a project that looked initialized, reported
+`capture claude-code:auto`, and recorded nothing.
+
+- **`chronicle init` now starts capture**, wiring the hooks in the same command.
+  Only for a detected tool, skipped when user-scope hooks already cover the repo
+  (installing at both scopes doubles every event), `--no-hooks` to opt out, and
+  `.claude/settings.json` listed in init's footprint.
+- **The extension starts a project on its own.** Open a git repo you already
+  work on with an AI tool and Chronicle begins recording it; anywhere else it
+  asks once — "Start recording" / "Not now" / "Never here", remembered per
+  workspace. `chronicle.autoStart` (`auto` · `ask` · `off`) settles it either
+  way. Untrusted workspaces and non-git folders are never written to.
+- **`chronicle status` reports the wiring, not the intent** — a new `hooks` line
+  says `NOT INSTALLED — nothing is being recorded` instead of leaving a silent
+  project looking healthy.
+- **Chronicle: Start recording this project** in the command palette, a sidebar
+  empty state that offers to start instead of suggesting `chronicle import` for
+  a project that doesn't exist yet, and store watchers that attach to a project
+  started mid-session — no window reload.
+
+npm note: 0.4.0 and 0.4.1 shipped to the VS Code Marketplace and Open VSX only,
+so this release also brings the npm CLI up from 0.3.0.
 
 ## [0.4.1] — 2026-08-11
 
