@@ -1,5 +1,21 @@
 # gigaichronicle-vscode
 
+## 0.5.0
+
+**Chronicle starts itself.** Open a git repo you already work on with an AI
+tool and the extension begins recording it. Anywhere else it asks once —
+**Start recording** / **Not now** / **Never here** — and remembers your answer
+for that workspace. `chronicle.autoStart` (`auto` · `ask` · `off`) settles it
+either way. Untrusted workspaces and non-git folders are never written to.
+
+- New command: **Chronicle: Start recording this project**.
+- The sidebar now offers to start a project instead of suggesting a backfill
+  for a project that does not exist yet.
+- A project started mid-session updates live — no window reload.
+- Starting creates `.chronicle/` and wires the capture hooks into
+  `.claude/settings.json`, exactly as `chronicle init` does. Everything stays
+  on your machine.
+
 ## 0.1.0
 
 ### Minor Changes

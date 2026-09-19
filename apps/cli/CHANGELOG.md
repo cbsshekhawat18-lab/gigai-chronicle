@@ -1,4 +1,20 @@
-# @gigaichronicle/cli
+# gigai-chronicle
+
+## 0.5.0
+
+**`chronicle init` now starts capture.** Wiring the hooks was a second command
+(`chronicle hooks install claude-code`) that was easy to miss — and skipping it
+left a project that looked initialized, reported `capture claude-code:auto`,
+and recorded nothing.
+
+- `init` installs the capture hooks for a detected tool, skips it when
+  user-scope hooks already cover the repo, opts out with `--no-hooks`, and
+  lists `.claude/settings.json` in its reported footprint.
+- `status` gains a `hooks` line that reports the wiring rather than the intent:
+  `NOT INSTALLED — nothing is being recorded`.
+
+Note: 0.4.0 and 0.4.1 shipped to the VS Code Marketplace and Open VSX only, so
+this release brings the npm CLI up from 0.3.0.
 
 ## 0.1.0
 

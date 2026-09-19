@@ -5,5 +5,7 @@ scripts/**
 tsconfig*.json
 vitest.config.ts
 node_modules/**
+.turbo/**
+*.vsix
 !dist/**
 !media/**
