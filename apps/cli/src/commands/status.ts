@@ -30,6 +30,10 @@ export async function runStatusCommand(global: { json?: boolean }): Promise<numb
       mode,
       support: SUPPORTED_PROVIDERS.has(id) ? "available" : "arrives-later",
     }));
+    // `claude-code:auto` is CONFIG, not proof of capture: without the hooks
+    // nothing is ever recorded and the project still looks healthy. Report
+    // the wiring, not the intent.
+    const hooks = await hookState(path.dirname(chronicleDir), providers);
 
     if (global.json === true) {
       printJson("status", {
@@ -37,7 +41,7 @@ export async function runStatusCommand(global: { json?: boolean }): Promise<numb
         identity: { foreignRepo: workspace.foreignRepo, shallow: workspace.shallow },
         store: { events: freshness.eventsInLog, sessions: sessions.length },
         index: { fresh: freshness.fresh, eventsIndexed: freshness.eventsIndexed },
-        capture: { providers },
+        capture: { providers, hooks },
       });
     } else {
       const providerLine =
@@ -55,6 +59,15 @@ export async function runStatusCommand(global: { json?: boolean }): Promise<numb
           `events    ${freshness.eventsInLog} recorded · ${sessions.length} session(s)`,
           `index     ${freshness.fresh ? "fresh" : "STALE"} (${freshness.eventsIndexed} indexed)`,
           `capture   ${providerLine}`,
+          ...(hooks.expected
+            ? [
+                `hooks     ${
+                  hooks.installed
+                    ? `installed (${hooks.scope} scope) — capture is live`
+                    : "NOT INSTALLED — nothing is being recorded (`chronicle hooks install claude-code`)"
+                }`,
+              ]
+            : []),
         ].join("\n"),
       );
     }
@@ -62,6 +75,28 @@ export async function runStatusCommand(global: { json?: boolean }): Promise<numb
   } finally {
     index.close();
     await log.close();
+  }
+}
+
+/**
+ * Are the Claude Code capture hooks actually wired? `expected` is false when
+ * no supported provider is enabled, so an intentionally capture-free project
+ * isn't nagged.
+ */
+async function hookState(
+  workspaceRoot: string,
+  providers: Array<{ id: string; mode: string; support: string }>,
+): Promise<{ expected: boolean; installed: boolean; scope: "project" | "user" | null }> {
+  const expected = providers.some(
+    (p) => p.id === "claude-code" && p.support === "available" && p.mode !== "off",
+  );
+  if (!expected) return { expected: false, installed: false, scope: null };
+  try {
+    const { captureState } = await import("@gigaichronicle/provider-claude-code");
+    const state = captureState(workspaceRoot);
+    return { expected: true, installed: state.live, scope: state.scope };
+  } catch {
+    return { expected: false, installed: false, scope: null }; // can't tell — don't claim
   }
 }
 

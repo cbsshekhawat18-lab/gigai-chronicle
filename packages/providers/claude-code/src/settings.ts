@@ -71,6 +71,48 @@ export function installHooks(file: string): boolean {
   return changed;
 }
 
+export interface WireCaptureResult {
+  /** Workspace-relative settings file we wrote, or null when we wrote none. */
+  file: string | null;
+  /** True when capture is live after this call — including "already was". */
+  live: boolean;
+  /** True when this call changed a file (drives an honest footprint). */
+  changed: boolean;
+  scope: "project" | "user" | null;
+}
+
+/**
+ * Make capture actually run for a workspace — the whole decision in ONE
+ * place, so every surface that starts a project (the CLI's `init`, the
+ * extension's auto-start) makes it identically.
+ *
+ * User-scope hooks that already cover this repo win: installing at both
+ * scopes makes Claude Code fire every hook twice, which doubles every event.
+ */
+export function wireCapture(workspaceRoot: string): WireCaptureResult {
+  if (renderInstallPlan(settingsPathFor(workspaceRoot, "user")).length === 0) {
+    return { file: null, live: true, changed: false, scope: "user" };
+  }
+  const file = settingsPathFor(workspaceRoot, "project");
+  const changed = installHooks(file);
+  return {
+    file: path.relative(workspaceRoot, file).split(path.sep).join("/"),
+    live: true,
+    changed,
+    scope: "project",
+  };
+}
+
+/** Where capture stands for a workspace, without changing anything. */
+export function captureState(workspaceRoot: string): { live: boolean; scope: "project" | "user" | null } {
+  for (const scope of ["project", "user"] as const) {
+    if (renderInstallPlan(settingsPathFor(workspaceRoot, scope)).length === 0) {
+      return { live: true, scope };
+    }
+  }
+  return { live: false, scope: null };
+}
+
 /** Remove exactly our entries; prunes empty structures. True if changed. */
 export function uninstallHooks(file: string): boolean {
   const settings = load(file);

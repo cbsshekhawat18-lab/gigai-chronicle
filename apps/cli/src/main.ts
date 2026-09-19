@@ -23,12 +23,13 @@ program
 
 program
   .command("init")
-  .description("initialize this repository as a chronicle project (J1: consent-first, ≤3 questions)")
+  .description("initialize this repository as a chronicle project and start capture (≤3 questions)")
   .option("-y, --yes", "accept all defaults, no questions")
   .option("--name <name>", "project name (default: repo directory name)")
   .option("--metadata-only", "high-sensitivity mode: event shapes/timings, no prompt text")
   .option("--private-sessions", "new sessions start private (promote deliberately)")
   .option("--git-trailer", "record the opt-in Chronicle-Session trailer choice (hook installs with M9)")
+  .option("--no-hooks", "don't wire live capture (start it later with `chronicle hooks install`)")
   .action(
     async (options: {
       yes?: boolean;
@@ -36,6 +37,7 @@ program
       metadataOnly?: boolean;
       privateSessions?: boolean;
       gitTrailer?: boolean;
+      hooks?: boolean;
     }) => {
       const { runInitCommand } = await import("./commands/init.js");
       process.exitCode = await runInitCommand(options, program.opts<{ json?: boolean }>());

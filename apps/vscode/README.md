@@ -66,19 +66,27 @@ changing config stays a deliberate CLI action.
 | **Chronicle: Save a prompt to the library** | Keep a prompt you typed, versioned |
 | **Chronicle: Copy context pack (brief my AI tool)** | The prompts + decisions that shaped a file, to your clipboard |
 | **Chronicle: Import Codex sessions** | Backfill your `~/.codex` history for this repo |
+| **Chronicle: Start recording this project** | Create the store and turn on capture, here |
 | **Chronicle: Refresh** | Re-read the store |
 
 Also on the right-click menu for any file (editor and Explorer).
 
 ## Setup
 
-The extension **shows** your journey; the `chronicle` CLI **records** it. In a
-git repo:
+Open a git repo you work on with an AI tool — Chronicle starts recording it by
+itself. In any other repo it asks once ("Start recording" / "Not now" / "Never
+here") and remembers your answer. Nothing is written to a folder you only
+opened, to a non-git folder, or to an untrusted workspace.
 
-```bash
-chronicle init                       # create the .chronicle/ store
-chronicle hooks install claude-code  # capture live (merges into .claude/settings.json)
-```
+| `chronicle.autoStart` | |
+| --- | --- |
+| `auto` *(default)* | Start on its own where an AI tool is already in use; ask once anywhere else |
+| `ask` | Always ask first |
+| `off` | Never start on its own — use **Chronicle: Start recording this project** |
+
+Starting creates `.chronicle/` and wires the capture hooks into
+`.claude/settings.json` — the same thing `chronicle init` does from a terminal.
+Everything stays on your machine.
 
 Then work normally — sessions appear in the sidebar. Already have history?
 `chronicle import claude-code` backfills from transcripts you already have.

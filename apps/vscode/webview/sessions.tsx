@@ -15,20 +15,30 @@ const vscode = acquireVsCodeApi();
 interface SidebarState {
   sessions: SessionListItem[];
   prompts: PromptWithHistory[];
-  apply(sessions: SessionListItem[], prompts: PromptWithHistory[]): void;
+  /** False when this folder has no store — a different empty state entirely. */
+  project: boolean;
+  apply(sessions: SessionListItem[], prompts: PromptWithHistory[], project: boolean): void;
 }
 
 const useStore = create<SidebarState>((set) => ({
   sessions: [],
   prompts: [],
-  apply: (sessions, prompts) => set({ sessions, prompts }),
+  project: true,
+  apply: (sessions, prompts, project) => set({ sessions, prompts, project }),
 }));
 
 window.addEventListener(
   "message",
-  (event: MessageEvent<{ kind: string; data?: { sessions: SessionListItem[]; prompts?: PromptWithHistory[] } }>) => {
+  (
+    event: MessageEvent<{
+      kind: string;
+      data?: { sessions: SessionListItem[]; prompts?: PromptWithHistory[]; project?: boolean };
+    }>,
+  ) => {
     if (event.data.kind === "snapshot" && event.data.data !== undefined) {
-      useStore.getState().apply(event.data.data.sessions, event.data.data.prompts ?? []);
+      useStore
+        .getState()
+        .apply(event.data.data.sessions, event.data.data.prompts ?? [], event.data.data.project !== false);
     }
   },
 );
@@ -367,8 +377,33 @@ function Section({
   );
 }
 
+/**
+ * The folder has no store. Telling someone to run `chronicle import` here is
+ * advice for a problem they don't have — the one useful move is starting.
+ */
+function NotAProject(): React.JSX.Element {
+  return (
+    <div style={{ padding: "16px 12px" }}>
+      <div style={{ fontSize: 13, marginBottom: 6 }}>Not recording this project</div>
+      <p style={{ ...styles.meta, margin: "0 0 12px" }}>
+        Nothing here is being kept — not your prompts, not the reasoning behind each change.
+      </p>
+      <button
+        style={{ ...styles.toolBtn, ...styles.toolBtnPrimary, width: "100%", justifyContent: "center" }}
+        onClick={() => vscode.postMessage({ kind: "command", command: "chronicle.start" })}
+      >
+        ▶ Start recording
+      </button>
+      <p style={{ ...styles.meta, margin: "10px 0 0" }}>
+        Creates <code>.chronicle/</code> in this repo and turns on capture. Local-only — nothing
+        leaves your machine.
+      </p>
+    </div>
+  );
+}
+
 function App(): React.JSX.Element {
-  const { sessions, prompts } = useStore();
+  const { sessions, prompts, project } = useStore();
   const [providerFilter, setProviderFilter] = React.useState<string | null>(null);
 
   const allProviders = React.useMemo(
@@ -395,6 +430,14 @@ function App(): React.JSX.Element {
   const usedCount = prompts.filter((p) => p.status === "used").length;
   const promptCount =
     prompts.length === 0 ? undefined : usedCount > 0 ? `${prompts.length} · ${usedCount} in use` : `${prompts.length}`;
+
+  if (!project) {
+    return (
+      <div style={styles.app}>
+        <NotAProject />
+      </div>
+    );
+  }
 
   return (
     <div style={styles.app}>

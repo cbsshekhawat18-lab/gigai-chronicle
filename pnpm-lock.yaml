@@ -105,6 +105,9 @@ importers:
       '@gigaichronicle/core':
         specifier: workspace:^
         version: link:../../packages/core
+      '@gigaichronicle/provider-claude-code':
+        specifier: workspace:^
+        version: link:../../packages/providers/claude-code
       '@gigaichronicle/provider-codex':
         specifier: workspace:^
         version: link:../../packages/providers/codex

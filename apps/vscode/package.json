@@ -1,6 +1,6 @@
 {
   "name": "gigaichronicle-vscode",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "AI development memory & intelligence in your repo — Project Memory, cross-model continuity (Claude, Codex, Gemini, Cursor), risk/why-not/preflight. Local-first, git-native, never calls a model.",
   "license": "MIT",
   "private": true,
@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@gigaichronicle/core": "workspace:^",
+    "@gigaichronicle/provider-claude-code": "workspace:^",
     "@gigaichronicle/provider-codex": "workspace:^",
     "@gigaichronicle/schema": "workspace:^",
     "@gigaichronicle/ui": "workspace:^",
@@ -69,7 +70,8 @@
     "local-first"
   ],
   "activationEvents": [
-    "workspaceContains:.chronicle/config.json"
+    "workspaceContains:.chronicle/config.json",
+    "onStartupFinished"
   ],
   "contributes": {
     "viewsContainers": {
@@ -91,6 +93,12 @@
       ]
     },
     "commands": [
+      {
+        "command": "chronicle.start",
+        "title": "Chronicle: Start recording this project",
+        "category": "Chronicle",
+        "icon": "$(play)"
+      },
       {
         "command": "chronicle.openTimeline",
         "title": "Chronicle: Open Dashboard",
@@ -186,6 +194,26 @@
         "icon": "$(warning)"
       }
     ],
+    "configuration": {
+      "title": "Chronicle",
+      "properties": {
+        "chronicle.autoStart": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "ask",
+            "off"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "Start on its own in a repo you already work on with an AI tool; ask once anywhere else.",
+            "Always ask once per project before recording anything.",
+            "Never start on its own — use \"Chronicle: Start recording this project\"."
+          ],
+          "description": "What Chronicle does when you open a git project that has no .chronicle store yet. Starting creates .chronicle/ and wires capture hooks into .claude/settings.json; nothing is ever sent anywhere. Untrusted workspaces and non-git folders are always left alone."
+        }
+      }
+    },
     "menus": {
       "view/title": [
         {

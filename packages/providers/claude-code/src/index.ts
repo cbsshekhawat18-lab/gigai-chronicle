@@ -18,6 +18,9 @@ export {
   uninstallHooks,
   renderInstallPlan,
   settingsPathFor,
+  wireCapture,
+  captureState,
+  type WireCaptureResult,
 } from "./settings.js";
 
 /** Canonical package name; kept in sync with package.json by test. */

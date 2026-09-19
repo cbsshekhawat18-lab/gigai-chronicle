@@ -33,9 +33,20 @@ Each entry: **symptom → cause → solution → verify.**
 - **Verify:** `chronicle sessions` lists the imported sessions.
 
 ## Hooks not capturing
-- **Cause:** hooks not installed, or installed at the wrong scope.
+- **Cause:** hooks not installed (a project initialized before v0.5, or
+  `init --no-hooks`), or installed at the wrong scope.
+- **Check:** `chronicle status` — the `hooks` line says `NOT INSTALLED` when
+  nothing is being recorded. `capture claude-code:auto` is config, not proof.
 - **Solution:** `chronicle hooks install claude-code` (add `--user` for user scope).
 - **Verify:** work a bit, then `chronicle timeline` shows new events.
+
+## Extension shows "Not recording this project"
+- **Cause:** the folder has no `.chronicle/` store yet.
+- **Solution:** click **Start recording** in the sidebar, or run
+  **Chronicle: Start recording this project**. In a repo you already work on
+  with an AI tool the extension starts on its own; `chronicle.autoStart` sets
+  that behaviour (`auto` · `ask` · `off`).
+- **Note:** untrusted workspaces and non-git folders are never written to.
 
 ## Extension shows nothing / stale data
 - **Cause:** the window predates a new build, or the store changed on disk.
