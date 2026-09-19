@@ -121,8 +121,8 @@ fabricated. It renders the store; it never captures or calls a model.
 ```bash
 cd your-git-repo
 
-chronicle init                        # create the .chronicle/ store (3 questions, all skippable)
-chronicle hooks install claude-code   # capture live — merges into .claude/settings.json
+chronicle init   # create the .chronicle/ store and start live capture
+                 # (3 questions, all skippable; hooks merge into .claude/settings.json)
 ```
 
 That's the whole setup. Now **work normally** — every prompt is recorded, and

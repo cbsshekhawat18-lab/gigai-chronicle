@@ -16,8 +16,7 @@ Windsurf (or Open VSX).
 ## 2. Initialize (in a git repo)
 
 ```bash
-chronicle init                        # creates .chronicle/ (3 skippable questions)
-chronicle hooks install claude-code   # capture live as you work
+chronicle init                        # creates .chronicle/ AND starts live capture
 ```
 
 Already have history? Backfill it:

@@ -104,8 +104,8 @@ cd apps/cli && npm link          # exposes `chronicle`
 ```bash
 cd your-git-repo
 
-chronicle init                       # 3 questions, all skippable — or --yes
-chronicle hooks install claude-code  # live capture, merged into .claude/settings.json
+chronicle init   # 3 questions, all skippable — or --yes
+                 # starts live capture too (hooks merge into .claude/settings.json)
 ```
 
 That's it. Work normally. Every prompt is now recorded — and every prompt

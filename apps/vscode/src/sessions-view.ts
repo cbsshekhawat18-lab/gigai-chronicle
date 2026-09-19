@@ -14,7 +14,15 @@ type SidebarMessage =
   | { kind: "promptDiff"; slug: string; version: number }
   | { kind: "promptUse"; slug: string; version: number }
   /** Quick-action toolbar buttons → run the matching command. */
-  | { kind: "command"; command: "chronicle.openTimeline" | "chronicle.savePrompt" | "chronicle.whyFile" | "chronicle.refresh" };
+  | {
+      kind: "command";
+      command:
+        | "chronicle.openTimeline"
+        | "chronicle.savePrompt"
+        | "chronicle.whyFile"
+        | "chronicle.refresh"
+        | "chronicle.start";
+    };
 
 export class SessionsViewProvider implements vscode.WebviewViewProvider {
   #view: vscode.WebviewView | null = null;
@@ -34,7 +42,14 @@ export class SessionsViewProvider implements vscode.WebviewViewProvider {
     // shows the same derived lifecycle status, never a second opinion.
     const prompts =
       this.#workspace === null ? [] : await this.#workspace.libraryPrompts().catch(() => []);
-    await this.#view.webview.postMessage({ kind: "snapshot", v: 1, data: { sessions, prompts } });
+    // `project` separates "no store here" from "empty store": the same blank
+    // list used to mean both, so a project that was never started read as one
+    // with nothing in it and the fix was never obvious.
+    await this.#view.webview.postMessage({
+      kind: "snapshot",
+      v: 1,
+      data: { sessions, prompts, project: this.#workspace !== null },
+    });
   }
 
   resolveWebviewView(view: vscode.WebviewView): void {
@@ -75,6 +90,7 @@ export class SessionsViewProvider implements vscode.WebviewViewProvider {
           "chronicle.savePrompt",
           "chronicle.whyFile",
           "chronicle.refresh",
+          "chronicle.start",
         ]);
         if (allowed.has(message.command)) void vscode.commands.executeCommand(message.command);
       }

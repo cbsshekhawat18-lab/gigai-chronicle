@@ -6,6 +6,7 @@
 import { execFileSync } from "node:child_process";
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -23,6 +24,7 @@ import {
   CAPTURED_HOOK_EVENTS,
   SessionMap,
   cwdSlug,
+  captureState,
   installHooks,
   mapHookToCandidate,
   parseTranscript,
@@ -31,6 +33,7 @@ import {
   runCapture,
   settingsPathFor,
   uninstallHooks,
+  wireCapture,
 } from "../src/index.js";
 
 const FIXTURES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../fixtures");
@@ -248,6 +251,36 @@ describe("settings merge etiquette", () => {
     const restored = JSON.parse(readFileSync(file, "utf8"));
     expect(restored).toEqual(existing); // byte-equal semantics: only ours removed
     expect(uninstallHooks(file)).toBe(false);
+  });
+});
+
+describe("wireCapture (the one place every surface starts capture)", () => {
+  it("wires the project scope and reports it live", () => {
+    const root = tempDir("cc-wire ");
+    expect(captureState(root)).toEqual({ live: false, scope: null });
+
+    const wired = wireCapture(root);
+    expect(wired).toEqual({ file: ".claude/settings.json", live: true, changed: true, scope: "project" });
+    expect(captureState(root)).toEqual({ live: true, scope: "project" });
+
+    expect(wireCapture(root).changed).toBe(false); // idempotent — no second write
+  });
+
+  it("user-scope hooks win: installing at both scopes would double every event", () => {
+    const home = tempDir("cc-wire-home ");
+    const root = tempDir("cc-wire-repo ");
+    installHooks(settingsPathFor(root, "user", home));
+
+    // settingsPathFor reads HOME for the user scope — point it at the fake one.
+    const realHome = process.env["HOME"];
+    process.env["HOME"] = home;
+    try {
+      const wired = wireCapture(root);
+      expect(wired).toEqual({ file: null, live: true, changed: false, scope: "user" });
+      expect(existsSync(path.join(root, ".claude"))).toBe(false); // nothing written to the repo
+    } finally {
+      process.env["HOME"] = realHome;
+    }
   });
 });
 

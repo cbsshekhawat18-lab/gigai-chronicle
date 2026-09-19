@@ -16,6 +16,13 @@ import {
 import path from "node:path";
 import type { SessionId } from "@gigaichronicle/schema";
 import { ChronicleWorkspace } from "./engine.js";
+import {
+  aiToolInUse,
+  folderIsGitRepository,
+  planAutoStart,
+  startChronicle,
+  type AutoStartMode,
+} from "./auto-start.js";
 import { SessionsViewProvider } from "./sessions-view.js";
 import { TimelinePanel } from "./timeline-panel.js";
 import type { SessionListItem } from "./protocol.js";
@@ -29,6 +36,9 @@ const NEW_PROMPT_SCAFFOLD =
   "<!-- New Chronicle prompt. Write it below, then run:\n" +
   '     Command Palette → "Chronicle: Save editor as prompt"\n' +
   "     (or the ＋ Save prompt button → “Save the file I’m editing”). This comment is dropped on save. -->\n\n";
+
+/** Workspace memento: this project said "Never here" to auto-start. */
+const DECLINED_KEY = "chronicle.autoStart.declined";
 
 /** Drop a UTF-8 BOM and the new-prompt scaffold (only if present, verbatim). */
 function stripScaffold(text: string): string {
@@ -610,35 +620,126 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  /**
+   * Phase C: watch the store so the views follow it live. Idempotent —
+   * a project started mid-session gets watchers the moment it exists,
+   * which is the difference between "it works" and "reload the window".
+   */
+  let watching = false;
+  function installWatchers(folder: vscode.WorkspaceFolder): void {
+    if (watching) return;
+    watching = true;
+    let timer: NodeJS.Timeout | undefined;
+    const bump = (): void => {
+      if (timer !== undefined) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void sidebar.refresh();
+        void TimelinePanel.current?.refreshSnapshot();
+      }, 500);
+    };
+    // Sessions (capture) AND the prompt library — so hand-editing a
+    // prompt.md is reflected live in the sidebar and dashboard.
+    for (const glob of [".chronicle/sessions/**/*.jsonl", ".chronicle/prompts/**"]) {
+      const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, glob));
+      watcher.onDidChange(bump);
+      watcher.onDidCreate(bump);
+      watcher.onDidDelete(bump);
+      context.subscriptions.push(watcher);
+    }
+  }
+
+  /**
+   * Start recording this project — the one path behind auto-start, the
+   * palette command and the sidebar's Start button.
+   */
+  async function startHere(root: string, announce: "auto" | "asked"): Promise<ChronicleWorkspace | null> {
+    let started;
+    try {
+      started = await startChronicle(root);
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `Chronicle: couldn't start here — ${(error as Error).message}`,
+      );
+      return null;
+    }
+    const opened = await ChronicleWorkspace.open(root).catch(() => null);
+    workspace = opened;
+    sidebar.setWorkspace(opened);
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (opened !== null && folder !== undefined) installWatchers(folder);
+    const capture = started.capturing
+      ? "capture is live — keep working and every prompt is recorded"
+      : "capture starts when an AI tool is detected";
+    const choice = await vscode.window.showInformationMessage(
+      `Chronicle: now recording "${started.projectName}" — ${capture}.`,
+      announce === "auto" ? "What did it add?" : "Open Dashboard",
+    );
+    if (choice === "What did it add?") {
+      void vscode.window.showInformationMessage(
+        `Chronicle added: ${started.touched.join(", ")} — commit them and the whole team gets capture.`,
+      );
+    } else if (choice === "Open Dashboard") {
+      void vscode.commands.executeCommand("chronicle.openTimeline");
+    }
+    return opened;
+  }
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("chronicle.start", async () => {
+      const folder = vscode.workspace.workspaceFolders?.[0];
+      if (folder === undefined) {
+        void vscode.window.showInformationMessage("Chronicle: open a folder first.");
+        return;
+      }
+      if (workspace !== null) {
+        void vscode.window.showInformationMessage("Chronicle: this project is already recording.");
+        return;
+      }
+      await context.workspaceState.update(DECLINED_KEY, undefined); // asking IS consent
+      await startHere(folder.uri.fsPath, "asked");
+    }),
+  );
+
   // ---- Phase B (async): open the store ----------------------------------
   void (async () => {
     const folder = vscode.workspace.workspaceFolders?.[0];
     if (folder === undefined) return;
+    const root = folder.uri.fsPath;
     // Untrusted workspaces: read-only surface — we still SHOW the journey
     // (reading committed files is what an editor does) but never capture.
-    workspace = await ChronicleWorkspace.open(folder.uri.fsPath).catch(() => null);
+    workspace = await ChronicleWorkspace.open(root).catch(() => null);
     sidebar.setWorkspace(workspace);
 
-    // ---- Phase C: watchers (debounced) — the extension owns fs watching (§15) ----
-    if (workspace !== null) {
-      let timer: NodeJS.Timeout | undefined;
-      const bump = (): void => {
-        if (timer !== undefined) clearTimeout(timer);
-        timer = setTimeout(() => {
-          void sidebar.refresh();
-          void TimelinePanel.current?.refreshSnapshot();
-        }, 500);
-      };
-      // Sessions (capture) AND the prompt library — so hand-editing a
-      // prompt.md is reflected live in the sidebar and dashboard.
-      for (const glob of [".chronicle/sessions/**/*.jsonl", ".chronicle/prompts/**"]) {
-        const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, glob));
-        watcher.onDidChange(bump);
-        watcher.onDidCreate(bump);
-        watcher.onDidDelete(bump);
-        context.subscriptions.push(watcher);
+    // Auto-start: a project nobody initialized records nothing and says
+    // nothing. Opening it is the moment to fix that — silently under
+    // "auto", with one question under "ask".
+    if (workspace === null) {
+      const plan = planAutoStart({
+        mode: vscode.workspace
+          .getConfiguration("chronicle")
+          .get<AutoStartMode>("autoStart", "auto"),
+        initialized: false,
+        isGitRepository: await folderIsGitRepository(root),
+        trusted: vscode.workspace.isTrusted,
+        declined: context.workspaceState.get<boolean>(DECLINED_KEY) === true,
+        aiToolInUse: await aiToolInUse(root),
+      });
+      if (plan.action === "start") {
+        await startHere(root, "auto");
+      } else if (plan.action === "ask") {
+        const answer = await vscode.window.showInformationMessage(
+          "Chronicle isn't recording this project yet — your prompts and the reasoning behind each change aren't being kept.",
+          "Start recording",
+          "Not now",
+          "Never here",
+        );
+        if (answer === "Start recording") await startHere(root, "asked");
+        else if (answer === "Never here") await context.workspaceState.update(DECLINED_KEY, true);
       }
     }
+
+    // ---- Phase C: watchers (debounced) — the extension owns fs watching (§15) ----
+    if (workspace !== null) installWatchers(folder);
   })();
 }
 

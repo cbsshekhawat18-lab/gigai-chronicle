@@ -3,8 +3,10 @@
  * ≤3 questions, every one skippable, `--yes` for scripts, and silent
  * fallback to defaults when stdin isn't a TTY.
  */
+import path from "node:path";
 import { createInterface } from "node:readline/promises";
-import { runInit, isChronicleError } from "@gigaichronicle/core";
+import { runInit, isChronicleError, type InitResult } from "@gigaichronicle/core";
+import type { WireCaptureResult } from "@gigaichronicle/provider-claude-code";
 import { EXIT_FAILURE, EXIT_OK, printJson } from "../context.js";
 
 interface InitFlags {
@@ -13,6 +15,43 @@ interface InitFlags {
   metadataOnly?: boolean;
   privateSessions?: boolean;
   gitTrailer?: boolean;
+  /** commander's `--no-hooks` arrives as false; undefined means "install". */
+  hooks?: boolean;
+}
+
+/** Where capture ended up wired (or why it didn't). */
+type HookOutcome = WireCaptureResult;
+
+const NO_HOOKS: HookOutcome = { file: null, live: false, changed: false, scope: null };
+
+/**
+ * Wire live capture as part of init — the app layer's job, so `runInit`
+ * (core) stays provider-agnostic. Without this a project is "initialized"
+ * yet records NOTHING until a second command nobody runs, and `status` still
+ * reports `claude-code:auto` — the silent no-capture trap this fixes.
+ */
+async function installCaptureHooks(result: InitResult): Promise<HookOutcome> {
+  if (result.providers["claude-code"] !== "auto") return NO_HOOKS;
+  try {
+    const { wireCapture } = await import("@gigaichronicle/provider-claude-code");
+    return wireCapture(path.dirname(result.chronicleDir));
+  } catch {
+    return NO_HOOKS; // unwritable .claude/ — init still succeeded; status says capture is off
+  }
+}
+
+/** The one line that tells you whether Chronicle is actually recording. */
+function captureLine(hooks: HookOutcome, flags: InitFlags): string {
+  if (hooks.live && hooks.scope === "user") {
+    return "  capture: LIVE — your user-scope hooks already cover this repo";
+  }
+  if (hooks.live) {
+    return `  capture: LIVE — hooks in ${hooks.file} (commit it and the whole team gets capture)`;
+  }
+  if (flags.hooks === false) {
+    return "  capture: OFF (--no-hooks) — start it with `chronicle hooks install claude-code`";
+  }
+  return "  capture: OFF — start it with `chronicle hooks install claude-code`";
 }
 
 interface InterviewAnswers {
@@ -65,12 +104,16 @@ export async function runInitCommand(
       gitTrailer: answers.gitTrailer,
     });
 
+    const hooks = flags.hooks === false ? NO_HOOKS : await installCaptureHooks(result);
+    const touched = [...result.touched, ...(hooks.changed ? [hooks.file as string] : [])];
+
     if (global.json === true) {
       printJson("init", {
         projectId: result.projectId,
         projectName: result.projectName,
         providers: result.providers,
-        touched: result.touched,
+        touched,
+        capture: { live: hooks.live, hooks: hooks.file, scope: hooks.scope },
       });
     } else {
       const detected = Object.entries(result.providers)
@@ -79,10 +122,11 @@ export async function runInitCommand(
       console.log(
         [
           `✓ initialized "${result.projectName}" (${result.projectId})`,
-          `  touched (the complete footprint): ${result.touched.join(", ")}`,
+          `  touched (the complete footprint): ${touched.join(", ")}`,
           detected.length > 0
-            ? `  detected tools: ${detected.join(", ")} (live capture + backfill arrive with M7)`
+            ? `  detected tools: ${detected.join(", ")}`
             : "  no AI tools detected yet — capture starts when one appears",
+          captureLine(hooks, flags),
           answers.gitTrailer
             ? "  trailer: enabled in config; the commit hook installs with correlation (M9)"
             : "",
