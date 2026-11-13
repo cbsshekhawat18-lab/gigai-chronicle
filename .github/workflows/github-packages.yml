@@ -1,0 +1,64 @@
+# Publish the CLI to GitHub Packages (the repo's "Packages" section) —
+# manual, from a release tag. GitHub's npm registry only takes packages
+# scoped to the repo owner, so the CLI goes up as
+# @cbsshekhawat18-lab/gigai-chronicle; the npmjs.org name (gigai-chronicle)
+# and apps/cli/package.json are untouched (the rename happens only inside
+# this job's checkout).
+#
+# Auth is the workflow's own GITHUB_TOKEN (packages: write) — no personal
+# token. Note: installing from GitHub Packages needs a GitHub token even for
+# public packages, so npmjs.org stays the install path users are told about.
+name: Publish to GitHub Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (must match apps/cli version)"
+        required: true
+        default: v0.5.1
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: pnpm/action-setup@v6 # reads "packageManager" from package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: "@cbsshekhawat18-lab"
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      # Same gate as every release: pnpm pack → no catalog:/workspace: →
+      # npm i -g the tarball in a clean prefix → chronicle --version.
+      - run: pnpm release:check
+
+      - name: Publish @cbsshekhawat18-lab/gigai-chronicle
+        working-directory: apps/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v${version}" != "${TAG}" ]; then
+            echo "::error::tag ${TAG} does not match apps/cli version ${version}"
+            exit 1
+          fi
+          npm pkg set name=@cbsshekhawat18-lab/gigai-chronicle publishConfig.registry=https://npm.pkg.github.com
+          # pnpm, not npm: only pnpm rewrites catalog:/workspace: in the manifest.
+          pnpm publish --no-git-checks --access public
+          npm view "@cbsshekhawat18-lab/gigai-chronicle@${version}" name version dependencies
