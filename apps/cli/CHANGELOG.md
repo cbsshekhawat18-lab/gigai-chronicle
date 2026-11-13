@@ -1,5 +1,25 @@
 # gigai-chronicle
 
+## 0.5.1
+
+**`npm i -g gigai-chronicle` works.** 0.1.0–0.3.0 were published with
+`"better-sqlite3": "catalog:"` and failed with EUNSUPPORTEDPROTOCOL. Releases
+now go through `pnpm publish`, and CI proves every tarball installs with npm.
+
+- **Capture is "live" only when it is.** Hooks that run a `chronicle` that
+  isn't on PATH record nothing:
+  - `status` flags them;
+  - `doctor` fails on them (exit 1);
+  - `init` and `hooks install` say so.
+- **Hooks stay quiet without the CLI** (`…; exit 0`), so a committed
+  `.claude/settings.json` never shows teammates a hook error.
+  `chronicle hooks install claude-code` upgrades older hooks in place.
+- **Redaction:** new token classes: Anthropic, OpenAI, Stripe live, GitHub
+  fine-grained, GitLab, npm, Hugging Face and xAI. Also URL passwords,
+  credential `KEY=value` / `"key": "value"` assignments, and AWS secret access
+  keys. For these, only the secret is removed and the context stays readable.
+- New projects' `$schema` points at a URL that resolves.
+
 ## 0.5.0
 
 **`chronicle init` now starts capture.** Wiring the hooks was a second command

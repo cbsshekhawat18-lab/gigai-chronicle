@@ -1,6 +1,6 @@
 {
   "name": "gigaichronicle-vscode",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "AI development memory & intelligence in your repo — Project Memory, AI continuity for Claude Code & Codex today (more coming), risk/why-not/preflight. Runs in VS Code, Cursor & Windsurf. Local-first, git-native, never calls a model.",
   "license": "MIT",
   "private": true,

@@ -1,5 +1,23 @@
 # gigaichronicle-vscode
 
+## 0.5.1
+
+**Capture you can trust to be on.** The capture hooks run the `chronicle` CLI,
+which this extension doesn't ship. When the CLI isn't on your PATH, the
+extension now says so instead of "capture is live": you get a warning with
+**Copy install command** (`npm i -g gigai-chronicle`) and **Learn more**, and
+the sidebar shows **Hooks installed, CLI missing**.
+
+- **Committed hooks never error for teammates without the CLI.** They now end
+  in `; exit 0`, which behaves the same in sh, Git Bash and PowerShell.
+- **Workspace trust is enforced** on every command that writes: start, new
+  and saved prompts, restore, handoff, Codex import.
+- **Multi-root workspaces:** one store per folder. The sidebar follows the
+  folder you're editing, and *Start recording* asks which folder.
+- Smaller, minified bundles (the package dropped from 378 KB to 264 KB).
+- The README now lists every command and has a real install line. Its privacy
+  text says how checkpoints work: snapshots in a local hidden git ref.
+
 ## 0.5.0
 
 **Chronicle starts itself.** Open a git repo you already work on with an AI
