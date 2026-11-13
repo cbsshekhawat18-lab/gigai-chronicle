@@ -74,8 +74,10 @@ export interface StartResult {
   projectName: string;
   /** Workspace-relative paths created — the same honest footprint init prints. */
   touched: string[];
-  /** True when live capture is wired, not merely configured. */
+  /** True when live capture is wired AND the CLI the hooks call resolves. */
   capturing: boolean;
+  /** "live" · "cli-missing" (hooks in, `chronicle` not on PATH) · "off". */
+  captureStatus: "live" | "cli-missing" | "off";
 }
 
 /**
@@ -85,13 +87,13 @@ export interface StartResult {
  */
 export async function startChronicle(folder: string): Promise<StartResult> {
   const result = await runInit(folder);
-  let capturing = false;
+  let captureStatus: StartResult["captureStatus"] = "off";
   const touched = [...result.touched];
   if (result.providers["claude-code"] === "auto") {
     try {
       const { wireCapture } = await import("@gigaichronicle/provider-claude-code");
       const wired = wireCapture(path.dirname(result.chronicleDir));
-      capturing = wired.live;
+      captureStatus = wired.status;
       if (wired.changed && wired.file !== null) touched.push(wired.file);
     } catch {
       // unwritable .claude/ — the store still exists; capture stays off and
@@ -102,7 +104,8 @@ export async function startChronicle(folder: string): Promise<StartResult> {
     chronicleDir: result.chronicleDir,
     projectName: result.projectName,
     touched,
-    capturing,
+    capturing: captureStatus === "live",
+    captureStatus,
   };
 }
 

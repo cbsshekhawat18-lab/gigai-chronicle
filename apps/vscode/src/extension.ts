@@ -1,8 +1,13 @@
 /**
  * gigaichronicle-vscode — activation per §15.1: Phase A synchronous
- * registration only; Phase B opens the store async; Phase C watchers;
+ * registration only; Phase B opens the stores async; Phase C watchers;
  * Phase D idle work. Untrusted workspaces run read-only. One codebase for
  * VS Code, Cursor, Windsurf.
+ *
+ * Multi-root: one ChronicleWorkspace per workspace folder. The sidebar (and
+ * folder-less commands) follow the active editor's folder; the sidebar and
+ * the dashboard pass the root they are showing with every command they
+ * trigger, so an action always lands in the repository it was shown for.
  */
 import * as vscode from "vscode";
 import {
@@ -23,8 +28,16 @@ import {
   startChronicle,
   type AutoStartMode,
 } from "./auto-start.js";
+import {
+  copyInstallCommand,
+  openCliHelp,
+  readCaptureStatus,
+  warnCliMissing,
+} from "./cli-health.js";
+import { chooseCurrentFolder, folderContaining, startCandidates } from "./folders.js";
 import { SessionsViewProvider } from "./sessions-view.js";
 import { TimelinePanel } from "./timeline-panel.js";
+import { requireTrust } from "./trust.js";
 import type { SessionListItem } from "./protocol.js";
 
 /**
@@ -37,7 +50,11 @@ const NEW_PROMPT_SCAFFOLD =
   '     Command Palette → "Chronicle: Save editor as prompt"\n' +
   "     (or the ＋ Save prompt button → “Save the file I’m editing”). This comment is dropped on save. -->\n\n";
 
-/** Workspace memento: this project said "Never here" to auto-start. */
+/**
+ * Workspace memento: a folder said "Never here" to auto-start. Per folder
+ * (`<key>:<root>`); the bare key is the pre-multi-root form, which only
+ * ever applied to the first folder.
+ */
 const DECLINED_KEY = "chronicle.autoStart.declined";
 
 /** Drop a UTF-8 BOM and the new-prompt scaffold (only if present, verbatim). */
@@ -46,19 +63,26 @@ function stripScaffold(text: string): string {
   return noBom.startsWith(NEW_PROMPT_SCAFFOLD) ? noBom.slice(NEW_PROMPT_SCAFFOLD.length) : noBom;
 }
 
-/** Resolve the active editor's file (or a passed Uri) to a repo-relative POSIX
- *  path; null (with a hint) when there's no in-repo file. */
-function activeRepoRelative(workspace: ChronicleWorkspace | null, target?: vscode.Uri): string | null {
-  if (workspace === null) {
-    void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+const notAProject = (): void => void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+
+/** The repository root of a store. */
+const rootOf = (store: ChronicleWorkspace): string => path.dirname(store.chronicleDir);
+
+/** Normalized map key for a folder path. */
+const keyOf = (folder: string): string => path.resolve(folder);
+
+/** Resolve a file (or a passed Uri) to a repo-relative POSIX path in `store`;
+ *  null (with a hint) when there's no in-repo file. */
+function repoRelative(store: ChronicleWorkspace | null, uri: vscode.Uri | undefined): string | null {
+  if (store === null) {
+    notAProject();
     return null;
   }
-  const uri = target ?? vscode.window.activeTextEditor?.document.uri;
   if (uri === undefined || uri.scheme !== "file") {
     void vscode.window.showInformationMessage("Chronicle: open a file first.");
     return null;
   }
-  const rel = path.relative(path.dirname(workspace.chronicleDir), uri.fsPath);
+  const rel = path.relative(rootOf(store), uri.fsPath);
   if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
     void vscode.window.showInformationMessage("Chronicle: that file is outside this repository.");
     return null;
@@ -72,20 +96,20 @@ function activeRepoRelative(workspace: ChronicleWorkspace | null, target?: vscod
  * commands (Phase 9).
  */
 async function emitBriefing(
-  workspace: ChronicleWorkspace | null,
+  store: ChronicleWorkspace | null,
   label: string,
-  produce: () => Promise<string> | undefined,
+  produce: (store: ChronicleWorkspace) => Promise<string>,
   successNote: string,
 ): Promise<void> {
-  if (workspace === null) {
-    void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+  if (store === null) {
+    notAProject();
     return;
   }
-  const md = await Promise.resolve(produce()).catch((error: unknown) => {
+  const md = await produce(store).catch((error: unknown) => {
     void vscode.window.showErrorMessage(`Chronicle ${label} failed: ${(error as Error).message}`);
     return null;
   });
-  if (md === null || md === undefined) return;
+  if (md === null) return;
   await vscode.env.clipboard.writeText(md);
   const open = await vscode.window.showInformationMessage(
     `Chronicle: ${successNote} — paste it to your AI tool.`,
@@ -97,6 +121,11 @@ async function emitBriefing(
   }
 }
 
+/** Virtual-document URIs carry the repository root in their query. */
+function virtualUri(scheme: "chronicle-prompt" | "chronicle-capture", docPath: string, root?: string): vscode.Uri {
+  return vscode.Uri.from({ scheme, path: docPath, ...(root !== undefined ? { query: root } : {}) });
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   // ---- Phase A (sync): register everything, render empty states ---------
   const sidebar = new SessionsViewProvider(context.extensionUri);
@@ -106,16 +135,70 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  // ---- folders & stores --------------------------------------------------
+  /** One store per workspace folder that records (key: keyOf(folder)). */
+  const stores = new Map<string, ChronicleWorkspace>();
+  /** The folder the sidebar shows and folder-less commands act on. */
+  let currentRoot: string | null = null;
+  /** `stores.get(currentRoot)` — null when that folder isn't recording. */
   let workspace: ChronicleWorkspace | null = null;
+
+  const folderPaths = (): string[] => (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
+  const recordingSet = (): Set<string> =>
+    new Set(folderPaths().filter((f) => stores.has(keyOf(f))));
+  const folderName = (root: string): string =>
+    vscode.workspace.workspaceFolders?.find((f) => keyOf(f.uri.fsPath) === keyOf(root))?.name ?? path.basename(root);
+
+  function activeFolder(): string | null {
+    const uri = vscode.window.activeTextEditor?.document.uri;
+    return uri === undefined || uri.scheme !== "file" ? null : folderContaining(folderPaths(), uri.fsPath);
+  }
+
+  function setCurrent(root: string | null): void {
+    currentRoot = root;
+    workspace = root === null ? null : (stores.get(keyOf(root)) ?? null);
+    sidebar.setScope({
+      workspace,
+      root,
+      folderLabel: root !== null && folderPaths().length > 1 ? folderName(root) : null,
+    });
+  }
+
+  function followActiveEditor(): void {
+    const next = chooseCurrentFolder({
+      folders: folderPaths(),
+      recording: recordingSet(),
+      activeFolder: activeFolder(),
+      previous: currentRoot,
+    });
+    if (next !== currentRoot) setCurrent(next);
+  }
+
+  /** The store an invocation means: an explicit root (sent by the sidebar or
+   *  dashboard), else the current folder's. */
+  function storeFor(root?: unknown): ChronicleWorkspace | null {
+    return typeof root === "string" && root !== "" ? (stores.get(keyOf(root)) ?? null) : workspace;
+  }
+
+  /** The store a FILE belongs to (file-targeted commands). */
+  function storeForUri(uri: vscode.Uri | undefined): ChronicleWorkspace | null {
+    if (uri === undefined || uri.scheme !== "file") return workspace;
+    const folder = folderContaining(folderPaths(), uri.fsPath);
+    return folder === null ? workspace : (stores.get(keyOf(folder)) ?? null);
+  }
+
+  async function refreshViews(): Promise<void> {
+    await sidebar.refresh();
+    await TimelinePanel.current?.refreshSnapshot();
+  }
 
   // ---- prompt authoring (save NEW prompts, not only promote typed ones) ----
 
   /** Save `body` as a prompt — fully automatic. The id is derived from the
    *  first line of the content (the name is too, at read time), so nothing is
    *  asked. The one place all content-bearing "save a prompt" paths converge. */
-  async function saveNewOrVersion(body: string, session: string | null): Promise<void> {
-    if (workspace === null) return;
-    const dir = workspace.chronicleDir;
+  async function saveNewOrVersion(store: ChronicleWorkspace, body: string, session: string | null): Promise<void> {
+    const dir = store.chronicleDir;
     const firstLine = body.split("\n").find((l) => l.trim() !== "") ?? "";
     const taken = new Set((await listPrompts(dir).catch(() => [])).map((p) => p.slug));
     let slug = suggestSlug(firstLine) || "prompt";
@@ -130,13 +213,14 @@ export function activate(context: vscode.ExtensionContext): void {
         body,
         ...(session !== null ? { sourceSession: session } : {}),
       });
-      await sidebar.refresh();
-      await TimelinePanel.current?.refreshSnapshot();
+      await refreshViews();
       const open = await vscode.window.showInformationMessage(
         `Chronicle: saved ${saved.slug} v${saved.version}. It lives in .chronicle/prompts/ — commit it and your team gets it.`,
         "Open",
       );
-      if (open === "Open") await vscode.commands.executeCommand("chronicle.promptOpen", saved.slug, saved.version);
+      if (open === "Open") {
+        await vscode.commands.executeCommand("chronicle.promptOpen", saved.slug, saved.version, rootOf(store));
+      }
     } catch (error) {
       void vscode.window.showErrorMessage(`Chronicle: save failed — ${(error as Error).message}`);
     }
@@ -148,12 +232,13 @@ export function activate(context: vscode.ExtensionContext): void {
    * editable file opens so the body can be written/refined, multi-line and all.
    * Edits to that file are the current prompt; a later save snapshots a version.
    */
-  async function authorNewPrompt(): Promise<void> {
-    if (workspace === null) {
-      void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+  async function authorNewPrompt(store: ChronicleWorkspace | null): Promise<void> {
+    if (!requireTrust("creating a prompt")) return;
+    if (store === null) {
+      notAProject();
       return;
     }
-    const dir = workspace.chronicleDir;
+    const dir = store.chronicleDir;
     // ZERO questions — full automation. Create an "untitled" prompt at once and
     // open its file; the NAME is derived from the first line you write (the
     // library re-reads the file live), so you never have to name anything.
@@ -167,8 +252,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const STARTER = "Untitled — replace this with your prompt, then save (⌘S).";
     try {
       const saved = await savePrompt(dir, { slug, body: STARTER, note: "draft — saved for later" });
-      await sidebar.refresh();
-      await TimelinePanel.current?.refreshSnapshot();
+      await refreshViews();
       const file = vscode.Uri.file(path.join(dir, "prompts", saved.slug, "prompt.md"));
       const doc = await vscode.workspace.openTextDocument(file);
       const editor = await vscode.window.showTextDocument(doc);
@@ -186,13 +270,17 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }
 
-  /** Turn the active editor (or its selection) into a library prompt. */
-  async function savePromptFromEditor(): Promise<void> {
-    if (workspace === null) {
-      void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+  /** Turn the active editor (or its selection) into a library prompt — in the
+   *  repository that editor's file belongs to, unless the caller already
+   *  chose one (the Save-prompt picker opened from a sidebar/dashboard). */
+  async function savePromptFromEditor(chosen?: ChronicleWorkspace): Promise<void> {
+    if (!requireTrust("saving a prompt")) return;
+    const editor = vscode.window.activeTextEditor;
+    const store = chosen ?? storeForUri(editor?.document.uri);
+    if (store === null) {
+      notAProject();
       return;
     }
-    const editor = vscode.window.activeTextEditor;
     if (editor === undefined) {
       void vscode.window.showInformationMessage("Chronicle: open or write a prompt in an editor first.");
       return;
@@ -204,32 +292,29 @@ export function activate(context: vscode.ExtensionContext): void {
       void vscode.window.showInformationMessage("Chronicle: nothing to save — the editor (or selection) is empty.");
       return;
     }
-    await saveNewOrVersion(body, null);
+    await saveNewOrVersion(store, body, null);
   }
 
   /** Backfill this repo's Codex sessions (import-only; Codex is untouched). */
-  async function importCodex(): Promise<void> {
-    if (workspace === null) {
-      void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
-      return;
-    }
-    if (!vscode.workspace.isTrusted) {
-      void vscode.window.showWarningMessage("Chronicle: importing writes to the store — trust this workspace first.");
+  async function importCodex(root?: unknown): Promise<void> {
+    if (!requireTrust("importing Codex sessions")) return;
+    const store = storeFor(root);
+    if (store === null) {
+      notAProject();
       return;
     }
     // Only the current repo path — the SAFE under-approximation. Codex records
     // each rollout's cwd, so a session run before a repo move keeps its old
     // cwd and is skipped here (the CLI's WorkspaceMoved scan would catch it).
     // Under-importing is correct; it can never leak another project's session.
-    const repoRoot = path.dirname(workspace.chronicleDir);
+    const repoRoot = rootOf(store);
     await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification, title: "Chronicle: importing Codex sessions…" },
       async () => {
         try {
           const { runBackfill } = await import("@gigaichronicle/provider-codex");
-          const report = await runBackfill(workspace!.chronicleDir, { knownWorkspacePaths: [repoRoot] });
-          await sidebar.refresh();
-          await TimelinePanel.current?.refreshSnapshot();
+          const report = await runBackfill(store.chronicleDir, { knownWorkspacePaths: [repoRoot] });
+          await refreshViews();
           void vscode.window.showInformationMessage(
             report.eventsImported > 0
               ? `Chronicle: imported ${report.eventsImported} event(s) from ${report.filesImported} Codex session(s). Open the Timeline to replay them.`
@@ -245,30 +330,30 @@ export function activate(context: vscode.ExtensionContext): void {
   }
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("chronicle.newPrompt", () => authorNewPrompt()),
+    vscode.commands.registerCommand("chronicle.newPrompt", (root?: unknown) => authorNewPrompt(storeFor(root))),
     vscode.commands.registerCommand("chronicle.savePromptFromEditor", () => savePromptFromEditor()),
-    vscode.commands.registerCommand("chronicle.importCodex", () => importCodex()),
+    vscode.commands.registerCommand("chronicle.importCodex", (root?: unknown) => importCodex(root)),
+    // Live capture needs the CLI the hooks call — the sidebar's banner and
+    // the warning's buttons both land here.
+    vscode.commands.registerCommand("chronicle.copyCliInstallCommand", () => copyInstallCommand()),
+    vscode.commands.registerCommand("chronicle.openCliHelp", () => openCliHelp()),
     // "Context Pack" — brief your AI tool with what shaped the active file
     // (the prompts + the decisions from those sessions). Copies paste-ready
     // Markdown; Chronicle assembles, your AI tool does the thinking.
     vscode.commands.registerCommand("chronicle.contextPack", async (target?: vscode.Uri) => {
-      if (workspace === null) {
-        void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+      const uri = target ?? vscode.window.activeTextEditor?.document.uri;
+      const store = storeForUri(uri);
+      if (store === null) {
+        notAProject();
         return;
       }
-      const uri = target ?? vscode.window.activeTextEditor?.document.uri;
       if (uri === undefined || uri.scheme !== "file") {
         void vscode.window.showInformationMessage("Chronicle: open a file to build its context pack.");
         return;
       }
-      const repoRoot = path.dirname(workspace.chronicleDir);
-      const relative = path.relative(repoRoot, uri.fsPath);
-      if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
-        void vscode.window.showInformationMessage("Chronicle: that file is outside this repository.");
-        return;
-      }
-      const posix = relative.split(path.sep).join("/");
-      const pack = await workspace.contextPack(posix).catch((error: unknown) => {
+      const posix = repoRelative(store, uri);
+      if (posix === null) return;
+      const pack = await store.contextPack(posix).catch((error: unknown) => {
         void vscode.window.showErrorMessage(`Chronicle context pack failed: ${(error as Error).message}`);
         return null;
       });
@@ -289,21 +374,24 @@ export function activate(context: vscode.ExtensionContext): void {
         await vscode.window.showTextDocument(doc, { preview: true });
       }
     }),
-    vscode.commands.registerCommand("chronicle.prepareAiContext", async () => {
-      await emitBriefing(workspace, "prepare AI context", () => workspace?.bootstrap(), "AI context prepared");
+    vscode.commands.registerCommand("chronicle.prepareAiContext", async (root?: unknown) => {
+      await emitBriefing(storeFor(root), "prepare AI context", (s) => s.bootstrap(), "AI context prepared");
     }),
-    vscode.commands.registerCommand("chronicle.continueWork", async () => {
-      await emitBriefing(workspace, "continue", () => workspace?.continueWork(), "continuation prompt copied");
+    vscode.commands.registerCommand("chronicle.continueWork", async (root?: unknown) => {
+      await emitBriefing(storeFor(root), "continue", (s) => s.continueWork(), "continuation prompt copied");
     }),
-    vscode.commands.registerCommand("chronicle.createHandoff", async () => {
-      await emitBriefing(workspace, "handoff", () => workspace?.handoff(), "handoff created + copied");
+    vscode.commands.registerCommand("chronicle.createHandoff", async (root?: unknown) => {
+      // A handoff is PERSISTED into Project Memory — a write.
+      if (!requireTrust("creating a handoff")) return;
+      await emitBriefing(storeFor(root), "handoff", (s) => s.handoff(), "handoff created + copied");
     }),
-    vscode.commands.registerCommand("chronicle.searchMemory", async () => {
-      if (workspace === null) {
-        void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+    vscode.commands.registerCommand("chronicle.searchMemory", async (root?: unknown) => {
+      const store = storeFor(root);
+      if (store === null) {
+        notAProject();
         return;
       }
-      const items = await workspace.memoryItems().catch(() => []);
+      const items = await store.memoryItems().catch(() => []);
       if (items.length === 0) {
         void vscode.window.showInformationMessage("Chronicle: no Project Memory yet — run `chronicle memory rebuild`.");
         return;
@@ -317,14 +405,15 @@ export function activate(context: vscode.ExtensionContext): void {
       const doc = await vscode.workspace.openTextDocument({ language: "markdown", content: md });
       await vscode.window.showTextDocument(doc, { preview: true });
     }),
-    vscode.commands.registerCommand("chronicle.preflight", async () => {
-      if (workspace === null) {
-        void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+    vscode.commands.registerCommand("chronicle.preflight", async (root?: unknown) => {
+      const store = storeFor(root);
+      if (store === null) {
+        notAProject();
         return;
       }
       const task = await vscode.window.showInputBox({ prompt: "Chronicle pre-flight — describe the change you're about to make", placeHolder: "e.g. replace Redis with PostgreSQL for sessions" });
       if (task === undefined || task.trim() === "") return;
-      const pf = await workspace.preflight(task.trim()).catch((error: unknown) => {
+      const pf = await store.preflight(task.trim()).catch((error: unknown) => {
         void vscode.window.showErrorMessage(`Chronicle pre-flight failed: ${(error as Error).message}`);
         return null;
       });
@@ -333,9 +422,11 @@ export function activate(context: vscode.ExtensionContext): void {
       await vscode.window.showTextDocument(doc, { preview: true });
     }),
     vscode.commands.registerCommand("chronicle.whyNotFile", async (target?: vscode.Uri) => {
-      const rel = activeRepoRelative(workspace, target);
-      if (rel === null) return;
-      const wn = await (workspace as ChronicleWorkspace).whyNot(rel).catch(() => null);
+      const uri = target ?? vscode.window.activeTextEditor?.document.uri;
+      const store = storeForUri(uri);
+      const rel = repoRelative(store, uri);
+      if (rel === null || store === null) return;
+      const wn = await store.whyNot(rel).catch(() => null);
       if (wn === null) return;
       const md = wn.empty
         ? `# Why not change ${wn.file}?\n\n_No recorded decisions, constraints, or failed approaches touch this file. That doesn't mean it's safe — Chronicle just has no negative knowledge for it yet._\n`
@@ -344,20 +435,22 @@ export function activate(context: vscode.ExtensionContext): void {
       await vscode.window.showTextDocument(doc, { preview: true });
     }),
     vscode.commands.registerCommand("chronicle.riskFile", async (target?: vscode.Uri) => {
-      const rel = activeRepoRelative(workspace, target);
-      if (rel === null) return;
-      const r = await (workspace as ChronicleWorkspace).risk(rel).catch(() => null);
+      const uri = target ?? vscode.window.activeTextEditor?.document.uri;
+      const store = storeForUri(uri);
+      const rel = repoRelative(store, uri);
+      if (rel === null || store === null) return;
+      const r = await store.risk(rel).catch(() => null);
       if (r === null) return;
       const md = `# Risk — ${r.file}\n\n**${r.score}/100 — ${r.level.toUpperCase()}**\n\n${r.signals.length === 0 ? "_No risk signals from captured history._" : "Because:\n" + r.signals.map((s) => `- [${s.weight}] ${s.detail}`).join("\n")}\n\n_${r.note}_\n`;
       const doc = await vscode.workspace.openTextDocument({ language: "markdown", content: md });
       await vscode.window.showTextDocument(doc, { preview: true });
     }),
-    vscode.commands.registerCommand("chronicle.openTimeline", () => {
-      TimelinePanel.show(context.extensionUri, workspace);
+    vscode.commands.registerCommand("chronicle.openTimeline", (root?: unknown) => {
+      TimelinePanel.show(context.extensionUri, storeFor(root));
     }),
-    vscode.commands.registerCommand("chronicle.replaySession", async (item?: SessionListItem) => {
+    vscode.commands.registerCommand("chronicle.replaySession", async (item?: SessionListItem, root?: unknown) => {
       if (item === undefined) return;
-      const panel = TimelinePanel.show(context.extensionUri, workspace);
+      const panel = TimelinePanel.show(context.extensionUri, storeFor(root));
       await panel.showSession(item.session as SessionId);
     }),
     vscode.commands.registerCommand("chronicle.refresh", () => {
@@ -366,9 +459,11 @@ export function activate(context: vscode.ExtensionContext): void {
       void sidebar.refresh();
       void TimelinePanel.current?.refreshSnapshot();
     }),
-    vscode.commands.registerCommand("chronicle.restoreCheckpoint", async (eventId: string) => {
-      if (workspace === null) return;
-      const repoRoot = path.dirname(workspace.chronicleDir);
+    vscode.commands.registerCommand("chronicle.restoreCheckpoint", async (eventId: string, root?: unknown) => {
+      if (!requireTrust("restoring a checkpoint")) return;
+      const store = storeFor(root);
+      if (store === null) return;
+      const repoRoot = rootOf(store);
       const changing = await restorePreview(repoRoot, eventId).catch(() => []);
       if (changing.length === 0) {
         void vscode.window.showInformationMessage("Chronicle: code already matches that moment.");
@@ -394,28 +489,32 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     // Prompt versions in the NATIVE diff editor — the git-style version UI
     // (§15.2: virtual documents via TextDocumentContentProvider, no Monaco).
+    // The URI's query names the repository (multi-root).
     vscode.workspace.registerTextDocumentContentProvider("chronicle-prompt", {
       provideTextDocumentContent: async (uri: vscode.Uri): Promise<string> => {
-        if (workspace === null) return "(not a chronicle project)";
+        const store = storeFor(uri.query);
+        if (store === null) return "(not a chronicle project)";
         const [, slug, versionPart] = uri.path.split("/");
         if (slug === undefined || versionPart === undefined) return "(bad prompt uri)";
         if (versionPart === "empty.md") return "";
         const vp = versionPart.replace(/\.md$/, "");
         const version = vp === "current" ? undefined : Number(vp);
-        const prompt = await getPrompt(workspace.chronicleDir, slug, version).catch(() => null);
+        const prompt = await getPrompt(store.chronicleDir, slug, version).catch(() => null);
         return prompt === null ? "(version not found)" : prompt.body + "\n";
       },
     }),
     vscode.commands.registerCommand(
       "chronicle.promptDiff",
-      async (slug: string, version: number) => {
+      async (slug: string, version: number, root?: unknown) => {
+        const r = storeFor(root);
+        const at = r === null ? undefined : rootOf(r);
         // Git-log behavior: a version diffs against its PARENT (what changed
         // IN this version). v1 has no parent — show it against the empty tree.
         const left =
           version <= 1
-            ? vscode.Uri.parse(`chronicle-prompt:/${slug}/empty.md`)
-            : vscode.Uri.parse(`chronicle-prompt:/${slug}/${version - 1}.md`);
-        const right = vscode.Uri.parse(`chronicle-prompt:/${slug}/${version}.md`);
+            ? virtualUri("chronicle-prompt", `/${slug}/empty.md`, at)
+            : virtualUri("chronicle-prompt", `/${slug}/${version - 1}.md`, at);
+        const right = virtualUri("chronicle-prompt", `/${slug}/${version}.md`, at);
         await vscode.commands.executeCommand(
           "vscode.diff",
           left,
@@ -424,9 +523,10 @@ export function activate(context: vscode.ExtensionContext): void {
         );
       },
     ),
-    vscode.commands.registerCommand("chronicle.promptOpen", async (slug: string, version: number) => {
+    vscode.commands.registerCommand("chronicle.promptOpen", async (slug: string, version: number, root?: unknown) => {
+      const r = storeFor(root);
       const doc = await vscode.workspace.openTextDocument(
-        vscode.Uri.parse(`chronicle-prompt:/${slug}/${version}.md`),
+        virtualUri("chronicle-prompt", `/${slug}/${version}.md`, r === null ? undefined : rootOf(r)),
       );
       await vscode.window.showTextDocument(doc, { preview: true });
     }),
@@ -436,21 +536,24 @@ export function activate(context: vscode.ExtensionContext): void {
     // native diff editor with no Monaco and no data leaving the store.
     vscode.workspace.registerTextDocumentContentProvider("chronicle-capture", {
       provideTextDocumentContent: async (uri: vscode.Uri): Promise<string> => {
-        if (workspace === null) return "(not a chronicle project)";
+        const store = storeFor(uri.query);
+        if (store === null) return "(not a chronicle project)";
         const eventId = uri.path.replace(/^\//, "").replace(/\.md$/, "");
-        const text = await workspace.promptText(eventId).catch(() => null);
+        const text = await store.promptText(eventId).catch(() => null);
         return text === null
           ? `(no captured prompt text for ${eventId} — unknown event, or metadata-only capture)`
           : `${text}\n`;
       },
     }),
-    vscode.commands.registerCommand("chronicle.comparePrompts", async (a: string, b: string) => {
+    vscode.commands.registerCommand("chronicle.comparePrompts", async (a: string, b: string, root?: unknown) => {
+      const r = storeFor(root);
+      const at = r === null ? undefined : rootOf(r);
       // Older prompt on the left so the diff reads "how the newer one changed".
       const [left, right] = a < b ? [a, b] : [b, a];
       await vscode.commands.executeCommand(
         "vscode.diff",
-        vscode.Uri.parse(`chronicle-capture:/${left}.md`),
-        vscode.Uri.parse(`chronicle-capture:/${right}.md`),
+        virtualUri("chronicle-capture", `/${left}.md`, at),
+        virtualUri("chronicle-capture", `/${right}.md`, at),
         `prompt ${left.slice(0, 12)}… → ${right.slice(0, 12)}…`,
       );
     }),
@@ -458,9 +561,10 @@ export function activate(context: vscode.ExtensionContext): void {
     // your AI tool. Deliberately NOT a usage counter — usage is derived when
     // capture sees the text actually submitted (core promptUsage), so the
     // number in the UI is an observation, never a click.
-    vscode.commands.registerCommand("chronicle.promptUse", async (slug: string, version?: number) => {
-      if (workspace === null) return;
-      const prompt = await getPrompt(workspace.chronicleDir, slug, version).catch(() => null);
+    vscode.commands.registerCommand("chronicle.promptUse", async (slug: string, version?: number, root?: unknown) => {
+      const store = storeFor(root);
+      if (store === null) return;
+      const prompt = await getPrompt(store.chronicleDir, slug, version).catch(() => null);
       if (prompt === null) {
         void vscode.window.showErrorMessage(`Chronicle: no prompt "${slug}"${version !== undefined ? ` v${version}` : ""}.`);
         return;
@@ -475,11 +579,13 @@ export function activate(context: vscode.ExtensionContext): void {
     // the chronicle-prompt: provider registered above.
     vscode.commands.registerCommand(
       "chronicle.promptCompare",
-      async (aSlug: string, aVersion: number, bSlug: string, bVersion: number) => {
+      async (aSlug: string, aVersion: number, bSlug: string, bVersion: number, root?: unknown) => {
+        const r = storeFor(root);
+        const at = r === null ? undefined : rootOf(r);
         await vscode.commands.executeCommand(
           "vscode.diff",
-          vscode.Uri.parse(`chronicle-prompt:/${aSlug}/${aVersion}.md`),
-          vscode.Uri.parse(`chronicle-prompt:/${bSlug}/${bVersion}.md`),
+          virtualUri("chronicle-prompt", `/${aSlug}/${aVersion}.md`, at),
+          virtualUri("chronicle-prompt", `/${bSlug}/${bVersion}.md`, at),
           `${aSlug}@v${aVersion} ⇄ ${bSlug}@v${bVersion}`,
         );
       },
@@ -489,12 +595,14 @@ export function activate(context: vscode.ExtensionContext): void {
     // the curated ones. Without this the only way to library a prompt you
     // wrote is to RETYPE it — the exact manual hoarding P1 describes. Pick a
     // captured prompt, pick where it goes, done.
-    vscode.commands.registerCommand("chronicle.savePrompt", async () => {
-      if (workspace === null) {
-        void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+    vscode.commands.registerCommand("chronicle.savePrompt", async (root?: unknown) => {
+      if (!requireTrust("saving a prompt")) return;
+      const store = storeFor(root);
+      if (store === null) {
+        notAProject();
         return;
       }
-      const recent = await workspace.recentPrompts().catch(() => []);
+      const recent = await store.recentPrompts().catch(() => []);
 
       // Three ways in — authoring a NEW prompt for later is first, so the
       // library is never limited to prompts you already typed.
@@ -531,34 +639,30 @@ export function activate(context: vscode.ExtensionContext): void {
         placeHolder: "Write a new one, save what you’re editing, or promote a prompt you typed",
       });
       if (picked?.action === undefined) return;
-      if (picked.action.kind === "new") return authorNewPrompt();
-      if (picked.action.kind === "editor") return savePromptFromEditor();
+      if (picked.action.kind === "new") return authorNewPrompt(store);
+      if (picked.action.kind === "editor") return savePromptFromEditor(store);
       const source = recent[picked.action.index];
       if (source === undefined) return;
-      await saveNewOrVersion(source.text, source.session);
+      await saveNewOrVersion(store, source.text, source.session);
     }),
     // "Why is this file like this?" (ADR-0013) — git blame says WHO, this says
     // what was ASKED. A native QuickPick lists the prompts that shaped the
     // file; each row can open the session replay or restore that moment.
     vscode.commands.registerCommand("chronicle.whyFile", async (target?: vscode.Uri) => {
-      if (workspace === null) {
-        void vscode.window.showInformationMessage("Chronicle: not a chronicle project.");
+      const uri = target ?? vscode.window.activeTextEditor?.document.uri;
+      const store = storeForUri(uri);
+      if (store === null) {
+        notAProject();
         return;
       }
-      const uri = target ?? vscode.window.activeTextEditor?.document.uri;
       if (uri === undefined || uri.scheme !== "file") {
         void vscode.window.showInformationMessage("Chronicle: open a file to ask why it looks like this.");
         return;
       }
-      const repoRoot = path.dirname(workspace.chronicleDir);
-      const relative = path.relative(repoRoot, uri.fsPath);
-      if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
-        void vscode.window.showInformationMessage("Chronicle: that file is outside this repository.");
-        return;
-      }
-      const posix = relative.split(path.sep).join("/");
+      const posix = repoRelative(store, uri);
+      if (posix === null) return;
 
-      const entries = await workspace
+      const entries = await store
         .why(posix)
         .catch((error: unknown) => {
           void vscode.window.showErrorMessage(`Chronicle why failed: ${(error as Error).message}`);
@@ -605,13 +709,13 @@ export function activate(context: vscode.ExtensionContext): void {
       qp.matchOnDetail = true;
       qp.onDidTriggerItemButton(async ({ item }) => {
         qp.hide();
-        await vscode.commands.executeCommand("chronicle.restoreCheckpoint", item.eventId);
+        await vscode.commands.executeCommand("chronicle.restoreCheckpoint", item.eventId, rootOf(store));
       });
       qp.onDidAccept(async () => {
         const item = qp.selectedItems[0];
         qp.hide();
-        if (item?.session != null && workspace !== null) {
-          const panel = TimelinePanel.show(context.extensionUri, workspace);
+        if (item?.session != null) {
+          const panel = TimelinePanel.show(context.extensionUri, store);
           await panel.showSession(item.session as SessionId);
         }
       });
@@ -621,14 +725,14 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   /**
-   * Phase C: watch the store so the views follow it live. Idempotent —
-   * a project started mid-session gets watchers the moment it exists,
-   * which is the difference between "it works" and "reload the window".
+   * Phase C: watch each recording folder's store so the views follow it
+   * live. Idempotent per folder — a project started mid-session gets
+   * watchers the moment it exists ("it works" vs "reload the window").
    */
-  let watching = false;
-  function installWatchers(folder: vscode.WorkspaceFolder): void {
-    if (watching) return;
-    watching = true;
+  const watched = new Set<string>();
+  function installWatchers(root: string): void {
+    if (watched.has(keyOf(root))) return;
+    watched.add(keyOf(root));
     let timer: NodeJS.Timeout | undefined;
     const bump = (): void => {
       if (timer !== undefined) clearTimeout(timer);
@@ -640,7 +744,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Sessions (capture) AND the prompt library — so hand-editing a
     // prompt.md is reflected live in the sidebar and dashboard.
     for (const glob of [".chronicle/sessions/**/*.jsonl", ".chronicle/prompts/**"]) {
-      const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, glob));
+      const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(root, glob));
       watcher.onDidChange(bump);
       watcher.onDidCreate(bump);
       watcher.onDidDelete(bump);
@@ -648,11 +752,34 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }
 
+  /** Open a folder's store (null when it isn't a chronicle project). */
+  async function openStore(root: string): Promise<ChronicleWorkspace | null> {
+    const store = await ChronicleWorkspace.open(root).catch(() => null);
+    if (store !== null) {
+      stores.set(keyOf(root), store);
+      installWatchers(root);
+    }
+    return store;
+  }
+
+  const declinedKey = (root: string): string => `${DECLINED_KEY}:${keyOf(root)}`;
+  function declinedFor(root: string): boolean {
+    if (context.workspaceState.get<boolean>(declinedKey(root)) === true) return true;
+    const first = folderPaths()[0];
+    return first !== undefined && keyOf(first) === keyOf(root) && context.workspaceState.get<boolean>(DECLINED_KEY) === true;
+  }
+  async function clearDeclined(root: string): Promise<void> {
+    await context.workspaceState.update(declinedKey(root), undefined);
+    const first = folderPaths()[0];
+    if (first !== undefined && keyOf(first) === keyOf(root)) await context.workspaceState.update(DECLINED_KEY, undefined);
+  }
+
   /**
-   * Start recording this project — the one path behind auto-start, the
-   * palette command and the sidebar's Start button.
+   * Start recording a folder — the one path behind auto-start, the palette
+   * command and the sidebar's Start button.
    */
   async function startHere(root: string, announce: "auto" | "asked"): Promise<ChronicleWorkspace | null> {
+    if (!requireTrust("starting Chronicle")) return null;
     let started;
     try {
       started = await startChronicle(root);
@@ -662,14 +789,18 @@ export function activate(context: vscode.ExtensionContext): void {
       );
       return null;
     }
-    const opened = await ChronicleWorkspace.open(root).catch(() => null);
-    workspace = opened;
-    sidebar.setWorkspace(opened);
-    const folder = vscode.workspace.workspaceFolders?.[0];
-    if (opened !== null && folder !== undefined) installWatchers(folder);
-    const capture = started.capturing
-      ? "capture is live — keep working and every prompt is recorded"
-      : "capture starts when an AI tool is detected";
+    const opened = await openStore(root);
+    setCurrent(root);
+    if (started.captureStatus === "cli-missing") {
+      // The hooks are in place but call a `chronicle` this machine doesn't
+      // have — "now recording" would be a lie. One honest warning instead.
+      await warnCliMissing();
+      return opened;
+    }
+    const capture =
+      started.captureStatus === "live"
+        ? "capture is live — keep working and every prompt is recorded"
+        : "capture starts when an AI tool is detected";
     const choice = await vscode.window.showInformationMessage(
       `Chronicle: now recording "${started.projectName}" — ${capture}.`,
       announce === "auto" ? "What did it add?" : "Open Dashboard",
@@ -679,41 +810,89 @@ export function activate(context: vscode.ExtensionContext): void {
         `Chronicle added: ${started.touched.join(", ")} — commit them and the whole team gets capture.`,
       );
     } else if (choice === "Open Dashboard") {
-      void vscode.commands.executeCommand("chronicle.openTimeline");
+      void vscode.commands.executeCommand("chronicle.openTimeline", root);
     }
     return opened;
   }
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("chronicle.start", async () => {
-      const folder = vscode.workspace.workspaceFolders?.[0];
-      if (folder === undefined) {
+    vscode.commands.registerCommand("chronicle.start", async (root?: unknown) => {
+      if (!requireTrust("starting Chronicle")) return;
+      const folders = folderPaths();
+      if (folders.length === 0) {
         void vscode.window.showInformationMessage("Chronicle: open a folder first.");
         return;
       }
-      if (workspace !== null) {
+      let target: string | null = typeof root === "string" && root !== "" ? root : null;
+      if (target !== null && stores.has(keyOf(target))) {
         void vscode.window.showInformationMessage("Chronicle: this project is already recording.");
         return;
       }
-      await context.workspaceState.update(DECLINED_KEY, undefined); // asking IS consent
-      await startHere(folder.uri.fsPath, "asked");
+      if (target === null) {
+        // Multi-root: which folder? The active editor's leads; ask when it's
+        // not obvious rather than guessing at folder[0].
+        const active = activeFolder();
+        const candidates = startCandidates(folders, recordingSet(), active);
+        if (candidates.length === 0) {
+          void vscode.window.showInformationMessage(
+            folders.length === 1
+              ? "Chronicle: this project is already recording."
+              : "Chronicle: every folder in this window is already recording.",
+          );
+          return;
+        }
+        if (candidates.length === 1) {
+          target = candidates[0] as string;
+        } else {
+          const picked = await vscode.window.showQuickPick(
+            candidates.map((f) => ({
+              label: folderName(f),
+              description: f === active ? "active editor" : undefined,
+              detail: f,
+              root: f,
+            })),
+            { title: "Start recording which folder?", placeHolder: "Chronicle creates .chronicle/ in the folder you pick" },
+          );
+          if (picked === undefined) return;
+          target = picked.root;
+        }
+      }
+      await clearDeclined(target); // asking IS consent
+      await startHere(target, "asked");
+    }),
+    vscode.window.onDidChangeActiveTextEditor(() => followActiveEditor()),
+    vscode.workspace.onDidChangeWorkspaceFolders(async (change) => {
+      for (const removed of change.removed) stores.delete(keyOf(removed.uri.fsPath));
+      for (const added of change.added) await openStore(added.uri.fsPath);
+      if (currentRoot !== null && !folderPaths().some((f) => keyOf(f) === keyOf(currentRoot as string))) {
+        currentRoot = null;
+      }
+      followActiveEditor();
     }),
   );
 
-  // ---- Phase B (async): open the store ----------------------------------
+  // ---- Phase B (async): open every folder's store -------------------------
   void (async () => {
-    const folder = vscode.workspace.workspaceFolders?.[0];
-    if (folder === undefined) return;
-    const root = folder.uri.fsPath;
+    const folders = folderPaths();
+    if (folders.length === 0) return;
     // Untrusted workspaces: read-only surface — we still SHOW the journey
     // (reading committed files is what an editor does) but never capture.
-    workspace = await ChronicleWorkspace.open(root).catch(() => null);
-    sidebar.setWorkspace(workspace);
+    for (const root of folders) await openStore(root);
+    followActiveEditor();
+    if (currentRoot === null) setCurrent(folders[0] as string);
+
+    // Hooks are wiring, not proof: in a started project whose hooks call a
+    // `chronicle` that isn't on PATH, nothing is recorded — and the hooks are
+    // quiet about it by design (ADR-0018), so this is where it gets said.
+    const statuses = await Promise.all([...stores.values()].map((s) => readCaptureStatus(rootOf(s))));
+    if (statuses.includes("cli-missing")) void warnCliMissing();
 
     // Auto-start: a project nobody initialized records nothing and says
     // nothing. Opening it is the moment to fix that — silently under
-    // "auto", with one question under "ask".
-    if (workspace === null) {
+    // "auto", with one question under "ask". Per folder in multi-root.
+    const multi = folders.length > 1;
+    for (const root of folders) {
+      if (stores.has(keyOf(root))) continue;
       const plan = planAutoStart({
         mode: vscode.workspace
           .getConfiguration("chronicle")
@@ -721,25 +900,22 @@ export function activate(context: vscode.ExtensionContext): void {
         initialized: false,
         isGitRepository: await folderIsGitRepository(root),
         trusted: vscode.workspace.isTrusted,
-        declined: context.workspaceState.get<boolean>(DECLINED_KEY) === true,
+        declined: declinedFor(root),
         aiToolInUse: await aiToolInUse(root),
       });
       if (plan.action === "start") {
         await startHere(root, "auto");
       } else if (plan.action === "ask") {
         const answer = await vscode.window.showInformationMessage(
-          "Chronicle isn't recording this project yet — your prompts and the reasoning behind each change aren't being kept.",
+          `Chronicle isn't recording ${multi ? `"${folderName(root)}"` : "this project"} yet — your prompts and the reasoning behind each change aren't being kept.`,
           "Start recording",
           "Not now",
           "Never here",
         );
         if (answer === "Start recording") await startHere(root, "asked");
-        else if (answer === "Never here") await context.workspaceState.update(DECLINED_KEY, true);
+        else if (answer === "Never here") await context.workspaceState.update(declinedKey(root), true);
       }
     }
-
-    // ---- Phase C: watchers (debounced) — the extension owns fs watching (§15) ----
-    if (workspace !== null) installWatchers(folder);
   })();
 }
 

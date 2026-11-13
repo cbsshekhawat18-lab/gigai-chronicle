@@ -62,6 +62,15 @@ export class TimelinePanel {
     return TimelinePanel.current;
   }
 
+  /**
+   * The repository this panel shows. Every command the dashboard triggers
+   * carries it, so in a multi-root window a restore or a prompt diff acts on
+   * THIS repo, not on whichever folder has focus now.
+   */
+  get root(): string | undefined {
+    return this.#workspace === null ? undefined : path.dirname(this.#workspace.chronicleDir);
+  }
+
   /** Re-push the sessions + library snapshot (e.g. after a prompt is saved). */
   async refreshSnapshot(): Promise<void> {
     if (this.#workspace === null) return;
@@ -129,23 +138,23 @@ export class TimelinePanel {
 
   async #handle(message: WebviewMessage): Promise<void> {
     if (message.kind === "restore") {
-      await vscode.commands.executeCommand("chronicle.restoreCheckpoint", message.eventId);
+      await vscode.commands.executeCommand("chronicle.restoreCheckpoint", message.eventId, this.root);
       return;
     }
     if (message.kind === "compare") {
-      await vscode.commands.executeCommand("chronicle.comparePrompts", message.a, message.b);
+      await vscode.commands.executeCommand("chronicle.comparePrompts", message.a, message.b, this.root);
       return;
     }
     if (message.kind === "openPrompt") {
-      await vscode.commands.executeCommand("chronicle.promptOpen", message.slug, message.version);
+      await vscode.commands.executeCommand("chronicle.promptOpen", message.slug, message.version, this.root);
       return;
     }
     if (message.kind === "usePrompt") {
-      await vscode.commands.executeCommand("chronicle.promptUse", message.slug, message.version);
+      await vscode.commands.executeCommand("chronicle.promptUse", message.slug, message.version, this.root);
       return;
     }
     if (message.kind === "savePrompt") {
-      await vscode.commands.executeCommand("chronicle.savePrompt");
+      await vscode.commands.executeCommand("chronicle.savePrompt", this.root);
       return;
     }
     if (message.kind === "memoryAction") {
@@ -158,7 +167,11 @@ export class TimelinePanel {
         whynot: "chronicle.whyNotFile",
         risk: "chronicle.riskFile",
       };
-      await vscode.commands.executeCommand(map[message.action] ?? "chronicle.refresh");
+      // whynot/risk act on the active editor's file (their arg is a Uri);
+      // the rest act on this panel's repository.
+      const command = map[message.action] ?? "chronicle.refresh";
+      if (message.action === "whynot" || message.action === "risk") await vscode.commands.executeCommand(command);
+      else await vscode.commands.executeCommand(command, this.root);
       return;
     }
     if (message.kind === "compareLibrary") {
@@ -168,6 +181,7 @@ export class TimelinePanel {
         message.aVersion,
         message.bSlug,
         message.bVersion,
+        this.root,
       );
       return;
     }

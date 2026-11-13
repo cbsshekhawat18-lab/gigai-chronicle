@@ -12,36 +12,49 @@ import type { PromptWithHistory, SessionListItem } from "../src/protocol.js";
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 const vscode = acquireVsCodeApi();
 
+/** Hooks + CLI, as the host measured it (null: not a project / unknown). */
+type CaptureStatus = "live" | "cli-missing" | "off" | null;
+
+interface Snapshot {
+  sessions: SessionListItem[];
+  prompts?: PromptWithHistory[];
+  project?: boolean;
+  capture?: CaptureStatus;
+  /** Folder name — sent only when the window has several folders. */
+  folder?: string | null;
+}
+
 interface SidebarState {
   sessions: SessionListItem[];
   prompts: PromptWithHistory[];
   /** False when this folder has no store — a different empty state entirely. */
   project: boolean;
-  apply(sessions: SessionListItem[], prompts: PromptWithHistory[], project: boolean): void;
+  capture: CaptureStatus;
+  folder: string | null;
+  apply(snapshot: Snapshot): void;
 }
 
 const useStore = create<SidebarState>((set) => ({
   sessions: [],
   prompts: [],
   project: true,
-  apply: (sessions, prompts, project) => set({ sessions, prompts, project }),
+  capture: null,
+  folder: null,
+  apply: (snapshot) =>
+    set({
+      sessions: snapshot.sessions,
+      prompts: snapshot.prompts ?? [],
+      project: snapshot.project !== false,
+      capture: snapshot.capture ?? null,
+      folder: snapshot.folder ?? null,
+    }),
 }));
 
-window.addEventListener(
-  "message",
-  (
-    event: MessageEvent<{
-      kind: string;
-      data?: { sessions: SessionListItem[]; prompts?: PromptWithHistory[]; project?: boolean };
-    }>,
-  ) => {
-    if (event.data.kind === "snapshot" && event.data.data !== undefined) {
-      useStore
-        .getState()
-        .apply(event.data.data.sessions, event.data.data.prompts ?? [], event.data.data.project !== false);
-    }
-  },
-);
+window.addEventListener("message", (event: MessageEvent<{ kind: string; data?: Snapshot }>) => {
+  if (event.data.kind === "snapshot" && event.data.data !== undefined) {
+    useStore.getState().apply(event.data.data);
+  }
+});
 vscode.postMessage({ kind: "ready" });
 
 const ACCENT = "#f97316";
@@ -329,7 +342,9 @@ type ToolbarCommand =
   | "chronicle.openTimeline"
   | "chronicle.savePrompt"
   | "chronicle.whyFile"
-  | "chronicle.refresh";
+  | "chronicle.refresh"
+  | "chronicle.copyCliInstallCommand"
+  | "chronicle.openCliHelp";
 
 /** GitLens-style quick-action toolbar — every top-level feature, one click. */
 function Toolbar(): React.JSX.Element {
@@ -378,13 +393,52 @@ function Section({
 }
 
 /**
+ * Capture state, said plainly. Installed hooks are not proof of capture:
+ * they run the `chronicle` CLI, and without it on PATH nothing is recorded
+ * — so that state gets a banner with the fix, never "capture is live".
+ */
+function CaptureBanner({ capture }: { capture: CaptureStatus }): React.JSX.Element | null {
+  const run = (command: ToolbarCommand): void => vscode.postMessage({ kind: "command", command });
+  if (capture === "live") {
+    return <div style={{ ...styles.meta, margin: "0 12px 4px", color: LIVE }}>● capture is live</div>;
+  }
+  if (capture !== "cli-missing") return null;
+  return (
+    <div
+      role="alert"
+      style={{
+        margin: "0 8px 8px",
+        padding: "8px 10px",
+        borderRadius: 6,
+        border: "1px solid var(--vscode-inputValidation-warningBorder, #cca700)",
+        background: "var(--vscode-inputValidation-warningBackground, rgba(204,167,0,0.12))",
+      }}
+    >
+      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>⚠ Hooks installed, CLI missing</div>
+      <p style={{ ...styles.meta, margin: "0 0 8px" }}>
+        The capture hooks call the <code>chronicle</code> CLI, which isn’t on your PATH — nothing is being
+        recorded. Install it, then restart your AI tool.
+      </p>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <button style={{ ...styles.toolBtn, ...styles.toolBtnPrimary }} onClick={() => run("chronicle.copyCliInstallCommand")}>
+          Copy install command
+        </button>
+        <button style={styles.toolBtn} onClick={() => run("chronicle.openCliHelp")}>
+          Learn more
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * The folder has no store. Telling someone to run `chronicle import` here is
  * advice for a problem they don't have — the one useful move is starting.
  */
-function NotAProject(): React.JSX.Element {
+function NotAProject({ folder }: { folder: string | null }): React.JSX.Element {
   return (
     <div style={{ padding: "16px 12px" }}>
-      <div style={{ fontSize: 13, marginBottom: 6 }}>Not recording this project</div>
+      <div style={{ fontSize: 13, marginBottom: 6 }}>Not recording {folder === null ? "this project" : `“${folder}”`}</div>
       <p style={{ ...styles.meta, margin: "0 0 12px" }}>
         Nothing here is being kept — not your prompts, not the reasoning behind each change.
       </p>
@@ -403,7 +457,7 @@ function NotAProject(): React.JSX.Element {
 }
 
 function App(): React.JSX.Element {
-  const { sessions, prompts, project } = useStore();
+  const { sessions, prompts, project, capture, folder } = useStore();
   const [providerFilter, setProviderFilter] = React.useState<string | null>(null);
 
   const allProviders = React.useMemo(
@@ -434,7 +488,7 @@ function App(): React.JSX.Element {
   if (!project) {
     return (
       <div style={styles.app}>
-        <NotAProject />
+        <NotAProject folder={folder} />
       </div>
     );
   }
@@ -442,6 +496,8 @@ function App(): React.JSX.Element {
   return (
     <div style={styles.app}>
       <Toolbar />
+      {folder !== null && <div style={{ ...styles.meta, margin: "0 12px 4px" }}>📁 {folder}</div>}
+      <CaptureBanner capture={capture} />
 
       <Section title="Sessions" count={withContent.length > 0 ? String(withContent.length) : undefined}>
         {allProviders.length > 1 && (
