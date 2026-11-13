@@ -21,11 +21,13 @@
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
-    "test:scripts": "node --test scripts/check-boundaries.test.mjs",
+    "test:scripts": "node --test scripts/check-boundaries.test.mjs scripts/check-cli-pack.test.mjs",
     "typecheck": "turbo run typecheck",
     "lint": "node scripts/check-boundaries.mjs",
     "changeset": "changeset",
-    "test:budgets": "node --test scripts/budget-cold-start.test.mjs"
+    "test:budgets": "node --test scripts/budget-cold-start.test.mjs",
+    "release:check": "node scripts/check-cli-pack.mjs",
+    "release": "pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm test:scripts && pnpm release:check && pnpm --filter gigai-chronicle publish --access public"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
