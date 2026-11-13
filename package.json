@@ -30,8 +30,8 @@
     "release": "pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm test:scripts && pnpm release:check && pnpm --filter gigai-chronicle publish --access public"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.31.1",
-    "turbo": "^2.10.10",
+    "@changesets/cli": "^3.0.3",
+    "turbo": "^2.11.10",
     "typescript": "catalog:"
   },
   "pnpm": {
