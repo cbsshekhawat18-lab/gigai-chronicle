@@ -15,6 +15,10 @@ This file is a high-level, human-readable index across the whole project:
 
 ## [Unreleased]
 
+_Nothing released yet. Changes land here before the next tagged release._
+
+## [0.5.1] — 2026-11-13
+
 **Capture you can trust to be on, a CLI you can install.**
 
 - **npm: `npm i -g gigai-chronicle` works again.** 0.1.0–0.3.0 shipped
