@@ -14,7 +14,9 @@ import { aiToolInUse, planAutoStart, startChronicle, type AutoStartInput } from 
 const dirs: string[] = [];
 const realEnv = { HOME: process.env["HOME"], USERPROFILE: process.env["USERPROFILE"], PATH: process.env["PATH"] };
 afterEach(() => {
-  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  // Windows refuses to delete a directory a live process still uses (EBUSY) —
+  // activation runs git in the test folders in the background — so retry.
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   process.env["HOME"] = realEnv.HOME;
   process.env["USERPROFILE"] = realEnv.USERPROFILE;
   process.env["PATH"] = realEnv.PATH;
