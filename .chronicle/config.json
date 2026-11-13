@@ -1,5 +1,5 @@
 {
-  "$schema": "https://schemas.chronicle.dev/v1/config.json",
+  "$schema": "https://raw.githubusercontent.com/cbsshekhawat18-lab/gigai-chronicle/main/packages/schema/schemas/config.json",
   "version": 1,
   "project": {
     "id": "prj_01KXKDN905QK62T1YM79ZTXBYP",

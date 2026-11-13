@@ -1,0 +1,64 @@
+# Publish the `gigai-chronicle` CLI to npm — manual, deliberate, never on a
+# plain push (local-first release discipline: nothing ships without an
+# explicit go). Run it from the Actions tab on the release tag.
+#
+# Always `pnpm publish`, never `npm publish`: only pnpm rewrites the
+# `catalog:` / `workspace:` protocols in the manifest. 0.1.0–0.3.0 went out
+# with `"better-sqlite3": "catalog:"` and could not be installed with npm.
+#
+# Needs the repository secret NPM_TOKEN (an npm automation token). Dry-run is
+# the default so the first click proves the tarball without publishing.
+name: Release (npm)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — pack and verify, but do not publish"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6 # reads "packageManager" from package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      # The same gate `pnpm release` runs locally.
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm test:scripts
+
+      # pnpm pack → no catalog:/workspace: → npm i -g → chronicle --version.
+      - run: pnpm release:check
+
+      - name: Refuse to republish an existing version
+        if: ${{ !inputs.dry_run }}
+        run: |
+          version=$(node -p "require('./apps/cli/package.json').version")
+          if npm view "gigai-chronicle@${version}" version >/dev/null 2>&1; then
+            echo "::error::gigai-chronicle@${version} is already on npm — bump apps/cli/package.json first"
+            exit 1
+          fi
+
+      - name: Publish (pnpm rewrites catalog:/workspace:)
+        run: >-
+          pnpm --filter gigai-chronicle publish --access public --no-git-checks
+          ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -26,6 +26,32 @@ const SYNTHETIC_SECRETS = [
   "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c",
   "q7R2xK9mP4vL8nW3jT6yB1cD5fG0hZaS", // pure-entropy credential
   "env-file-secret-Va1ue!987654",     // arrives via .env harvest
+  // Provider key prefixes (built from pieces — no token-shaped literals).
+  `sk-ant-api03-${"aB3_x-Q9".repeat(12)}`,
+  `sk-proj-${"Zq8Lw2Nf".repeat(10)}`,
+  `sk-${"Tm4Rk7Pc".repeat(6)}`,
+  `sk_${"live"}_${"4eC39HqLyjWDarjtT1zdp7dc".repeat(2)}`,
+  `rk_${"live"}_${"51HxYz0aBcDeFgHiJkLmNoPq"}`,
+  `github_pat_${"11ABCDEFG0".repeat(3)}_${"aBcD3fGh1j".repeat(6)}`,
+  `glpat-${"xY7_zQ2-Lm".repeat(2)}`,
+  `npm_${"Rk2Lp9Qx".repeat(4)}Ab12`,
+  `hf_${"KqWzPmLnRt".repeat(3)}Ab12`,
+  `xai-${"Gh5Jk8Lm2Np4".repeat(6)}`,
+];
+
+/**
+ * Contextual classes: the secret only reads as one next to its context (a
+ * URL's user:, a credential key, aws_secret_access_key). Low-entropy on
+ * purpose — the entropy net must NOT be what catches these.
+ */
+const CONTEXTUAL: Array<{ secret: string; text: string }> = [
+  { secret: "hunter2-db", text: "postgres://app:hunter2-db@db:5432/prod" },
+  { secret: "letmein-please", text: "DB_PASSWORD=letmein-please" },
+  { secret: "open sesame now", text: '{"api_key": "open sesame now"}' },
+  {
+    secret: `wJalrXUtnFEMI/K7MDENG/${"bPxRfiCYEXAMPLEKEY".slice(0, 18)}`,
+    text: `aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/${"bPxRfiCYEXAMPLEKEY".slice(0, 18)}`,
+  },
 ];
 
 function rawStoreText(chronicleDir: string): string {
@@ -69,6 +95,14 @@ describe("leak guard", () => {
       fsyncIntervalMs: 0,
     });
     const session = newId("session");
+    for (const { text } of CONTEXTUAL) {
+      await engine.emit({
+        type: "PromptSubmitted",
+        session,
+        actor: { kind: "human" },
+        payload: { text: `connect with ${text} and continue` },
+      });
+    }
     for (const secret of SYNTHETIC_SECRETS) {
       // Secrets arrive in prompts, responses, tool summaries, deep structures.
       await engine.emit({
@@ -96,6 +130,12 @@ describe("leak guard", () => {
     for (const secret of SYNTHETIC_SECRETS) {
       expect(raw, `SECRET REACHED DISK: class of ${secret.slice(0, 4)}…`).not.toContain(secret);
     }
+    for (const { secret } of CONTEXTUAL) {
+      expect(raw, `CONTEXTUAL SECRET REACHED DISK: ${secret.slice(0, 3)}…`).not.toContain(secret);
+    }
+    // ...and the context around them survived (only the secret was removed).
+    expect(raw).toContain("postgres://app:[REDACTED:url-credential:");
+    expect(raw).toContain("DB_PASSWORD=[REDACTED:credential-assignment:");
     expect(raw).toContain("[REDACTED:");
 
     // And the retroactive audit agrees the store is clean.

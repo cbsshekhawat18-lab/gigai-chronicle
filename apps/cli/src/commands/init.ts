@@ -22,7 +22,14 @@ interface InitFlags {
 /** Where capture ended up wired (or why it didn't). */
 type HookOutcome = WireCaptureResult;
 
-const NO_HOOKS: HookOutcome = { file: null, live: false, changed: false, scope: null };
+const NO_HOOKS: HookOutcome = {
+  file: null,
+  live: false,
+  status: "off",
+  changed: false,
+  scope: null,
+  cliPath: null,
+};
 
 /**
  * Wire live capture as part of init — the app layer's job, so `runInit`
@@ -42,6 +49,15 @@ async function installCaptureHooks(result: InitResult): Promise<HookOutcome> {
 
 /** The one line that tells you whether Chronicle is actually recording. */
 function captureLine(hooks: HookOutcome, flags: InitFlags): string {
+  if (hooks.status === "cli-missing") {
+    // `init` ran via npx or a local path: the hooks are in place, but they
+    // call a `chronicle` this machine's PATH doesn't have. Say so NOW.
+    const where = hooks.scope === "user" ? "your user-scope hooks" : `hooks in ${hooks.file}`;
+    return (
+      `  capture: NOT LIVE — ${where} call \`chronicle\`, which is not on PATH.\n` +
+      "           install the CLI so they can record: npm i -g gigai-chronicle"
+    );
+  }
   if (hooks.live && hooks.scope === "user") {
     return "  capture: LIVE — your user-scope hooks already cover this repo";
   }
@@ -113,7 +129,7 @@ export async function runInitCommand(
         projectName: result.projectName,
         providers: result.providers,
         touched,
-        capture: { live: hooks.live, hooks: hooks.file, scope: hooks.scope },
+        capture: { live: hooks.live, status: hooks.status, hooks: hooks.file, scope: hooks.scope },
       });
     } else {
       const detected = Object.entries(result.providers)

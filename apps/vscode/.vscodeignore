@@ -7,5 +7,9 @@ vitest.config.ts
 node_modules/**
 .turbo/**
 *.vsix
-!dist/**
+# Sourcemaps are for local debugging only (sourcemap: "linked" in
+# scripts/build.mjs); they never ship. NOTE: in vsce a `!` negation wins
+# over every ignore regardless of order — so no blanket `!dist/**` here, or
+# it would pull the maps straight back in.
+**/*.map
 !media/**

@@ -7,9 +7,20 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { CAPTURED_HOOK_EVENTS } from "./hooks.js";
+import { CLI_COMMAND, findOnPath, type PathLookupOptions } from "./cli-path.js";
 
 /** Our entries are recognized by this command prefix — never by position. */
 const COMMAND_PREFIX = "chronicle capture claude-code --event";
+
+/**
+ * Appended to every hook command so a committed `.claude/settings.json` never
+ * produces hook errors for a teammate who doesn't have the CLI (ADR-0018).
+ * `; exit 0` is the one form that means the same thing in every shell Claude
+ * Code runs hooks in — `sh -c` on macOS/Linux, Git Bash on Windows, and
+ * PowerShell on Windows without Git Bash — and `chronicle capture` already
+ * exits 0 by contract, so nothing real is masked.
+ */
+const QUIET_IF_ABSENT = "; exit 0";
 
 interface HookEntry {
   matcher?: string;
@@ -33,35 +44,67 @@ function load(file: string): SettingsShape {
   }
 }
 
-function commandFor(eventName: string): string {
-  return `${COMMAND_PREFIX} ${eventName}`;
+/** The exact command installed for one hook event. */
+export function hookCommandFor(eventName: string): string {
+  return `${COMMAND_PREFIX} ${eventName}${QUIET_IF_ABSENT}`;
 }
 
-/** The exact entries install would add — for showing the diff before consent. */
-export function renderInstallPlan(file: string): string[] {
-  const settings = load(file);
-  const plan: string[] = [];
+function isOurs(command: string | undefined): boolean {
+  return command?.startsWith(COMMAND_PREFIX) === true;
+}
+
+/** Per event: missing entirely, or present in the pre-ADR-0018 bare form. */
+function inspect(settings: SettingsShape): { missing: string[]; legacy: string[] } {
+  const missing: string[] = [];
+  const legacy: string[] = [];
   for (const eventName of CAPTURED_HOOK_EVENTS) {
-    const installed = (settings.hooks?.[eventName] ?? []).some((entry) =>
-      entry.hooks?.some((h) => h.command?.startsWith(COMMAND_PREFIX)),
+    const ours = (settings.hooks?.[eventName] ?? []).flatMap((entry) =>
+      (entry.hooks ?? []).filter((h) => isOurs(h.command)),
     );
-    if (!installed) plan.push(`hooks.${eventName} += { command: "${commandFor(eventName)}" }`);
+    if (ours.length === 0) missing.push(eventName);
+    else if (!ours.some((h) => h.command === hookCommandFor(eventName))) legacy.push(eventName);
   }
-  return plan;
+  return { missing, legacy };
 }
 
-/** Merge our hook entries in; returns true if the file changed. Idempotent. */
+/** True when every captured event has one of our entries (either form). */
+function hooksInstalled(file: string): boolean {
+  return inspect(load(file)).missing.length === 0;
+}
+
+/** The exact entries install would add or upgrade — shown before consent. */
+export function renderInstallPlan(file: string): string[] {
+  const { missing, legacy } = inspect(load(file));
+  return [
+    ...missing.map((e) => `hooks.${e} += { command: "${hookCommandFor(e)}" }`),
+    ...legacy.map((e) => `hooks.${e} ~ { command: "${hookCommandFor(e)}" } (quiet when chronicle is absent)`),
+  ];
+}
+
+/**
+ * Merge our hook entries in; returns true if the file changed. Idempotent.
+ * Entries in the old bare form are upgraded IN PLACE (same position, same
+ * entry) so a teammate without the CLI stops seeing hook errors.
+ */
 export function installHooks(file: string): boolean {
   const settings = load(file);
   settings.hooks = settings.hooks ?? {};
   let changed = false;
   for (const eventName of CAPTURED_HOOK_EVENTS) {
     const entries = (settings.hooks[eventName] = settings.hooks[eventName] ?? []);
-    const present = entries.some((entry) =>
-      entry.hooks?.some((h) => h.command?.startsWith(COMMAND_PREFIX)),
-    );
+    let present = false;
+    for (const entry of entries) {
+      for (const hook of entry.hooks ?? []) {
+        if (!isOurs(hook.command)) continue;
+        present = true;
+        if (hook.command !== hookCommandFor(eventName)) {
+          hook.command = hookCommandFor(eventName);
+          changed = true;
+        }
+      }
+    }
     if (present) continue;
-    entries.push({ hooks: [{ type: "command", command: commandFor(eventName) }] });
+    entries.push({ hooks: [{ type: "command", command: hookCommandFor(eventName) }] });
     changed = true;
   }
   if (changed) {
@@ -71,14 +114,43 @@ export function installHooks(file: string): boolean {
   return changed;
 }
 
-export interface WireCaptureResult {
+/**
+ * Where capture stands. Installed hooks are NOT proof of capture: they run
+ * `chronicle`, so without the CLI on PATH they record nothing.
+ *  - "live":        hooks installed and `chronicle` resolves on PATH
+ *  - "cli-missing": hooks installed, `chronicle` not on PATH — nothing is kept
+ *  - "off":         no hooks
+ */
+export type CaptureStatus = "live" | "cli-missing" | "off";
+
+export interface CaptureStateOptions extends PathLookupOptions {
+  /** Home directory for the user scope (default: $HOME). */
+  home?: string;
+}
+
+export interface CaptureState {
+  /** True only when hooks are installed AND the CLI they call resolves. */
+  live: boolean;
+  status: CaptureStatus;
+  /** Which settings file carries the hooks (null when none does). */
+  scope: "project" | "user" | null;
+  /** Where `chronicle` resolved on PATH, or null. */
+  cliPath: string | null;
+}
+
+export interface WireCaptureResult extends CaptureState {
   /** Workspace-relative settings file we wrote, or null when we wrote none. */
   file: string | null;
-  /** True when capture is live after this call — including "already was". */
-  live: boolean;
   /** True when this call changed a file (drives an honest footprint). */
   changed: boolean;
-  scope: "project" | "user" | null;
+}
+
+function stateFor(scope: "project" | "user" | null, options: CaptureStateOptions): CaptureState {
+  if (scope === null) return { live: false, status: "off", scope: null, cliPath: null };
+  const cliPath = findOnPath(CLI_COMMAND, options);
+  return cliPath === null
+    ? { live: false, status: "cli-missing", scope, cliPath: null }
+    : { live: true, status: "live", scope, cliPath };
 }
 
 /**
@@ -88,29 +160,28 @@ export interface WireCaptureResult {
  *
  * User-scope hooks that already cover this repo win: installing at both
  * scopes makes Claude Code fire every hook twice, which doubles every event.
+ * The result reports `cli-missing` (not live) when the hooks are in place but
+ * the `chronicle` command they call doesn't resolve.
  */
-export function wireCapture(workspaceRoot: string): WireCaptureResult {
-  if (renderInstallPlan(settingsPathFor(workspaceRoot, "user")).length === 0) {
-    return { file: null, live: true, changed: false, scope: "user" };
+export function wireCapture(workspaceRoot: string, options: CaptureStateOptions = {}): WireCaptureResult {
+  if (hooksInstalled(settingsPathFor(workspaceRoot, "user", options.home))) {
+    return { ...stateFor("user", options), file: null, changed: false };
   }
   const file = settingsPathFor(workspaceRoot, "project");
   const changed = installHooks(file);
   return {
+    ...stateFor("project", options),
     file: path.relative(workspaceRoot, file).split(path.sep).join("/"),
-    live: true,
     changed,
-    scope: "project",
   };
 }
 
 /** Where capture stands for a workspace, without changing anything. */
-export function captureState(workspaceRoot: string): { live: boolean; scope: "project" | "user" | null } {
+export function captureState(workspaceRoot: string, options: CaptureStateOptions = {}): CaptureState {
   for (const scope of ["project", "user"] as const) {
-    if (renderInstallPlan(settingsPathFor(workspaceRoot, scope)).length === 0) {
-      return { live: true, scope };
-    }
+    if (hooksInstalled(settingsPathFor(workspaceRoot, scope, options.home))) return stateFor(scope, options);
   }
-  return { live: false, scope: null };
+  return stateFor(null, options);
 }
 
 /** Remove exactly our entries; prunes empty structures. True if changed. */
@@ -122,7 +193,7 @@ export function uninstallHooks(file: string): boolean {
     const kept = entries
       .map((entry) => ({
         ...entry,
-        hooks: entry.hooks?.filter((h) => !h.command?.startsWith(COMMAND_PREFIX)) ?? [],
+        hooks: entry.hooks?.filter((h) => !isOurs(h.command)) ?? [],
       }))
       .filter((entry) => entry.hooks.length > 0);
     if (kept.length !== entries.length || kept.some((e, i) => e.hooks.length !== entries[i]?.hooks.length)) {

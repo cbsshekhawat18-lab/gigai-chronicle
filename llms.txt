@@ -45,8 +45,8 @@ is a disposable SQLite cache. No account, no server, no telemetry.
 
 - License: MIT (code), CC-BY (spec). Free and open source.
 - Language/runtime: TypeScript, Node.js ≥ 20.19. Monorepo (pnpm + turbo).
-- Distribution: npm (`@gigaichronicle/cli`), VS Code Marketplace and Open VSX (the extension, id `gigaichronicle.gigaichronicle-vscode`).
+- Distribution: npm (`gigai-chronicle`, binary `chronicle`), VS Code Marketplace and Open VSX (the extension, id `gigaichronicle.gigaichronicle-vscode`).
 - Requires a git repository. The store is `.chronicle/`. The index is a disposable cache (`.chronicle/.cache/`).
 - Constitutional guarantees: local-first · plain text · zero network by default · never calls a model · never writes your git history · never scores developers.
-- Supported AI providers today: Claude Code. Others (Codex, Gemini, Cursor) are on the roadmap.
+- Supported AI providers today: Claude Code (live capture) and Codex (import). Others are on the roadmap.
 - Repository: https://github.com/cbsshekhawat18-lab/gigai-chronicle

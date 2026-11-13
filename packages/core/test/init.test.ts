@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { configSchema } from "@gigaichronicle/schema";
 import { isChronicleError, openWorkspace, runInit, utcDay } from "../src/index.js";
@@ -68,6 +69,24 @@ describe("runInit", () => {
     });
     expect(raw.sync).toBeUndefined(); // reserved keys stay OFF disk (ADR-0005)
     expect(raw.plugins).toBeUndefined();
+  });
+
+  it("$schema points at a schema file this repository actually publishes", async () => {
+    // The old value (schemas.chronicle.dev) never resolved, so every editor
+    // that honors $schema showed "unable to load schema" on a fresh init.
+    const repo = tempRepo();
+    await runInit(repo, { detectedProviders: {} });
+    const written = JSON.parse(readFileSync(path.join(repo, ".chronicle", "config.json"), "utf8"))
+      .$schema as string;
+    const RAW_MAIN = "https://raw.githubusercontent.com/cbsshekhawat18-lab/gigai-chronicle/main/";
+    expect(written.startsWith(RAW_MAIN)).toBe(true);
+    const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+    const local = path.join(repoRoot, ...written.slice(RAW_MAIN.length).split("/"));
+    expect(JSON.parse(readFileSync(local, "utf8")).title).toBeTypeOf("string"); // a real JSON Schema
+
+    // ...and this repo's own config uses the same URL.
+    const own = JSON.parse(readFileSync(path.join(repoRoot, ".chronicle", "config.json"), "utf8"));
+    expect(own.$schema).toBe(written);
   });
 
   it("appends to an existing .gitattributes without clobbering, idempotently", async () => {

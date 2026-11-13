@@ -12,9 +12,22 @@ written**. There is no configuration in which raw captured text skips it.
 
 Three detectors run on every string, however deeply nested:
 
-1. **Known token formats** — AWS access keys, GitHub/Slack tokens, Google
-   API keys, JWTs, private-key blocks. The pack is data-driven and grows by
-   small reviewable PRs with corpus tests.
+1. **Known token formats** — AWS access keys, GitHub tokens (classic and
+   fine-grained `github_pat_`), GitLab `glpat-`, Slack, Google API keys,
+   Anthropic `sk-ant-`, OpenAI `sk-proj-` / legacy `sk-…`, Stripe live
+   `sk_live_` / `rk_live_`, npm `npm_`, Hugging Face `hf_`, xAI `xai-`, JWTs,
+   and private-key blocks. Some secrets only look like secrets in context, and
+   for those **only the secret is removed** so the surrounding text stays
+   readable:
+   - a password in a URL: `postgres://app:[REDACTED…]@db/prod`
+   - a `KEY=value` or `"key": "value"` whose key names a credential
+     (`password`, `passwd`, `secret`, `token`, `api_key`, `private_key`,
+     `auth`): `DB_PASSWORD=[REDACTED…]`
+   - an AWS secret access key next to `aws_secret_access_key`
+
+   Key names match as whole words, so `author`, `max_tokens` and `tokenizer`
+   are left alone. The pack is data-driven and grows by small reviewable PRs
+   with corpus tests, both ways (catch and false-positive).
 2. **Workspace `.env` values** — anything you keep in `.env`/`.env.local`
    is a secret *by location*, whatever it looks like. Values are read into
    process memory only, used solely for match-and-replace at capture time,

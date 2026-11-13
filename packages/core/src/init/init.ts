@@ -68,7 +68,7 @@ export async function runInit(workspaceRoot: string, options: InitOptions = {}):
   const providers = options.detectedProviders ?? detectProviders();
 
   const config: ChronicleConfig = configSchema.parse({
-    $schema: "https://schemas.chronicle.dev/v1/config.json",
+    $schema: "https://raw.githubusercontent.com/cbsshekhawat18-lab/gigai-chronicle/main/packages/schema/schemas/config.json",
     version: 1,
     project: { id: projectId, name: projectName },
     capture: {

@@ -48,3 +48,10 @@ jobs:
       # Serial budget phase: perf gates that must not share the box with the
       # parallel test storm (perf/README.md methodology).
       - run: pnpm test:budgets
+
+      # Publish-shape gate: `pnpm pack` the CLI, fail on any catalog:/workspace:
+      # left in the packed package.json (0.1.0–0.3.0 shipped `catalog:` and
+      # `npm i -g gigai-chronicle` died with EUNSUPPORTEDPROTOCOL), then
+      # `npm i -g <tarball> && chronicle --version` in a throwaway prefix —
+      # on every OS, so the Windows .cmd shim is proven too.
+      - run: pnpm release:check

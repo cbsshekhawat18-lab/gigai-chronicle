@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "chronicle capture claude-code --event SessionStart"
+            "command": "chronicle capture claude-code --event SessionStart; exit 0"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "chronicle capture claude-code --event SessionEnd"
+            "command": "chronicle capture claude-code --event SessionEnd; exit 0"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "chronicle capture claude-code --event UserPromptSubmit"
+            "command": "chronicle capture claude-code --event UserPromptSubmit; exit 0"
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "chronicle capture claude-code --event Stop"
+            "command": "chronicle capture claude-code --event Stop; exit 0"
           }
         ]
       }
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "chronicle capture claude-code --event PostToolUse"
+            "command": "chronicle capture claude-code --event PostToolUse; exit 0"
           }
         ]
       }

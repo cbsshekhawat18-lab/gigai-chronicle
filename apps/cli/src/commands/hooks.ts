@@ -41,23 +41,31 @@ export async function runHooksCommand(
     return EXIT_OK;
   }
 
-  const { installHooks, uninstallHooks, renderInstallPlan, settingsPathFor } = await import(
-    "@gigaichronicle/provider-claude-code"
-  );
+  const { installHooks, uninstallHooks, renderInstallPlan, settingsPathFor, findOnPath, CLI_COMMAND, CLI_INSTALL_COMMAND } =
+    await import("@gigaichronicle/provider-claude-code");
   const file = settingsPathFor(workspaceRoot, options.user === true ? "user" : "project");
 
   if (action === "install") {
     const plan = renderInstallPlan(file);
     const changed = installHooks(file);
+    // The hooks call `chronicle`; installed via npx or a local path, they'd
+    // record nothing. Wiring them is still right (they turn live the moment
+    // the CLI is installed) — but say so instead of implying capture is on.
+    const cliOnPath = findOnPath(CLI_COMMAND) !== null;
     if (global.json === true) {
-      printJson("hooks", { action, file, changed, plan });
-    } else if (changed) {
-      console.log([`✓ capture hooks installed in ${file}`, ...plan.map((p) => `  + ${p}`)].join("\n"));
-      if (options.user !== true) {
-        console.log("  commit .claude/settings.json and the whole team gets capture");
-      }
+      printJson("hooks", { action, file, changed, plan, cliOnPath });
     } else {
-      console.log(`already installed (${file})`);
+      if (changed) {
+        console.log([`✓ capture hooks installed in ${file}`, ...plan.map((p) => `  + ${p}`)].join("\n"));
+        if (options.user !== true) {
+          console.log("  commit .claude/settings.json and the whole team gets capture");
+        }
+      } else {
+        console.log(`already installed (${file})`);
+      }
+      if (!cliOnPath) {
+        console.log(`  ⚠ \`chronicle\` is not on PATH — the hooks record nothing until you: ${CLI_INSTALL_COMMAND}`);
+      }
     }
     return EXIT_OK;
   }
