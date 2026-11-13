@@ -38,7 +38,14 @@ export { INDEX_SCHEMA_VERSION } from "./index-db/ddl.js";
 
 // Doctor — the trust anchor (M4)
 export { runDoctor, type DoctorReport, type DoctorOptions, type SecretFinding } from "./doctor.js";
-export { SECRET_PATTERNS, detectSecretKinds, type SecretPattern } from "./redaction/patterns.js";
+export {
+  SECRET_PATTERNS,
+  detectSecretKinds,
+  findSecrets,
+  isCredentialKeyName,
+  type SecretMatch,
+  type SecretPattern,
+} from "./redaction/patterns.js";
 
 // Event Engine (M5) — apps import from the root; PROVIDERS import the
 // "./emit" subpath only (boundary lint).

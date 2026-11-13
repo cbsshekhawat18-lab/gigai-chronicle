@@ -6,7 +6,7 @@
  * auditable without being reversible.
  */
 import { createHash } from "node:crypto";
-import { SECRET_PATTERNS } from "./patterns.js";
+import { SECRET_PATTERNS, replaceSecrets } from "./patterns.js";
 import { findEntropyTokens } from "./entropy.js";
 
 export interface Redactor {
@@ -88,12 +88,10 @@ export function createRedactor(
       out = out.replace(new RegExp(pattern.source, pattern.flags), (match) => marker(kind, match));
     }
     if (useSecretPack) {
-      for (const { kind, pattern } of SECRET_PATTERNS) {
-        const global = new RegExp(
-          pattern.source,
-          pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
-        );
-        out = out.replace(global, (match) => marker(kind, match));
+      // Contextual kinds (URL credentials, KEY=value) replace only their
+      // secret group — the URL or key name around it stays readable.
+      for (const entry of SECRET_PATTERNS) {
+        out = replaceSecrets(out, entry, (secret, kind) => marker(kind, secret));
       }
       for (const token of findEntropyTokens(out)) {
         // Markers from earlier passes are themselves high-entropy tokens (and
