@@ -1,11 +1,6 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { ChronicleIndex, EventLog, openWorkspace } from "@gigaichronicle/core";
-import { configSchema } from "@gigaichronicle/schema";
 import { EXIT_NOT_A_PROJECT, EXIT_OK, findChronicleDir, printJson } from "../context.js";
-
-/** Provider support truth: which providers can actually capture today. */
-const SUPPORTED_PROVIDERS = new Set<string>(["claude-code"]); // codex/gemini join in Phase 2
+import { SUPPORTED_PROVIDERS, hookHealth, readProviders } from "../capture-health.js";
 
 export async function runStatusCommand(global: { json?: boolean }): Promise<number> {
   const chronicleDir = findChronicleDir(process.cwd());
@@ -31,9 +26,9 @@ export async function runStatusCommand(global: { json?: boolean }): Promise<numb
       support: SUPPORTED_PROVIDERS.has(id) ? "available" : "arrives-later",
     }));
     // `claude-code:auto` is CONFIG, not proof of capture: without the hooks
-    // nothing is ever recorded and the project still looks healthy. Report
-    // the wiring, not the intent.
-    const hooks = await hookState(path.dirname(chronicleDir), providers);
+    // — or with hooks but no `chronicle` on PATH for them to run — nothing is
+    // ever recorded and the project still looks healthy. Report what records.
+    const hooks = await hookHealth(chronicleDir);
 
     if (global.json === true) {
       printJson("status", {
@@ -62,9 +57,11 @@ export async function runStatusCommand(global: { json?: boolean }): Promise<numb
           ...(hooks.expected
             ? [
                 `hooks     ${
-                  hooks.installed
+                  hooks.status === "live"
                     ? `installed (${hooks.scope} scope) — capture is live`
-                    : "NOT INSTALLED — nothing is being recorded (`chronicle hooks install claude-code`)"
+                    : hooks.status === "cli-missing"
+                      ? `⚠ installed (${hooks.scope} scope) BUT \`chronicle\` is not on PATH — nothing is being recorded (install: npm i -g gigai-chronicle)`
+                      : "NOT INSTALLED — nothing is being recorded (`chronicle hooks install claude-code`)"
                 }`,
               ]
             : []),
@@ -75,37 +72,5 @@ export async function runStatusCommand(global: { json?: boolean }): Promise<numb
   } finally {
     index.close();
     await log.close();
-  }
-}
-
-/**
- * Are the Claude Code capture hooks actually wired? `expected` is false when
- * no supported provider is enabled, so an intentionally capture-free project
- * isn't nagged.
- */
-async function hookState(
-  workspaceRoot: string,
-  providers: Array<{ id: string; mode: string; support: string }>,
-): Promise<{ expected: boolean; installed: boolean; scope: "project" | "user" | null }> {
-  const expected = providers.some(
-    (p) => p.id === "claude-code" && p.support === "available" && p.mode !== "off",
-  );
-  if (!expected) return { expected: false, installed: false, scope: null };
-  try {
-    const { captureState } = await import("@gigaichronicle/provider-claude-code");
-    const state = captureState(workspaceRoot);
-    return { expected: true, installed: state.live, scope: state.scope };
-  } catch {
-    return { expected: false, installed: false, scope: null }; // can't tell — don't claim
-  }
-}
-
-function readProviders(chronicleDir: string): Array<[string, string]> {
-  try {
-    const raw = JSON.parse(readFileSync(path.join(chronicleDir, "config.json"), "utf8"));
-    const config = configSchema.safeParse(raw);
-    return config.success ? Object.entries(config.data.capture.providers) : [];
-  } catch {
-    return [];
   }
 }

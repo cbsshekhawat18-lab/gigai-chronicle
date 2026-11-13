@@ -29,6 +29,7 @@ back).
 | [0015](0015-metadata-mode-enforced-in-the-engine.md) | High-sensitivity capture mode enforced in the engine (privacy fix) | Accepted |
 | [0016](0016-delivery-surfaces-and-the-knowledge-projection.md) | Chronicle as a source: delivery surfaces & the Knowledge projection | Accepted |
 | [0017](0017-redaction-config-is-honored.md) | `capture.redaction` is honored (the second inert promise) | Accepted |
+| [0018](0018-capture-hooks-quiet-without-the-cli.md) | Capture hooks are quiet without the CLI; "live" means the CLI resolves | Proposed |
 
 Template:
 

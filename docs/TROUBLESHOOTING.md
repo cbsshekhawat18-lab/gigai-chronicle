@@ -40,6 +40,25 @@ Each entry: **symptom → cause → solution → verify.**
 - **Solution:** `chronicle hooks install claude-code` (add `--user` for user scope).
 - **Verify:** work a bit, then `chronicle timeline` shows new events.
 
+## Hooks installed but nothing is recorded
+- **Cause:** the capture hooks in `.claude/settings.json` run the `chronicle`
+  CLI, and it isn't on your PATH. The VS Code extension writes the hooks but
+  does **not** ship the CLI. Since ADR-0018 the hooks stay quiet when the CLI
+  is missing (`…; exit 0`), so teammates don't see hook errors and nothing
+  is recorded.
+- **Check:** `chronicle doctor` fails with
+  ``capture ✗ hooks installed but `chronicle` not on PATH``. In the
+  extension, the sidebar shows **Hooks installed, CLI missing**.
+- **Solution:** install the CLI: `npm i -g gigai-chronicle`. Then **restart
+  your AI tool** (Claude Code reads PATH when it starts) and reload the
+  editor window (VS Code reads PATH when it starts too).
+- **Verify:** `chronicle doctor` shows `capture  live (… hooks → …/chronicle)`.
+  Work a bit, then `chronicle timeline` shows new events.
+- **Old hooks:** projects started before ADR-0018 have the bare form
+  `chronicle capture claude-code --event X`, which shows a hook error to
+  teammates without the CLI. `chronicle hooks install claude-code` upgrades
+  them in place. Commit `.claude/settings.json` afterwards.
+
 ## Extension shows "Not recording this project"
 - **Cause:** the folder has no `.chronicle/` store yet.
 - **Solution:** click **Start recording** in the sidebar, or run

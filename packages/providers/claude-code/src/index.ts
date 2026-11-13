@@ -18,10 +18,20 @@ export {
   uninstallHooks,
   renderInstallPlan,
   settingsPathFor,
+  hookCommandFor,
   wireCapture,
   captureState,
+  type CaptureState,
+  type CaptureStateOptions,
+  type CaptureStatus,
   type WireCaptureResult,
 } from "./settings.js";
+export {
+  CLI_COMMAND,
+  CLI_INSTALL_COMMAND,
+  findOnPath,
+  type PathLookupOptions,
+} from "./cli-path.js";
 
 /** Canonical package name; kept in sync with package.json by test. */
 export const PACKAGE_NAME = "@gigaichronicle/provider-claude-code";

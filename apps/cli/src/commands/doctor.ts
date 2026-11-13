@@ -7,6 +7,7 @@ import {
   printJson,
   resolveWorkspace,
 } from "../context.js";
+import { hookHealth } from "../capture-health.js";
 
 export async function runDoctorCommand(
   options: { reindex?: boolean; scanSecrets?: boolean },
@@ -18,11 +19,16 @@ export async function runDoctorCommand(
     return EXIT_NOT_A_PROJECT;
   }
   try {
-    const report = await runDoctor(chronicleDir, {
+    const core = await runDoctor(chronicleDir, {
       workspaceId: await resolveWorkspace(chronicleDir),
       reindex: options.reindex === true,
       scanSecrets: options.scanSecrets === true,
     });
+    // Capture wiring is an app-layer check (core stays provider-agnostic):
+    // hooks that call a `chronicle` nobody installed are a broken install,
+    // not a healthy one — so they fail doctor.
+    const capture = await hookHealth(chronicleDir);
+    const report = { ...core, ok: core.ok && capture.problem === null, capture };
 
     if (global.json === true) {
       printJson("doctor", { report });
@@ -32,6 +38,15 @@ export async function runDoctorCommand(
         `index    v${report.index.schemaVersion} — ${report.index.eventsIndexed}/${report.index.eventsInLog} events${report.index.reindexed ? " (rebuilt)" : ""}${report.index.fresh ? "" : " — STALE"}`,
         `egress   ${report.egress.verdict}${report.egress.endpoints.length > 0 ? `: ${report.egress.endpoints.join(", ")}` : " (no endpoints configured, telemetry: none)"}`,
       ];
+      if (capture.expected) {
+        lines.push(
+          capture.problem !== null
+            ? `capture  ✗ ${capture.problem}`
+            : capture.live
+              ? `capture  live (${capture.scope} hooks → ${capture.cliPath})`
+              : "capture  hooks not installed (`chronicle hooks install claude-code`)",
+        );
+      }
       if (report.secrets !== undefined) {
         lines.push(
           `secrets  ${report.secrets.eventsScanned} event(s) scanned, ${report.secrets.findings.length} finding(s)`,
