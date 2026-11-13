@@ -15,7 +15,50 @@ This file is a high-level, human-readable index across the whole project:
 
 ## [Unreleased]
 
-_Nothing released yet. Changes land here before the next tagged release._
+**Capture you can trust to be on, a CLI you can install.**
+
+- **npm: `npm i -g gigai-chronicle` works again.** 0.1.0–0.3.0 shipped
+  `"better-sqlite3": "catalog:"` and failed with `EUNSUPPORTEDPROTOCOL`.
+  Releases now go through `pnpm publish`, which rewrites `catalog:`/`workspace:`.
+  `pnpm release` runs the full gate, and `pnpm release:check` (run in CI on all
+  three OSes) packs the CLI, rejects any leftover protocol, installs the
+  tarball into a clean prefix and runs `chronicle --version`. A manual
+  *Release (npm)* workflow publishes from CI, dry-run by default.
+- **No more silent dead capture.** Hooks run the `chronicle` CLI, and the
+  extension doesn't ship it. Capture now has three states: `live`,
+  `cli-missing` and `off`. "Live" requires `chronicle` to resolve on PATH,
+  using the same lookup a shell does, including Windows `PATHEXT`.
+  - `chronicle status` flags hooks without the CLI.
+  - `chronicle doctor` fails on them.
+  - `chronicle init` and `hooks install` say so.
+  - The extension warns on activation and after Start, with *Copy install
+    command* / *Learn more*, and its sidebar shows **Hooks installed, CLI
+    missing** instead of "capture is live".
+- **Committed hooks never error for teammates without the CLI**
+  ([ADR-0018](docs/adr/0018-capture-hooks-quiet-without-the-cli.md)). Hook
+  commands end in `; exit 0`, a form that works the same in `sh`, Git Bash and
+  PowerShell. `chronicle hooks install claude-code` upgrades older hooks in
+  place.
+- **Redaction:** new token classes: Anthropic, OpenAI (project and legacy),
+  Stripe live, GitHub fine-grained PATs, GitLab, npm, Hugging Face, xAI. New
+  contextual classes redact *only* the secret and keep the context readable:
+  URL passwords, credential `KEY=value` / `"key": "value"` assignments, and
+  AWS secret access keys next to their name. Key names match as whole words,
+  so `author` and `max_tokens` survive.
+- **Workspace trust is enforced** on every command that writes: start, new and
+  saved prompts, restore, handoff, Codex import. Each one asks you to trust
+  the workspace first.
+- **Multi-root workspaces:** one store per folder. The sidebar follows the
+  active editor's folder, and *Start recording* asks which folder. The sidebar
+  and dashboard act on the repository they're showing.
+- **Extension build:** minified bundles with linked sourcemaps (kept out of the
+  `.vsix`), and no more `import.meta` warning from the CJS bundle.
+- **Honest listings:** continuity is claimed for Claude Code & Codex (more
+  coming); Cursor and Windsurf are named as editors Chronicle runs in. The
+  extension README lists every command and gains a real
+  `code --install-extension` line. Its privacy text now says checkpoints are
+  snapshots in a local hidden git ref.
+- New projects' `config.json` `$schema` points at a URL that resolves.
 
 ## [0.5.0] — 2026-09-19
 

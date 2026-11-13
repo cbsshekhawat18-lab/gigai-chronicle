@@ -64,7 +64,7 @@ a model):
 | | |
 |---|---|
 | 🧠 **Project Memory** | Decisions, constraints, known issues, failed approaches — derived from history, each traceable to its source. `chronicle memory rebuild / list / verify` |
-| 🤝 **AI Continuity** | Any AI (Claude, Codex, Gemini, Cursor…) continues where the last stopped. `chronicle bootstrap / project context / continue / handoff` |
+| 🤝 **AI Continuity** | The next AI session continues where the last stopped — briefings are plain Markdown any assistant can read. Capture today: **Claude Code** (live) & **Codex** (import); more coming. `chronicle bootstrap / project context / continue / handoff` |
 | 🛡 **`chronicle preflight "<task>"`** | Before you code: risks, contradictions, previous attempts, a verdict |
 | ⊘ **`chronicle why-not <file>`** | Negative knowledge — what *not* to change, and why |
 | ⚠ **`chronicle risk <file>`** | An **explainable** risk score — every point a named signal |
@@ -83,10 +83,24 @@ npm install -g gigai-chronicle
 chronicle --help
 ```
 
-**The editor extension** (VS Code, Cursor, Windsurf) — grab the `.vsix` from
-[Releases](https://github.com/cbsshekhawat18-lab/gigai-chronicle/releases) →
-Command Palette → *Extensions: Install from VSIX…*. (Marketplace and Open VSX
-listings are rolling out.)
+**The editor extension** (VS Code, Cursor, Windsurf) — from the
+[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=gigaichronicle.gigaichronicle-vscode)
+or [Open VSX](https://open-vsx.org/extension/gigaichronicle/gigaichronicle-vscode):
+
+```bash
+code --install-extension gigaichronicle.gigaichronicle-vscode
+```
+
+In Cursor or Windsurf, search **Gigai Chronicle** in the Extensions view. A
+`.vsix` for each release is also attached to
+[Releases](https://github.com/cbsshekhawat18-lab/gigai-chronicle/releases).
+
+> **Requires the CLI for live capture: `npm i -g gigai-chronicle`.** The
+> extension wires the capture hooks into `.claude/settings.json`, but those
+> hooks run the `chronicle` command — without it on your PATH nothing is
+> recorded (the extension and `chronicle doctor` both tell you when that's the
+> case). The extension alone still shows, replays and briefs from an existing
+> journey.
 
 <details>
 <summary>Or build from source</summary>
@@ -180,7 +194,9 @@ Built for people who cannot send their prompts to a vendor.
   $ chronicle doctor
   egress   zero-network (no endpoints configured, telemetry: none)
   ```
-- **Never calls a model.** Never phones home. Never stores your file contents.
+- **Never calls a model.** Never phones home. Never puts your file contents in
+  `.chronicle/` — code checkpoints (for restore) are snapshots kept in a local
+  hidden git ref (`refs/chronicle/ckpt/*`) that git never pushes by default.
 - **Secrets are redacted at capture**, irreversibly, before anything is
   written — including your own shapes via `capture.redaction.customPatterns`.
 - **`--metadata-only`** records event shapes and timings with **no prompt
