@@ -5,6 +5,8 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 *.log
+# Packaged extensions are release artifacts (attached to GitHub Releases), never source.
+*.vsix
 
 # --- added for GitLab push ---
 node_modules/
